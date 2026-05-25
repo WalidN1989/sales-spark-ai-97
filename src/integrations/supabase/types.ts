@@ -211,38 +211,56 @@ export type Database = {
         Row: {
           brand: string | null
           company_id: string | null
+          company_name: string | null
           created_at: string
           id: string
+          invoice_no: string | null
           model: string | null
           order_date: string | null
           order_ref: string | null
           product: string | null
+          rep_javid: number | null
+          rep_walid: number | null
+          source_sheet: string | null
           user_id: string
           value: number | null
+          vat: number | null
         }
         Insert: {
           brand?: string | null
           company_id?: string | null
+          company_name?: string | null
           created_at?: string
           id?: string
+          invoice_no?: string | null
           model?: string | null
           order_date?: string | null
           order_ref?: string | null
           product?: string | null
+          rep_javid?: number | null
+          rep_walid?: number | null
+          source_sheet?: string | null
           user_id: string
           value?: number | null
+          vat?: number | null
         }
         Update: {
           brand?: string | null
           company_id?: string | null
+          company_name?: string | null
           created_at?: string
           id?: string
+          invoice_no?: string | null
           model?: string | null
           order_date?: string | null
           order_ref?: string | null
           product?: string | null
+          rep_javid?: number | null
+          rep_walid?: number | null
+          source_sheet?: string | null
           user_id?: string
           value?: number | null
+          vat?: number | null
         }
         Relationships: [
           {
