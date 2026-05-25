@@ -89,14 +89,11 @@ export const researchCompany = createServerFn({ method: "POST" })
       scraped_at: new Date().toISOString(),
     };
 
-    const update: Record<string, unknown> = {
+    const update = {
       research_data,
       last_research_at: new Date().toISOString(),
+      ...(geo ? { lat: geo.lat, lng: geo.lng } : {}),
     };
-    if (geo) {
-      update.lat = geo.lat;
-      update.lng = geo.lng;
-    }
 
     const { error: upErr } = await context.supabase.from("companies").update(update).eq("id", data.id);
     if (upErr) throw new Error(upErr.message);
