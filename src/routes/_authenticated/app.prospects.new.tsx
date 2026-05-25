@@ -119,8 +119,9 @@ function NewCompanyPage() {
   };
   const pasteImageFromClipboard = async () => {
     try {
-      // @ts-expect-error - read() is not in older TS lib but is supported in modern browsers
-      const items: ClipboardItem[] = await navigator.clipboard.read();
+      const items: ClipboardItem[] = await (navigator.clipboard as Clipboard & {
+        read: () => Promise<ClipboardItem[]>;
+      }).read();
       for (const item of items) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (type) {
