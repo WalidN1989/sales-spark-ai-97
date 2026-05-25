@@ -1,76 +1,74 @@
-## Goal
+# Sales Module v2 — Plan
 
-Make Prospects fully usable (Add company works, multi-source intake with AI autofill) and make Sales CSV upload work end-to-end.
+Rework `/app/sales` to handle multi-sheet Excel workbooks that follow your fixed eTOP template, store per-rep sales (Walid / Javid), and add an analytics chart with month / quarter / all-time modes plus a sales-rep filter.
 
-## 1. Unblock "Add company" (root cause)
+## 1. Database changes
 
-The Add-company flow calls `listCompanies` / `createCompany`, whose RLS policies invoke `public.is_admin(auth.uid())`. The function exists but `authenticated` lacks EXECUTE → `permission denied for function is_admin` (the error you hit earlier).
-
-A migration granting EXECUTE on `is_admin`, `has_role`, `has_permission` was drafted but **not yet approved/applied**. Re-apply it as the first step so every prospects mutation stops 500-ing.
-
-## 2. Prospects — multi-source intake on `/app/prospects/new`
-
-Replace the single textarea with a 3-tab "Quick add" card:
+Extend `sales` with the columns the template carries:
 
 ```text
-[ Email / signature text ]  [ Image (card / screenshot) ]  [ Website URL ]
+invoice_no    text     -- "Invoice No" column
+company_name  text     -- free-text from sheet; company_id stays nullable for now
+rep_walid     numeric  -- Walid's share of the sale (nullable)
+rep_javid     numeric  -- Javid's share (nullable)
+vat           numeric  -- 5% VAT column
+-- existing: order_date, order_ref, value (= Total Sales), product, brand, model
 ```
 
-All three paths populate the same editable form below (name, domain, country, industry, contact, email, phone, product/service, address) so the user can review before saving.
+- Drop the current dedup unique index, replace with `(user_id, order_date, invoice_no)` so re-uploading the same workbook is idempotent.
+- No new tables yet (sales-reps stay as fixed columns; a proper `sales_reps` table is deferred to phase 2 so adding a 3rd rep doesn't need a migration).
+- RLS already correct (`user_id = auth.uid() OR is_admin`).
 
-### a. Text tab (already works)
-Keep the current `extractCompanyFromText` flow — paste signature → Gemini tool call → fields.
+## 2. Upload flow (XLSX, not CSV)
 
-### b. Image tab (NEW — business card / email screenshot)
-- File input + drag-drop + "Paste from clipboard" (reads `image/*` from `navigator.clipboard.read()`).
-- Preview thumbnail, then "Extract with AI".
-- New server fn `extractCompanyFromImage` calls Lovable AI Gateway with `google/gemini-2.5-flash` (vision-capable), sending the image as a `data:` URL plus the same `extract_company` tool schema used for text. Gemini does the OCR + structured extraction in one call — no separate OCR service needed.
-- Accept PNG/JPG/WebP, hard cap ~6 MB; reject anything bigger client-side.
+Replace the CSV uploader on `/app/sales`:
 
-### c. URL tab (NEW — Firecrawl + AI)
-- Single URL input + "Fetch & extract".
-- New server fn `extractCompanyFromUrl`:
-  1. Normalize URL.
-  2. Firecrawl `scrape` with `formats: ["markdown","summary","links"]`, `onlyMainContent: true`.
-  3. Feed the (truncated) markdown + summary + URL into the same `extract_company` Gemini tool call so name/industry/address/contact/etc. are inferred from the site.
-  4. Return the structured fields **and** stash the raw scrape so the later "Research" tab on the detail page can reuse it (avoid double-scraping).
+1. **Drop `.xlsx`** (keep `.csv` as fallback). Parse client-side with `xlsx` (SheetJS).
+2. **Sheet picker** as soon as the workbook is parsed:
+   `[ January ] [ February ] [ March ] [ April ] [ May ]` — multi-select, default all.
+3. **Template detection** — compare the header row of the first selected sheet against the saved template (stored in `localStorage` as `sales-xlsx-template-v1`):
+   - Default template = `Date | Invoice No | Company | Walid | Javid | 5% VAT | Total Sales` → fields `order_date | invoice_no | company_name | rep_walid | rep_javid | vat | value`.
+   - Headers match → skip the mapping UI, go straight to preview.
+   - Headers differ → show the mapping UI (extended with the new fields), and on confirm save the new mapping as the template for next time. A "Remap columns" button is always available to force the UI open.
+4. **Preview** shows first 20 merged rows across selected sheets with a sheet badge per row.
+5. **Import** calls `importSales` with all rows; server upserts on `(user_id, order_date, invoice_no)` so re-uploading is safe.
 
-### UX
-- One shared "Extracting…" state per tab, toast on success/failure.
-- After extraction, scroll to the form, highlight changed fields briefly.
-- Save button unchanged.
+Notes on the template:
+- Dates like `13/01/2026` parsed as `dd/mm/yyyy` (existing `parseDate` already handles it).
+- Empty rep cells stored as `null`, not `0`, so per-rep totals stay accurate.
+- Rows missing both `Total Sales` and `Invoice No` are skipped (footer/blank rows).
 
-## 3. Sales — CSV upload (foundation)
+## 3. Transactions table
 
-Today `/app/sales` is a placeholder. Build the minimum useful version:
+Below the uploader:
 
-- Add a `sales_transactions` table (date, company_id nullable, customer_name, brand, model, service, qty, unit_price, total, currency, source_file, user_id, created_at) with RLS: user sees their own rows, admin sees all.
-- `/app/sales` page:
-  - Drag-drop CSV uploader (parse client-side with `papaparse`).
-  - Column-mapping step: detected headers → required fields (date, customer/company, brand, model, service, amount). Remembers last mapping in localStorage.
-  - Preview first 20 rows + validation errors.
-  - "Import N rows" calls `importSalesRows` server fn which inserts in batches of 500 via Supabase `upsert` on a dedup key (`user_id, date, customer_name, total`) so re-uploading the same file is idempotent.
-- Simple table view of imported rows with search + a totals bar (count, sum by currency). Charts deferred to next iteration as previously agreed.
+- Columns: Date, Invoice, Company, **Walid**, **Javid**, VAT, Total, (source sheet badge).
+- Filters row: search (company / invoice), month dropdown, **Sales rep selector** (`All · Walid · Javid`).
+  - Picking a rep filters to rows where that rep's amount is non-null, and the "Total" column switches to show that rep's amount.
+- Footer total = sum of `value` (or selected rep's column) for the current filter.
 
-## 4. Files touched
+## 4. Analytics chart (new card above the table)
+
+Use `recharts` (already in deps via shadcn chart).
+
+Controls:
+- **Range**: `Month` (single-month picker) · `Quarter` (Q1/Q2/…) · `All time`.
+- **Sales rep**: `All · Walid · Javid` — when a rep is selected, every aggregation uses that rep's amount instead of `value` (Total Sales). So you can see, e.g., Walid's all-time leaderboard vs Javid's.
+- **Company multi-select** (optional) — when empty, auto-pick top 6 companies by total for the line chart.
+
+Behaviour:
+- **Month / Quarter**: line chart, X = day or week, Y = amount. One line per selected company in distinct colors from the chart palette.
+- **All time**: bar chart sorted by total revenue per company (sum grouped by `company_name`, respecting the rep filter). Clicking a bar filters the transactions table to that company.
+
+Phase 2 (deferred per your note): gap detection (company ordered in Jan but went quiet in Feb/Mar).
+
+## 5. Files touched
 
 ```text
-supabase/migrations/<new>.sql           # re-apply grants + sales_transactions table & RLS
-src/lib/companies.functions.ts          # + extractCompanyFromImage, extractCompanyFromUrl
-src/lib/sales.functions.ts              # NEW: importSalesRows, listSalesRows
-src/routes/_authenticated/app.prospects.new.tsx   # 3-tab intake UI
-src/routes/_authenticated/app.sales.tsx           # CSV uploader + table
-package.json                            # + papaparse, @types/papaparse
+supabase/migrations/<new>.sql              # add invoice_no, company_name, rep_walid, rep_javid, vat; swap unique index
+src/lib/sales.functions.ts                 # extend schema + select list
+src/routes/_authenticated/app.sales.tsx    # XLSX upload, sheet picker, template auto-map, rep filter, chart, extended table
+package.json                               # + xlsx (SheetJS)
 ```
 
-No changes to auth, routing shell, or the existing Research/Pitch tabs on the detail page.
-
-## Out of scope (explicit)
-
-- Charts/graphs on Sales (next iteration).
-- Linking each sales row to a prospect automatically (manual link only for now).
-- PDF business cards / multi-page docs.
-
-## Open question
-
-For the **Image tab**, OK to use Gemini vision (one call, no extra connector) instead of adding a dedicated OCR service? It's faster and cheaper and matches what you already pay for via Lovable AI.
+No changes to Prospects, auth, or routing.
