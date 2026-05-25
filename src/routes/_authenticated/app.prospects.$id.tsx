@@ -56,6 +56,36 @@ function CompanyProfile() {
     toast.success("Activity logged");
   };
 
+  const handleResearch = async () => {
+    setResearching(true);
+    try {
+      await research({ data: { id } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      toast.success("Research complete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Research failed");
+    } finally {
+      setResearching(false);
+    }
+  };
+
+  const handlePitch = async () => {
+    setPitching(true);
+    try {
+      const result = await pitch({ data: { id } });
+      setEmail(result);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Pitch generation failed");
+    } finally {
+      setPitching(false);
+    }
+  };
+
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    toast.success("Copied");
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
