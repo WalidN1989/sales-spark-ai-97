@@ -214,7 +214,7 @@ export type Database = {
           company_name: string | null
           created_at: string
           id: string
-          invoice_no: string | null
+          invoice_no: string
           model: string | null
           order_date: string | null
           order_ref: string | null
@@ -232,7 +232,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           id?: string
-          invoice_no?: string | null
+          invoice_no: string
           model?: string | null
           order_date?: string | null
           order_ref?: string | null
@@ -250,7 +250,7 @@ export type Database = {
           company_name?: string | null
           created_at?: string
           id?: string
-          invoice_no?: string | null
+          invoice_no?: string
           model?: string | null
           order_date?: string | null
           order_ref?: string | null
