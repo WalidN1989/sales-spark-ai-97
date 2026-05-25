@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const rowSchema = z.object({
   order_date: z.string().nullable().optional(), // ISO yyyy-mm-dd
-  invoice_no: z.string().max(200).nullable().optional(),
+  invoice_no: z.string().min(1).max(200),
   company_name: z.string().max(500).nullable().optional(),
   rep_walid: z.number().nullable().optional(),
   rep_javid: z.number().nullable().optional(),
