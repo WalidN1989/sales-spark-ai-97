@@ -222,7 +222,8 @@ function NewCompanyPage() {
               <Textarea
                 value={paste}
                 onChange={(e) => setPaste(e.target.value)}
-                placeholder="Paste an email signature or company snippet here…"
+                onPaste={onPasteSignature}
+                placeholder="Paste an email signature or company snippet — extraction runs automatically…"
                 rows={5}
               />
               <div className="flex flex-wrap gap-2">
