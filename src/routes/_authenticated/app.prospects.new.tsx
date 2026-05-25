@@ -87,21 +87,30 @@ function NewCompanyPage() {
   };
 
   // ---- Text ----
-  const handleExtractText = async () => {
-    if (!paste.trim()) return toast.error("Paste something first");
+  const runTextExtract = async (text: string) => {
+    if (!text.trim()) return toast.error("Paste something first");
     setExtractingText(true);
     try {
-      applyExtracted(await extractText({ data: { text: paste } }));
+      applyExtracted(await extractText({ data: { text } }));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Extraction failed");
     } finally {
       setExtractingText(false);
     }
   };
+  const handleExtractText = () => runTextExtract(paste);
+  const onPasteSignature = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (!text.trim()) return;
+    e.preventDefault();
+    setPaste(text);
+    void runTextExtract(text);
+  };
   const pasteFromClipboard = async () => {
     try {
       const t = await navigator.clipboard.readText();
       setPaste(t);
+      void runTextExtract(t);
     } catch {
       toast.error("Couldn't read clipboard");
     }
