@@ -2,12 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2 } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy } from "lucide-react";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
+import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccess } from "@/hooks/use-access";
 import { toast } from "sonner";
@@ -24,11 +26,16 @@ function CompanyProfile() {
   const fn = useServerFn(getCompany);
   const del = useServerFn(deleteCompany);
   const log = useServerFn(addActivity);
+  const research = useServerFn(researchCompany);
+  const pitch = useServerFn(generatePitchEmail);
   const { can } = useAccess();
 
   const { data, isLoading } = useQuery({ queryKey: ["company", id], queryFn: () => fn({ data: { id } }) });
   const [note, setNote] = useState("");
   const [type, setType] = useState<"note" | "call" | "visit" | "email">("note");
+  const [researching, setResearching] = useState(false);
+  const [pitching, setPitching] = useState(false);
+  const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!data) return null;
@@ -47,6 +54,36 @@ function CompanyProfile() {
     setNote("");
     qc.invalidateQueries({ queryKey: ["company", id] });
     toast.success("Activity logged");
+  };
+
+  const handleResearch = async () => {
+    setResearching(true);
+    try {
+      await research({ data: { id } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      toast.success("Research complete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Research failed");
+    } finally {
+      setResearching(false);
+    }
+  };
+
+  const handlePitch = async () => {
+    setPitching(true);
+    try {
+      const result = await pitch({ data: { id } });
+      setEmail(result);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Pitch generation failed");
+    } finally {
+      setPitching(false);
+    }
+  };
+
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    toast.success("Copied");
   };
 
   return (
@@ -133,15 +170,93 @@ function CompanyProfile() {
 
         <TabsContent value="research">
           <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              AI deep-research pipeline (Firecrawl, Perplexity, Hunter.io) ships in the next update.
+            <CardContent className="space-y-4 pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm text-muted-foreground">
+                  {c.last_research_at
+                    ? `Last run: ${new Date(c.last_research_at).toLocaleString()}`
+                    : "No research yet."}
+                </div>
+                <Button onClick={handleResearch} disabled={researching || !c.domain}>
+                  {researching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {c.last_research_at ? "Re-run research" : "Run AI research"}
+                </Button>
+              </div>
+              {!c.domain && (
+                <p className="text-xs text-muted-foreground">Add a website/domain to enable scraping.</p>
+              )}
+              {c.research_data && (() => {
+                const r = c.research_data as { summary?: string; markdown?: string; source_url?: string; links?: string[] };
+                return (
+                  <div className="space-y-3">
+                    {r.source_url && (
+                      <a href={r.source_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+                        {r.source_url}
+                      </a>
+                    )}
+                    {r.summary && (
+                      <div>
+                        <h4 className="mb-1 text-sm font-semibold">Summary</h4>
+                        <p className="whitespace-pre-wrap text-sm">{r.summary}</p>
+                      </div>
+                    )}
+                    {r.markdown && (
+                      <div>
+                        <h4 className="mb-1 text-sm font-semibold">Extracted content</h4>
+                        <div className="max-h-64 overflow-auto rounded border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
+                          {r.markdown.slice(0, 3000)}
+                        </div>
+                      </div>
+                    )}
+                    {c.lat && c.lng && (
+                      <div className="text-xs text-muted-foreground">
+                        Geocoded: {c.lat.toFixed(4)}, {c.lng.toFixed(4)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="pitch">
           <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              AI-generated pitch email ships in the next update.
+            <CardContent className="space-y-3 pt-6">
+              <div className="flex justify-end">
+                <Button onClick={handlePitch} disabled={pitching}>
+                  {pitching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {email ? "Regenerate" : "Generate pitch email"}
+                </Button>
+              </div>
+              {!c.research_data && (
+                <p className="text-xs text-muted-foreground">Tip: run AI research first for a more tailored email.</p>
+              )}
+              {email && (
+                <div className="space-y-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">Subject</label>
+                      <Button variant="ghost" size="sm" onClick={() => copy(email.subject)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copy
+                      </Button>
+                    </div>
+                    <Input value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })} />
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">Body</label>
+                      <Button variant="ghost" size="sm" onClick={() => copy(email.body)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copy
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={email.body}
+                      onChange={(e) => setEmail({ ...email, body: e.target.value })}
+                      rows={12}
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
