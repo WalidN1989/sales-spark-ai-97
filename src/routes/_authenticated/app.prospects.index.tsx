@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useAccess } from "@/hooks/use-access";
 
-export const Route = createFileRoute("/_authenticated/app/prospects")({
+export const Route = createFileRoute("/_authenticated/app/prospects/")({
   head: () => ({ meta: [{ title: "Prospects — Sales Insights" }] }),
   component: ProspectsList,
 });

@@ -17,8 +17,8 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
-import { Route as AuthenticatedAppProspectsRouteImport } from './routes/_authenticated/app.prospects'
 import { Route as AuthenticatedAppMeetingsRouteImport } from './routes/_authenticated/app.meetings'
+import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_authenticated/app.prospects.index'
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
 import { Route as AuthenticatedAppSettingsMyCompanyRouteImport } from './routes/_authenticated/app.settings.my-company'
 import { Route as AuthenticatedAppProspectsNewRouteImport } from './routes/_authenticated/app.prospects.new'
@@ -64,16 +64,16 @@ const AuthenticatedAppSalesRoute = AuthenticatedAppSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
-const AuthenticatedAppProspectsRoute =
-  AuthenticatedAppProspectsRouteImport.update({
-    id: '/prospects',
-    path: '/prospects',
-    getParentRoute: () => AuthenticatedAppRoute,
-  } as any)
 const AuthenticatedAppMeetingsRoute =
   AuthenticatedAppMeetingsRouteImport.update({
     id: '/meetings',
     path: '/meetings',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppProspectsIndexRoute =
+  AuthenticatedAppProspectsIndexRouteImport.update({
+    id: '/prospects/',
+    path: '/prospects/',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppSettingsUsersRoute =
@@ -90,15 +90,15 @@ const AuthenticatedAppSettingsMyCompanyRoute =
   } as any)
 const AuthenticatedAppProspectsNewRoute =
   AuthenticatedAppProspectsNewRouteImport.update({
-    id: '/new',
-    path: '/new',
-    getParentRoute: () => AuthenticatedAppProspectsRoute,
+    id: '/prospects/new',
+    path: '/prospects/new',
+    getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppProspectsIdRoute =
   AuthenticatedAppProspectsIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => AuthenticatedAppProspectsRoute,
+    id: '/prospects/$id',
+    path: '/prospects/$id',
+    getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -107,7 +107,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
-  '/app/prospects': typeof AuthenticatedAppProspectsRouteWithChildren
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -115,13 +114,13 @@ export interface FileRoutesByFullPath {
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
-  '/app/prospects': typeof AuthenticatedAppProspectsRouteWithChildren
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
@@ -129,6 +128,7 @@ export interface FileRoutesByTo {
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -138,7 +138,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/_authenticated/app/meetings': typeof AuthenticatedAppMeetingsRoute
-  '/_authenticated/app/prospects': typeof AuthenticatedAppProspectsRouteWithChildren
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -146,6 +145,7 @@ export interface FileRoutesById {
   '/_authenticated/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
   '/_authenticated/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -155,7 +155,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/app'
     | '/app/meetings'
-    | '/app/prospects'
     | '/app/sales'
     | '/app/settings'
     | '/app/'
@@ -163,13 +162,13 @@ export interface FileRouteTypes {
     | '/app/prospects/new'
     | '/app/settings/my-company'
     | '/app/settings/users'
+    | '/app/prospects/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
     | '/app/meetings'
-    | '/app/prospects'
     | '/app/sales'
     | '/app/settings'
     | '/app'
@@ -177,6 +176,7 @@ export interface FileRouteTypes {
     | '/app/prospects/new'
     | '/app/settings/my-company'
     | '/app/settings/users'
+    | '/app/prospects'
   id:
     | '__root__'
     | '/'
@@ -185,7 +185,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/app'
     | '/_authenticated/app/meetings'
-    | '/_authenticated/app/prospects'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
@@ -193,6 +192,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/prospects/new'
     | '/_authenticated/app/settings/my-company'
     | '/_authenticated/app/settings/users'
+    | '/_authenticated/app/prospects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,18 +260,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSalesRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/app/prospects': {
-      id: '/_authenticated/app/prospects'
-      path: '/prospects'
-      fullPath: '/app/prospects'
-      preLoaderRoute: typeof AuthenticatedAppProspectsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
     '/_authenticated/app/meetings': {
       id: '/_authenticated/app/meetings'
       path: '/meetings'
       fullPath: '/app/meetings'
       preLoaderRoute: typeof AuthenticatedAppMeetingsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/prospects/': {
+      id: '/_authenticated/app/prospects/'
+      path: '/prospects'
+      fullPath: '/app/prospects/'
+      preLoaderRoute: typeof AuthenticatedAppProspectsIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/settings/users': {
@@ -290,36 +290,20 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/app/prospects/new': {
       id: '/_authenticated/app/prospects/new'
-      path: '/new'
+      path: '/prospects/new'
       fullPath: '/app/prospects/new'
       preLoaderRoute: typeof AuthenticatedAppProspectsNewRouteImport
-      parentRoute: typeof AuthenticatedAppProspectsRoute
+      parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/prospects/$id': {
       id: '/_authenticated/app/prospects/$id'
-      path: '/$id'
+      path: '/prospects/$id'
       fullPath: '/app/prospects/$id'
       preLoaderRoute: typeof AuthenticatedAppProspectsIdRouteImport
-      parentRoute: typeof AuthenticatedAppProspectsRoute
+      parentRoute: typeof AuthenticatedAppRoute
     }
   }
 }
-
-interface AuthenticatedAppProspectsRouteChildren {
-  AuthenticatedAppProspectsIdRoute: typeof AuthenticatedAppProspectsIdRoute
-  AuthenticatedAppProspectsNewRoute: typeof AuthenticatedAppProspectsNewRoute
-}
-
-const AuthenticatedAppProspectsRouteChildren: AuthenticatedAppProspectsRouteChildren =
-  {
-    AuthenticatedAppProspectsIdRoute: AuthenticatedAppProspectsIdRoute,
-    AuthenticatedAppProspectsNewRoute: AuthenticatedAppProspectsNewRoute,
-  }
-
-const AuthenticatedAppProspectsRouteWithChildren =
-  AuthenticatedAppProspectsRoute._addFileChildren(
-    AuthenticatedAppProspectsRouteChildren,
-  )
 
 interface AuthenticatedAppSettingsRouteChildren {
   AuthenticatedAppSettingsMyCompanyRoute: typeof AuthenticatedAppSettingsMyCompanyRoute
@@ -340,18 +324,22 @@ const AuthenticatedAppSettingsRouteWithChildren =
 
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppMeetingsRoute: typeof AuthenticatedAppMeetingsRoute
-  AuthenticatedAppProspectsRoute: typeof AuthenticatedAppProspectsRouteWithChildren
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppProspectsIdRoute: typeof AuthenticatedAppProspectsIdRoute
+  AuthenticatedAppProspectsNewRoute: typeof AuthenticatedAppProspectsNewRoute
+  AuthenticatedAppProspectsIndexRoute: typeof AuthenticatedAppProspectsIndexRoute
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppMeetingsRoute: AuthenticatedAppMeetingsRoute,
-  AuthenticatedAppProspectsRoute: AuthenticatedAppProspectsRouteWithChildren,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppProspectsIdRoute: AuthenticatedAppProspectsIdRoute,
+  AuthenticatedAppProspectsNewRoute: AuthenticatedAppProspectsNewRoute,
+  AuthenticatedAppProspectsIndexRoute: AuthenticatedAppProspectsIndexRoute,
 }
 
 const AuthenticatedAppRouteWithChildren =
@@ -378,3 +366,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
