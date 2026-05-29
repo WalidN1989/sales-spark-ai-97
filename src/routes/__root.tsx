@@ -68,6 +68,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "AI-powered B2B sales intelligence and CRM for field sales teams." },
       { name: "twitter:card", content: "summary" },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/faa40c23-e9bf-4da2-8bc1-0ccc9ad84e67/id-preview-28e62576--d8454b73-4b80-40d4-b492-fecf24168b83.lovable.app-1779705808015.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/faa40c23-e9bf-4da2-8bc1-0ccc9ad84e67/id-preview-28e62576--d8454b73-4b80-40d4-b492-fecf24168b83.lovable.app-1779705808015.png" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
