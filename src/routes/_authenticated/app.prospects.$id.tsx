@@ -42,7 +42,6 @@ function CompanyProfile() {
   const [pitching, setPitching] = useState(false);
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [seedInput, setSeedInput] = useState("");
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
