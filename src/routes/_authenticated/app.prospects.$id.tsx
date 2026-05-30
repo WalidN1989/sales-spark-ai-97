@@ -299,6 +299,167 @@ function CompanyProfile() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="market">
+          {(() => {
+            const cm = c as typeof c & {
+              market_insight?: {
+                industries?: Array<{ name: string; confidence: number }>;
+                competitors?: Array<{
+                  name: string;
+                  website: string | null;
+                  country: string | null;
+                  description: string | null;
+                  source: "seeded" | "ai";
+                }>;
+                generated_at?: string;
+              } | null;
+              market_insight_at?: string | null;
+              market_seed_urls?: string[] | null;
+            };
+            const insight = cm.market_insight;
+            const seedsValue =
+              seedDraft ?? (cm.market_seed_urls ?? []).join("\n");
+            return (
+              <div className="space-y-4">
+                <Card className="border-0 bg-slate-900 text-slate-100">
+                  <CardContent className="space-y-4 pt-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold">Market Insight</h3>
+                        <p className="text-sm text-slate-300">
+                          Analyze competitive positioning and similar companies for this sector.
+                        </p>
+                      </div>
+                      <Button onClick={handleScan} disabled={scanning}>
+                        {scanning ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <ScanSearch className="mr-2 h-4 w-4" />
+                        )}
+                        {insight ? "Re-scan" : "Scan"}
+                      </Button>
+                    </div>
+                    <div className="rounded-md bg-slate-800/60 px-3 py-2 text-xs text-slate-300">
+                      Last scan:{" "}
+                      {cm.market_insight_at
+                        ? new Date(cm.market_insight_at).toLocaleString()
+                        : "never"}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Textarea
+                      rows={4}
+                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
+                      value={seedsValue}
+                      onChange={(e) => setSeedDraft(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      One URL per line. Saved with the next scan. Up to 5 are scraped.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Suggested industries</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.industries?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {insight.industries.map((ind) => (
+                          <button
+                            key={ind.name}
+                            type="button"
+                            onClick={() => handleApplyIndustry(ind.name)}
+                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
+                            title={`Apply "${ind.name}" as the company industry`}
+                          >
+                            <span>{ind.name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {Math.round(ind.confidence * 100)}%
+                            </Badge>
+                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Run a scan to see suggested industries.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Competitors</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.competitors?.length ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Website</TableHead>
+                              <TableHead>Country</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Source</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {insight.competitors.map((cp, i) => (
+                              <TableRow key={`${cp.name}-${i}`}>
+                                <TableCell className="font-medium">{cp.name}</TableCell>
+                                <TableCell>
+                                  {cp.website ? (
+                                    <a
+                                      href={
+                                        /^https?:\/\//i.test(cp.website)
+                                          ? cp.website
+                                          : `https://${cp.website}`
+                                      }
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-primary underline"
+                                    >
+                                      {cp.website}
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>{cp.country ?? "—"}</TableCell>
+                                <TableCell className="max-w-md text-sm text-muted-foreground">
+                                  {cp.description ?? "—"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
+                                    {cp.source}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No competitors yet. Add seed URLs above and run a scan.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
+        </TabsContent>
         <TabsContent value="sales">
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
