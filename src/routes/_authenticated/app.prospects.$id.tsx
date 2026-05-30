@@ -94,6 +94,36 @@ function CompanyProfile() {
     toast.success("Copied");
   };
 
+  const handleScan = async () => {
+    const raw = seedDraft ?? (((c as { market_seed_urls?: string[] }).market_seed_urls ?? []).join("\n"));
+    const seedUrls = raw
+      .split(/\r?\n|,/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setScanning(true);
+    try {
+      await scan({ data: { companyId: id, seedUrls } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      setSeedDraft(null);
+      setSeedInput("");
+      toast.success("Market scan complete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleApplyIndustry = async (industry: string) => {
+    try {
+      await applyInd({ data: { companyId: id, industry } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      toast.success(`Industry set to "${industry}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update industry");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
