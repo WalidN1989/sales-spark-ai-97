@@ -31,6 +31,8 @@ function CompanyProfile() {
   const log = useServerFn(addActivity);
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
+  const scan = useServerFn(scanMarketInsight);
+  const applyInd = useServerFn(applyIndustry);
   const { can } = useAccess();
 
   const { data, isLoading } = useQuery({ queryKey: ["company", id], queryFn: () => fn({ data: { id } }) });
@@ -39,6 +41,9 @@ function CompanyProfile() {
   const [researching, setResearching] = useState(false);
   const [pitching, setPitching] = useState(false);
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [seedInput, setSeedInput] = useState("");
+  const [seedDraft, setSeedDraft] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!data) return null;
