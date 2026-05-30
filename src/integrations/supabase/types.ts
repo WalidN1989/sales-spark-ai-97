@@ -62,6 +62,9 @@ export type Database = {
           last_research_at: string | null
           lat: number | null
           lng: number | null
+          market_insight: Json | null
+          market_insight_at: string | null
+          market_seed_urls: string[]
           name: string
           phone: string | null
           product_service: string | null
@@ -80,6 +83,9 @@ export type Database = {
           last_research_at?: string | null
           lat?: number | null
           lng?: number | null
+          market_insight?: Json | null
+          market_insight_at?: string | null
+          market_seed_urls?: string[]
           name: string
           phone?: string | null
           product_service?: string | null
@@ -98,6 +104,9 @@ export type Database = {
           last_research_at?: string | null
           lat?: number | null
           lng?: number | null
+          market_insight?: Json | null
+          market_insight_at?: string | null
+          market_seed_urls?: string[]
           name?: string
           phone?: string | null
           product_service?: string | null

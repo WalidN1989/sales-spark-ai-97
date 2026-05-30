@@ -2,14 +2,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus } from "lucide-react";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
+import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccess } from "@/hooks/use-access";
 import { toast } from "sonner";
@@ -28,6 +31,8 @@ function CompanyProfile() {
   const log = useServerFn(addActivity);
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
+  const scan = useServerFn(scanMarketInsight);
+  const applyInd = useServerFn(applyIndustry);
   const { can } = useAccess();
 
   const { data, isLoading } = useQuery({ queryKey: ["company", id], queryFn: () => fn({ data: { id } }) });
@@ -36,6 +41,8 @@ function CompanyProfile() {
   const [researching, setResearching] = useState(false);
   const [pitching, setPitching] = useState(false);
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [seedDraft, setSeedDraft] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!data) return null;
@@ -86,6 +93,35 @@ function CompanyProfile() {
     toast.success("Copied");
   };
 
+  const handleScan = async () => {
+    const raw = seedDraft ?? (((c as { market_seed_urls?: string[] }).market_seed_urls ?? []).join("\n"));
+    const seedUrls = raw
+      .split(/\r?\n|,/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setScanning(true);
+    try {
+      await scan({ data: { companyId: id, seedUrls } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      setSeedDraft(null);
+      toast.success("Market scan complete");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleApplyIndustry = async (industry: string) => {
+    try {
+      await applyInd({ data: { companyId: id, industry } });
+      qc.invalidateQueries({ queryKey: ["company", id] });
+      toast.success(`Industry set to "${industry}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update industry");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
@@ -126,6 +162,7 @@ function CompanyProfile() {
           <TabsTrigger value="activity">Activity log</TabsTrigger>
           {can("prospects", "research") && <TabsTrigger value="research">AI research</TabsTrigger>}
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}
+          <TabsTrigger value="market">Market insight</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
         </TabsList>
 
@@ -259,6 +296,167 @@ function CompanyProfile() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="market">
+          {(() => {
+            const cm = c as typeof c & {
+              market_insight?: {
+                industries?: Array<{ name: string; confidence: number }>;
+                competitors?: Array<{
+                  name: string;
+                  website: string | null;
+                  country: string | null;
+                  description: string | null;
+                  source: "seeded" | "ai";
+                }>;
+                generated_at?: string;
+              } | null;
+              market_insight_at?: string | null;
+              market_seed_urls?: string[] | null;
+            };
+            const insight = cm.market_insight;
+            const seedsValue =
+              seedDraft ?? (cm.market_seed_urls ?? []).join("\n");
+            return (
+              <div className="space-y-4">
+                <Card className="border-0 bg-slate-900 text-slate-100">
+                  <CardContent className="space-y-4 pt-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold">Market Insight</h3>
+                        <p className="text-sm text-slate-300">
+                          Analyze competitive positioning and similar companies for this sector.
+                        </p>
+                      </div>
+                      <Button onClick={handleScan} disabled={scanning}>
+                        {scanning ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <ScanSearch className="mr-2 h-4 w-4" />
+                        )}
+                        {insight ? "Re-scan" : "Scan"}
+                      </Button>
+                    </div>
+                    <div className="rounded-md bg-slate-800/60 px-3 py-2 text-xs text-slate-300">
+                      Last scan:{" "}
+                      {cm.market_insight_at
+                        ? new Date(cm.market_insight_at).toLocaleString()
+                        : "never"}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Textarea
+                      rows={4}
+                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
+                      value={seedsValue}
+                      onChange={(e) => setSeedDraft(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      One URL per line. Saved with the next scan. Up to 5 are scraped.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Suggested industries</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.industries?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {insight.industries.map((ind) => (
+                          <button
+                            key={ind.name}
+                            type="button"
+                            onClick={() => handleApplyIndustry(ind.name)}
+                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
+                            title={`Apply "${ind.name}" as the company industry`}
+                          >
+                            <span>{ind.name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {Math.round(ind.confidence * 100)}%
+                            </Badge>
+                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Run a scan to see suggested industries.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Competitors</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.competitors?.length ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Website</TableHead>
+                              <TableHead>Country</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Source</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {insight.competitors.map((cp, i) => (
+                              <TableRow key={`${cp.name}-${i}`}>
+                                <TableCell className="font-medium">{cp.name}</TableCell>
+                                <TableCell>
+                                  {cp.website ? (
+                                    <a
+                                      href={
+                                        /^https?:\/\//i.test(cp.website)
+                                          ? cp.website
+                                          : `https://${cp.website}`
+                                      }
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-primary underline"
+                                    >
+                                      {cp.website}
+                                    </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>{cp.country ?? "—"}</TableCell>
+                                <TableCell className="max-w-md text-sm text-muted-foreground">
+                                  {cp.description ?? "—"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
+                                    {cp.source}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No competitors yet. Add seed URLs above and run a scan.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
         </TabsContent>
         <TabsContent value="sales">
           <Card>
