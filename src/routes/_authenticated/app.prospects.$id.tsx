@@ -104,7 +104,6 @@ function CompanyProfile() {
       await scan({ data: { companyId: id, seedUrls } });
       qc.invalidateQueries({ queryKey: ["company", id] });
       setSeedDraft(null);
-      setSeedInput("");
       toast.success("Market scan complete");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Scan failed");
