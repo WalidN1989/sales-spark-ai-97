@@ -417,42 +417,58 @@ function CompanyProfile() {
                               <TableHead>Website</TableHead>
                               <TableHead>Country</TableHead>
                               <TableHead>Description</TableHead>
+                              <TableHead>Social</TableHead>
                               <TableHead>Source</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {insight.competitors.map((cp, i) => (
-                              <TableRow key={`${cp.name}-${i}`}>
-                                <TableCell className="font-medium">{cp.name}</TableCell>
-                                <TableCell>
-                                  {cp.website ? (
-                                    <a
-                                      href={
-                                        /^https?:\/\//i.test(cp.website)
-                                          ? cp.website
-                                          : `https://${cp.website}`
-                                      }
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-primary underline"
-                                    >
-                                      {cp.website}
-                                    </a>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>{cp.country ?? "—"}</TableCell>
-                                <TableCell className="max-w-md text-sm text-muted-foreground">
-                                  {cp.description ?? "—"}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
-                                    {cp.source}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {insight.competitors.map((cp, i) => {
+                              const slug = slugifyCompetitor(cp.name);
+                              return (
+                                <TableRow
+                                  key={`${cp.name}-${i}`}
+                                  className="cursor-pointer"
+                                  onClick={() =>
+                                    navigate({
+                                      to: "/app/prospects/$id/competitor/$slug",
+                                      params: { id, slug },
+                                    })
+                                  }
+                                >
+                                  <TableCell className="font-medium">{cp.name}</TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    {cp.website ? (
+                                      <a
+                                        href={
+                                          /^https?:\/\//i.test(cp.website)
+                                            ? cp.website
+                                            : `https://${cp.website}`
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-primary underline"
+                                      >
+                                        {cp.website}
+                                      </a>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{cp.country ?? "—"}</TableCell>
+                                  <TableCell className="max-w-md text-sm text-muted-foreground">
+                                    {cp.description ?? "—"}
+                                  </TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <SocialIcons socials={cp.socials} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
+                                      {cp.source}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
