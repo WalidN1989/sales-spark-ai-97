@@ -310,6 +310,13 @@ function CompanyProfile() {
                   country: string | null;
                   description: string | null;
                   source: "seeded" | "ai";
+                  socials?: {
+                    linkedin?: string;
+                    twitter?: string;
+                    facebook?: string;
+                    instagram?: string;
+                    youtube?: string;
+                  };
                 }>;
                 generated_at?: string;
               } | null;
