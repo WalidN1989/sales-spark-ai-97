@@ -6,6 +6,8 @@ import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy,
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
+import { slugifyCompetitor } from "@/lib/competitor-email.functions";
+import { SocialIcons } from "@/routes/_authenticated/app.prospects.$id.competitor.$slug";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -308,6 +310,13 @@ function CompanyProfile() {
                   country: string | null;
                   description: string | null;
                   source: "seeded" | "ai";
+                  socials?: {
+                    linkedin?: string;
+                    twitter?: string;
+                    facebook?: string;
+                    instagram?: string;
+                    youtube?: string;
+                  };
                 }>;
                 generated_at?: string;
               } | null;
@@ -408,42 +417,58 @@ function CompanyProfile() {
                               <TableHead>Website</TableHead>
                               <TableHead>Country</TableHead>
                               <TableHead>Description</TableHead>
+                              <TableHead>Social</TableHead>
                               <TableHead>Source</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {insight.competitors.map((cp, i) => (
-                              <TableRow key={`${cp.name}-${i}`}>
-                                <TableCell className="font-medium">{cp.name}</TableCell>
-                                <TableCell>
-                                  {cp.website ? (
-                                    <a
-                                      href={
-                                        /^https?:\/\//i.test(cp.website)
-                                          ? cp.website
-                                          : `https://${cp.website}`
-                                      }
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-primary underline"
-                                    >
-                                      {cp.website}
-                                    </a>
-                                  ) : (
-                                    <span className="text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>{cp.country ?? "—"}</TableCell>
-                                <TableCell className="max-w-md text-sm text-muted-foreground">
-                                  {cp.description ?? "—"}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
-                                    {cp.source}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {insight.competitors.map((cp, i) => {
+                              const slug = slugifyCompetitor(cp.name);
+                              return (
+                                <TableRow
+                                  key={`${cp.name}-${i}`}
+                                  className="cursor-pointer"
+                                  onClick={() =>
+                                    navigate({
+                                      to: "/app/prospects/$id/competitor/$slug",
+                                      params: { id, slug },
+                                    })
+                                  }
+                                >
+                                  <TableCell className="font-medium">{cp.name}</TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    {cp.website ? (
+                                      <a
+                                        href={
+                                          /^https?:\/\//i.test(cp.website)
+                                            ? cp.website
+                                            : `https://${cp.website}`
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-primary underline"
+                                      >
+                                        {cp.website}
+                                      </a>
+                                    ) : (
+                                      <span className="text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{cp.country ?? "—"}</TableCell>
+                                  <TableCell className="max-w-md text-sm text-muted-foreground">
+                                    {cp.description ?? "—"}
+                                  </TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <SocialIcons socials={cp.socials} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={cp.source === "seeded" ? "default" : "secondary"}>
+                                      {cp.source}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
