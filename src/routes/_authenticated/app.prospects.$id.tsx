@@ -6,6 +6,8 @@ import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy,
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
+import { slugifyCompetitor } from "@/lib/competitor-email.functions";
+import { SocialIcons } from "@/routes/_authenticated/app.prospects.$id.competitor.$slug";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
