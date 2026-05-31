@@ -14,6 +14,91 @@ function normalizeUrl(input: string): string {
   return `https://${t.replace(/^\/+/, "")}`;
 }
 
+export type CompetitorSocials = {
+  linkedin?: string;
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  youtube?: string;
+};
+
+const SOCIAL_PATTERNS: Array<{ key: keyof CompetitorSocials; rx: RegExp }> = [
+  { key: "linkedin", rx: /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com\//i },
+  { key: "twitter", rx: /^https?:\/\/([a-z0-9-]+\.)*(twitter|x)\.com\//i },
+  { key: "facebook", rx: /^https?:\/\/([a-z0-9-]+\.)*facebook\.com\//i },
+  { key: "instagram", rx: /^https?:\/\/([a-z0-9-]+\.)*instagram\.com\//i },
+  { key: "youtube", rx: /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i },
+];
+
+function extractSocials(urls: string[]): CompetitorSocials {
+  const out: CompetitorSocials = {};
+  for (const raw of urls) {
+    const url = raw.trim();
+    if (!url) continue;
+    for (const { key, rx } of SOCIAL_PATTERNS) {
+      if (out[key]) continue;
+      if (rx.test(url)) {
+        // Skip generic share/intent links
+        if (/\/(share|intent|sharer)(\b|\/|\?)/i.test(url)) continue;
+        out[key] = url.split("#")[0].replace(/\/$/, "");
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+async function firecrawlMapSocials(fcKey: string, website: string): Promise<CompetitorSocials> {
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/map", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${fcKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: normalizeUrl(website),
+        search: "linkedin twitter facebook instagram youtube",
+        limit: 50,
+        includeSubdomains: false,
+      }),
+    });
+    if (!res.ok) return {};
+    const json = (await res.json()) as { links?: Array<string | { url?: string }> };
+    const links = (json.links ?? [])
+      .map((l) => (typeof l === "string" ? l : l?.url ?? ""))
+      .filter(Boolean);
+    return extractSocials(links);
+  } catch {
+    return {};
+  }
+}
+
+type ScrapedSeed = { url: string; summary: string; markdown: string; links: string[] };
+
+async function scrapeSeed(fcKey: string, url: string): Promise<ScrapedSeed | null> {
+  try {
+    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${fcKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        formats: ["markdown", "summary", "links"],
+        onlyMainContent: true,
+      }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: { markdown?: string; summary?: string; links?: string[] };
+    };
+    return {
+      url,
+      summary: json.data?.summary ?? "",
+      markdown: (json.data?.markdown ?? "").slice(0, 2500),
+      links: json.data?.links ?? [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 const insightToolSchema = {
   type: "object",
   additionalProperties: false,
@@ -51,33 +136,6 @@ const insightToolSchema = {
   required: ["industries", "competitors"],
 } as const;
 
-type ScrapedSeed = { url: string; summary: string; markdown: string };
-
-async function scrapeSeed(fcKey: string, url: string): Promise<ScrapedSeed | null> {
-  try {
-    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${fcKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url,
-        formats: ["markdown", "summary"],
-        onlyMainContent: true,
-      }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as {
-      data?: { markdown?: string; summary?: string };
-    };
-    return {
-      url,
-      summary: json.data?.summary ?? "",
-      markdown: (json.data?.markdown ?? "").slice(0, 2500),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export const scanMarketInsight = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -101,7 +159,6 @@ export const scanMarketInsight = createServerFn({ method: "POST" })
 
     const seedUrls = data.seedUrls.map(normalizeUrl).filter(Boolean).slice(0, 5);
 
-    // Scrape seed URLs (best effort, only if Firecrawl is configured)
     const fcKey = process.env.FIRECRAWL_API_KEY;
     const scraped: ScrapedSeed[] = [];
     if (fcKey && seedUrls.length) {
@@ -184,8 +241,41 @@ ${
       }>;
     };
 
+    // Seed-derived socials (from already-scraped pages), bucketed by seed URL host
+    const seedSocialByHost = new Map<string, CompetitorSocials>();
+    for (const s of scraped) {
+      try {
+        const host = new URL(s.url).host.replace(/^www\./, "");
+        seedSocialByHost.set(host, extractSocials(s.links));
+      } catch {
+        // ignore bad seed URL
+      }
+    }
+
+    // Enrich competitors with socials (cap to first 10 to control credits)
+    const enriched = await Promise.all(
+      parsed.competitors.map(async (cp, idx) => {
+        if (!cp.website || idx >= 10) return { ...cp, socials: {} as CompetitorSocials };
+        const normalized = normalizeUrl(cp.website);
+        let socials: CompetitorSocials = {};
+        try {
+          const host = new URL(normalized).host.replace(/^www\./, "");
+          const seedHit = seedSocialByHost.get(host);
+          if (seedHit) socials = { ...seedHit };
+        } catch {
+          // ignore
+        }
+        if (fcKey) {
+          const mapped = await firecrawlMapSocials(fcKey, normalized);
+          socials = { ...mapped, ...socials }; // seed-derived wins
+        }
+        return { ...cp, socials };
+      }),
+    );
+
     const insight = {
       ...parsed,
+      competitors: enriched,
       generated_at: new Date().toISOString(),
       scraped_seeds: scraped.map((s) => s.url),
     };
