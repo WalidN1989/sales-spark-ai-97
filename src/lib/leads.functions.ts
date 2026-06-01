@@ -79,10 +79,12 @@ export const updateLead = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { touch_activity, ...patch } = data.patch;
-    const finalPatch: Record<string, unknown> = { ...patch };
-    if (touch_activity || patch.last_activity_note || patch.last_activity_kind) {
-      finalPatch.last_activity_at = new Date().toISOString();
-    }
+    const finalPatch = {
+      ...patch,
+      ...(touch_activity || patch.last_activity_note || patch.last_activity_kind
+        ? { last_activity_at: new Date().toISOString() }
+        : {}),
+    };
     const { error } = await context.supabase
       .from("leads")
       .update(finalPatch)
