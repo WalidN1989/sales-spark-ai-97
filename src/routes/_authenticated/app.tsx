@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
-import { Users, BarChart3, MapPin, Settings, LogOut, Menu, Briefcase } from "lucide-react";
+import { Users, BarChart3, MapPin, Settings, LogOut, Menu, Briefcase, Flame } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ function AppShell() {
 
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
+    { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },
