@@ -87,8 +87,7 @@ function LeadsPage() {
   const [selected, setSelected] = useState<Lead | null>(null);
 
   const update = useMutation({
-    mutationFn: (args: { id: string; patch: Parameters<typeof updateFn>[0]["data"]["patch"] }) =>
-      updateFn({ data: args }),
+    mutationFn: (args: { id: string; patch: Patch }) => updateFn({ data: args }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["leads"] }),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -265,7 +264,16 @@ function LeadsPage() {
   );
 }
 
-type Patch = Parameters<ReturnType<typeof useServerFn<typeof updateLead>>>[0]["data"]["patch"];
+type Patch = {
+  status?: Status;
+  contact_person?: string | null;
+  contact_email?: string | null;
+  whatsapp?: string | null;
+  pipeline_value_cents?: number;
+  last_activity_kind?: "note" | "email" | "call" | "meeting" | "log" | null;
+  last_activity_note?: string | null;
+  touch_activity?: boolean;
+};
 
 function LeadSheet({
   lead,
