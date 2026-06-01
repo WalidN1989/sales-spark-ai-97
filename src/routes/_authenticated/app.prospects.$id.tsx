@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/app/prospects/$id")({
 
 function CompanyProfile() {
   const { id } = Route.useParams();
+  const childMatches = useChildMatches();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const fn = useServerFn(getCompany);
@@ -46,6 +47,7 @@ function CompanyProfile() {
   const [scanning, setScanning] = useState(false);
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
 
+  if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!data) return null;
   const c = data.company;
