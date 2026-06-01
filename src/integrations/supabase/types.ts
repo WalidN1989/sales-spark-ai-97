@@ -115,6 +115,54 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          company_id: string
+          contact_email: string | null
+          contact_person: string | null
+          created_at: string
+          id: string
+          last_activity_at: string | null
+          last_activity_kind: string | null
+          last_activity_note: string | null
+          pipeline_value_cents: number
+          status: string
+          updated_at: string
+          user_id: string
+          whatsapp: string | null
+        }
+        Insert: {
+          company_id: string
+          contact_email?: string | null
+          contact_person?: string | null
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_activity_kind?: string | null
+          last_activity_note?: string | null
+          pipeline_value_cents?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          whatsapp?: string | null
+        }
+        Update: {
+          company_id?: string
+          contact_email?: string | null
+          contact_person?: string | null
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_activity_kind?: string | null
+          last_activity_note?: string | null
+          pipeline_value_cents?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           company_id: string | null
