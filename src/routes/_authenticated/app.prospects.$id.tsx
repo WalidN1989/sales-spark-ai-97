@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/app/prospects/$id")({
 
 function CompanyProfile() {
   const { id } = Route.useParams();
+  const childMatches = useChildMatches();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const fn = useServerFn(getCompany);
