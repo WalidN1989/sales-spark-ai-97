@@ -1,63 +1,78 @@
 ## Goal
 
-Two additions to Market Insight:
-
-1. **Social footprint** on each competitor row (LinkedIn / X / Facebook / Instagram icons) so the user can land directly on a social profile. Auto-discovered via Firecrawl during the scan.
-2. **Full-screen competitor metric page** opened by clicking a row, with breadcrumbs and an AI-drafted outreach email (from My Company → competitor).
+New **Leads** module mirroring the reference UI (priority queue with HOT/WARM/COLD/FROZEN/DEAD status pills + last activity). A prospect is promoted into a Lead via a small flame icon on the prospect card. Leads carry over contact name + email from the parent company and add a `whatsapp` field that opens `https://wa.me/...` in a new tab.
 
 ---
 
-## 1. Social URLs on the scan
+## 1. Data model
 
-**Server (`src/lib/market.functions.ts`)**
-- After AI returns the competitor list, for every competitor that has a `website`, call Firecrawl `/v2/map` with `search: "linkedin twitter facebook instagram"` and a small `limit` (≈30) to find external social links — and also extract any social URLs already found in the scraped seed markdown.
-- Normalize and dedupe per platform; store as `socials: { linkedin?, twitter?, facebook?, instagram?, youtube? }` on each competitor inside the existing `market_insight` jsonb. No new column.
-- Skip silently per-competitor on failure so one bad map doesn't kill the scan. Cap to first ~10 competitors to control credits.
+New migration creates `public.leads`:
 
-**UI (Competitors table in `app.prospects.$id.tsx`)**
-- New compact "Social" column with small icon buttons (lucide `Linkedin`, `Twitter`, `Facebook`, `Instagram`, `Youtube`) — only icons for platforms that exist; `target="_blank" rel="noopener"`.
-- Row stays clickable (see §2); icons get `e.stopPropagation()` so clicking an icon goes to the social, clicking elsewhere opens the metric page.
+- `id uuid pk`, `user_id uuid` (owner), `company_id uuid` (FK → companies, unique per user — one lead per prospect)
+- `contact_person text`, `contact_email text` (copied from company at promote time, editable)
+- `whatsapp text` (E.164-ish digits, no `+`, used directly in `wa.me/{whatsapp}`)
+- `status text check in ('hot','warm','cold','frozen','dead')` default `'warm'`
+- `last_activity_kind text` (note | email | log | meeting | call), `last_activity_at timestamptz`, `last_activity_note text`
+- `pipeline_value_cents bigint default 0`
+- timestamps + `update_updated_at_column` trigger
 
----
+RLS: owner-only (`auth.uid() = user_id`) for select/insert/update/delete. GRANTs to `authenticated` + `service_role`.
 
-## 2. Full-screen competitor metric page
+## 2. Server functions (`src/lib/leads.functions.ts`)
 
-**New route:** `src/routes/_authenticated/app.prospects.$id.competitor.$slug.tsx`
-- URL: `/app/prospects/:id/competitor/:slug` where `slug` is the competitor name slugified (lookup against `market_insight.competitors`).
-- Breadcrumbs at the top (shadcn `Breadcrumb`): **Prospects › {Company Name} › Competitors › {Competitor Name}**.
-- Layout sections:
-  - Header card: competitor name, country, website, social icon row (same icons as table).
-  - **Profile** card: description + source badge.
-  - **Outreach** card: "Draft email" button → calls new server fn, shows subject + body in editable `Input` + `Textarea`, plus Copy / "Open in mail client" (`mailto:`) buttons. Drafts are not persisted in v1.
-  - Empty placeholder cards for **Products**, **Keywords (SEMrush)**, **Backlinks** so the panel feels like a metric panel and signals future work.
+- `listLeads()` → leads joined with company name/domain/country.
+- `promoteToLead({ companyId })` → inserts a lead seeded with company's `contact_person` / `contact_email`; idempotent (returns existing if present).
+- `updateLead({ id, patch })` → status / whatsapp / contact fields / pipeline value.
+- `deleteLead({ id })`.
+- `isProspectPromoted({ companyId })` used by prospects list to color the flame.
 
-**Loader:** reads the parent company from `companies` by id, finds the matching competitor in `market_insight.competitors` by slug; throws `notFound()` if missing.
+All `.middleware([requireSupabaseAuth])`.
 
-**Click handler in the Competitors table:** `<TableRow>` becomes a `Link` (or `onClick` + `useNavigate`) to the new route. Cursor `pointer`. Social icons stop propagation.
+## 3. UI — Prospects card flame
 
----
+In `app.prospects.index.tsx` each card gets a small **Flame** icon button (top-right of the card, lucide `Flame`):
+- If not yet a lead → muted outline; click promotes (calls `promoteToLead`) then navigates to `/app/leads`.
+- If already a lead → filled orange; click navigates to `/app/leads` (and we could pre-select via search param later).
+- `e.preventDefault()` + `e.stopPropagation()` so the surrounding `<Link>` to the prospect detail still works.
 
-## 3. Draft email server function
+Promoted state comes from a single `listLeads` query reused as a Set of `company_id`s.
 
-**New** `src/lib/competitor-email.functions.ts`
-- `draftCompetitorEmail({ companyId, competitorSlug })` — auth required.
-- Loads parent company + finds competitor in its `market_insight`, plus the user's `my_company` row for sender context.
-- Calls Lovable AI `google/gemini-3-flash-preview` with tool-calling for strict `{ subject, body }`. System prompt: "Write a concise, professional cold outreach email FROM the sender company TO the competitor, offering collaboration / introducing services. 120–180 words. No placeholders like [Your Name]."
-- Returns `{ subject, body }`. No DB write.
+## 4. UI — Leads module
 
-Reuses the same error mapping (rate limit / credits / missing keys) used in `market.functions.ts`.
+New route `src/routes/_authenticated/app.leads.tsx` (`/app/leads`).
 
----
+- Sidebar entry "Leads" added to the main app shell (next to Prospects). Icon: lucide `Flame`.
+- Header: page title + sort dropdown (`Sort: High Priority` — orders HOT > WARM > COLD > FROZEN > DEAD, then most recent activity).
+- Stat cards (compact, top of page):
+  - **Hot Leads** count (flame icon)
+  - **Pipeline Value** = sum of `pipeline_value_cents`
+  - **Conversion Quota** placeholder (static for v1, e.g. won/total once we add a `won` flag — for now show count of HOT vs total as %).
+- **Priority Queue** list — each row:
+  - Avatar (initials chip from contact name).
+  - Contact name + "`{role placeholder}` @ {company}".
+  - Status pill group: HOT / WARM / COLD / FROZEN / DEAD — clicking a pill updates `status` inline (optimistic).
+  - Right side: last activity kind badge + relative time + truncated note.
+  - **WhatsApp button** (green, lucide `MessageCircle` styled or inline SVG) — `href="https://wa.me/{digits}"`, `target="_blank"`. Shown only when `whatsapp` is set; otherwise a muted "Add WhatsApp" button opens an inline edit popover.
+  - Email button → `mailto:{contact_email}`.
+- Row click opens a side `Sheet` (shadcn) with editable fields: contact name, email, whatsapp (with country-code helper text), pipeline value, quick note (creates a `last_activity_*` entry on save).
 
-## Out of scope (deferred)
+Empty state when no leads: "Promote a prospect from the Prospects page using the 🔥 icon."
 
-- Manual editing of social URLs in the panel.
-- Persisting drafted emails / send history.
-- SEMrush / backlinks / products data — placeholder cards only.
+## 5. WhatsApp deep link
+
+Helper `waHref(whatsapp: string)` strips non-digits and returns `https://wa.me/${digits}`. User stores number like `971501234567` (country code + number, no `+`, no spaces). Input shows hint: "Include country code without +, e.g. 971501234567".
+
+## 6. Out of scope (deferred)
+
+- Activity log writes from the WhatsApp / email buttons (we only record activity from the manual quick-note field in v1).
+- Won/Lost stages & conversion-quota math beyond the simple HOT% indicator.
+- Bulk promote, drag-and-drop pipeline view, Kanban.
+- Editing prospects' `contact_email` from the Leads sheet writing back to `companies`.
 
 ## Files
 
-- Edit `src/lib/market.functions.ts` — add Firecrawl map + social extraction; extend `insightToolSchema` competitor shape with optional `socials`.
-- New `src/lib/competitor-email.functions.ts`.
-- Edit `src/routes/_authenticated/app.prospects.$id.tsx` — Social icon column + clickable rows.
-- New `src/routes/_authenticated/app.prospects.$id.competitor.$slug.tsx` — full-screen metric page.
+- New migration `supabase/migrations/{ts}_leads.sql`.
+- New `src/lib/leads.functions.ts`.
+- New `src/routes/_authenticated/app.leads.tsx`.
+- Edit `src/routes/_authenticated/app.tsx` (sidebar nav entry).
+- Edit `src/routes/_authenticated/app.prospects.index.tsx` (Flame icon + promote action).
