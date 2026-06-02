@@ -265,6 +265,15 @@ function LeadsPage() {
         onSave={(patch) => selected && update.mutate({ id: selected.id, patch })}
         onDelete={() => selected && del.mutate(selected.id)}
       />
+
+      <QuickAddLeadDialog
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        onCreated={() => {
+          qc.invalidateQueries({ queryKey: ["leads"] });
+          setQuickOpen(false);
+        }}
+      />
     </div>
   );
 }
