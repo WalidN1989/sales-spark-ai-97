@@ -124,6 +124,9 @@ function LeadsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">Prospects you're actively pursuing.</p>
         </div>
+        <Button onClick={() => setQuickOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" /> Add Lead
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
