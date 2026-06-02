@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
-import { Flame, TrendingUp, Target, Mail, Trash2, MessageCircle } from "lucide-react";
-import { listLeads, updateLead, deleteLead } from "@/lib/leads.functions";
+import { useMemo, useRef, useState } from "react";
+import { Flame, TrendingUp, Target, Mail, Trash2, MessageCircle, Plus, Upload, Sparkles, X, Image as ImageIcon } from "lucide-react";
+import { listLeads, updateLead, deleteLead, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ function LeadsPage() {
   const leads = (data ?? []) as unknown as Lead[];
 
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const update = useMutation({
     mutationFn: (args: { id: string; patch: Patch }) => updateFn({ data: args }),
@@ -122,6 +124,9 @@ function LeadsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">Prospects you're actively pursuing.</p>
         </div>
+        <Button onClick={() => setQuickOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" /> Add Lead
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -180,9 +185,9 @@ function LeadsPage() {
                   {initials(l.contact_person, l.companies?.name ?? "?")}
                 </div>
                 <div className="min-w-[180px] flex-1">
-                  <div className="font-semibold">{l.contact_person || "—"}</div>
+                  <div className="font-semibold">{l.contact_person || l.whatsapp || "—"}</div>
                   <div className="text-xs text-muted-foreground">
-                    {l.companies?.name ? `@ ${l.companies.name}` : ""}
+                    {l.companies?.name ? `@ ${l.companies.name}` : "WhatsApp lead"}
                   </div>
                 </div>
 
@@ -259,6 +264,15 @@ function LeadsPage() {
         onClose={() => setSelected(null)}
         onSave={(patch) => selected && update.mutate({ id: selected.id, patch })}
         onDelete={() => selected && del.mutate(selected.id)}
+      />
+
+      <QuickAddLeadDialog
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        onCreated={() => {
+          qc.invalidateQueries({ queryKey: ["leads"] });
+          setQuickOpen(false);
+        }}
       />
     </div>
   );
@@ -391,5 +405,245 @@ function LeadSheet({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ---------- Quick Add Lead (WhatsApp) ----------
+
+function QuickAddLeadDialog({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const extractFn = useServerFn(extractLeadFromImage);
+  const createFn = useServerFn(createQuickLead);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [contact, setContact] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
+  const [product, setProduct] = useState("");
+  const [note, setNote] = useState("");
+  const [extracted, setExtracted] = useState<Set<string>>(new Set());
+
+  const reset = () => {
+    setImageDataUrl(null);
+    setContact("");
+    setWhatsapp("");
+    setEmail("");
+    setProduct("");
+    setNote("");
+    setExtracted(new Set());
+  };
+
+  const extract = useMutation({
+    mutationFn: (url: string) => extractFn({ data: { imageDataUrl: url } }),
+    onSuccess: (r) => {
+      const tags = new Set<string>();
+      if (r.contact_person) { setContact(r.contact_person); tags.add("contact"); }
+      if (r.whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
+      if (r.contact_email) { setEmail(r.contact_email); tags.add("email"); }
+      if (r.product) { setProduct(r.product); tags.add("product"); }
+      if (r.note) { setNote(r.note); tags.add("note"); }
+      setExtracted(tags);
+      toast.success(`Detected ${tags.size} field${tags.size === 1 ? "" : "s"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const create = useMutation({
+    mutationFn: () =>
+      createFn({
+        data: {
+          contact_person: contact || null,
+          whatsapp,
+          contact_email: email || null,
+          product: product || null,
+          note: note || null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Lead added");
+      reset();
+      onCreated();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handleFile = (file: File) => {
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("Image must be under 6 MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result || "");
+      setImageDataUrl(url);
+      extract.mutate(url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const tag = (k: string) =>
+    extracted.has(k) ? (
+      <span className="ml-2 text-[10px] font-bold tracking-wider text-sky-500 uppercase">Extracted</span>
+    ) : null;
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New WhatsApp Lead</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Drop zone */}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              if (f) handleFile(f);
+            }}
+            className="relative cursor-pointer rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center hover:bg-muted/50"
+          >
+            {imageDataUrl ? (
+              <div className="flex items-center gap-3">
+                <img src={imageDataUrl} alt="screenshot" className="h-20 w-20 rounded object-cover" />
+                <div className="text-left text-xs text-muted-foreground">
+                  {extract.isPending ? "Reading screenshot…" : "Click to replace screenshot"}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImageDataUrl(null);
+                    setExtracted(new Set());
+                  }}
+                  className="ml-auto rounded p-1 hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-4 text-sm text-muted-foreground">
+                <ImageIcon className="h-6 w-6" />
+                <div>Drop a WhatsApp screenshot or <span className="font-medium text-foreground">click to upload</span></div>
+                <div className="text-xs">PNG / JPG / WebP, up to 6 MB</div>
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          {extract.isPending && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3 animate-pulse" /> Extracting fields…
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Contact name {tag("contact")}
+              </Label>
+              <Input value={contact} onChange={(e) => setContact(e.target.value)} maxLength={200} />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                WhatsApp number * {tag("whatsapp")}
+              </Label>
+              <Input
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                maxLength={30}
+                placeholder="+971 50 753 1457"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Product requested {tag("product")}
+            </Label>
+            <Input
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              maxLength={500}
+              placeholder="What is the customer asking about?"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Email (optional) {tag("email")}
+            </Label>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={200}
+              type="email"
+              placeholder="example@domain.com"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Notes / comments {tag("note")}
+            </Label>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              placeholder="Add internal notes about this lead…"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => create.mutate()}
+            disabled={!whatsapp.trim() || create.isPending}
+          >
+            <Upload className="mr-1 h-4 w-4" />
+            {create.isPending ? "Saving…" : "Add to Leads"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

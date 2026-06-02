@@ -117,7 +117,7 @@ export type Database = {
       }
       leads: {
         Row: {
-          company_id: string
+          company_id: string | null
           contact_email: string | null
           contact_person: string | null
           created_at: string
@@ -132,7 +132,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
-          company_id: string
+          company_id?: string | null
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
@@ -147,7 +147,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
-          company_id?: string
+          company_id?: string | null
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
