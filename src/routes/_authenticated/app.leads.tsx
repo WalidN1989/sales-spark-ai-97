@@ -185,9 +185,9 @@ function LeadsPage() {
                   {initials(l.contact_person, l.companies?.name ?? "?")}
                 </div>
                 <div className="min-w-[180px] flex-1">
-                  <div className="font-semibold">{l.contact_person || "—"}</div>
+                  <div className="font-semibold">{l.contact_person || l.whatsapp || "—"}</div>
                   <div className="text-xs text-muted-foreground">
-                    {l.companies?.name ? `@ ${l.companies.name}` : ""}
+                    {l.companies?.name ? `@ ${l.companies.name}` : "WhatsApp lead"}
                   </div>
                 </div>
 
