@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
-import { Flame, TrendingUp, Target, Mail, Trash2, MessageCircle } from "lucide-react";
-import { listLeads, updateLead, deleteLead } from "@/lib/leads.functions";
+import { useMemo, useRef, useState } from "react";
+import { Flame, TrendingUp, Target, Mail, Trash2, MessageCircle, Plus, Upload, Sparkles, X, Image as ImageIcon } from "lucide-react";
+import { listLeads, updateLead, deleteLead, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
