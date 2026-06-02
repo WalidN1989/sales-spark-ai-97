@@ -86,6 +86,7 @@ function LeadsPage() {
   const leads = (data ?? []) as unknown as Lead[];
 
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const update = useMutation({
     mutationFn: (args: { id: string; patch: Patch }) => updateFn({ data: args }),
