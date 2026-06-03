@@ -1,78 +1,53 @@
+
 ## Goal
 
-New **Leads** module mirroring the reference UI (priority queue with HOT/WARM/COLD/FROZEN/DEAD status pills + last activity). A prospect is promoted into a Lead via a small flame icon on the prospect card. Leads carry over contact name + email from the parent company and add a `whatsapp` field that opens `https://wa.me/...` in a new tab.
+Make Leads feel like Prospects: a card grid for the list, a full-page detail view when you click a lead (no more cramped right-side panel), and a collapsible sidebar so the work area can breathe.
 
----
+## 1. Leads list → grid (app.leads.tsx)
 
-## 1. Data model
+Keep the header (title + Add Lead) and the 3 stat cards (Hot Leads / Pipeline Value / Hot Ratio) as they are now.
 
-New migration creates `public.leads`:
+Replace the "Priority Queue" stacked list with a responsive card grid (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`, gap-4), mirroring the Prospects grid styling.
 
-- `id uuid pk`, `user_id uuid` (owner), `company_id uuid` (FK → companies, unique per user — one lead per prospect)
-- `contact_person text`, `contact_email text` (copied from company at promote time, editable)
-- `whatsapp text` (E.164-ish digits, no `+`, used directly in `wa.me/{whatsapp}`)
-- `status text check in ('hot','warm','cold','frozen','dead')` default `'warm'`
-- `last_activity_kind text` (note | email | log | meeting | call), `last_activity_at timestamptz`, `last_activity_note text`
-- `pipeline_value_cents bigint default 0`
-- timestamps + `update_updated_at_column` trigger
+Each lead card shows:
+- Top row: contact initials avatar + name + status pill (HOT/WARM/COLD/FROZEN/DEAD) in top-right, colored like today
+- Company line (`@ Company` or "WhatsApp lead")
+- Email (muted) and WhatsApp number (muted) if present
+- Pipeline value (if > 0)
+- Last activity snippet (italic, truncated) + "Xd ago"
+- Footer row: WhatsApp button (green, opens wa.me link, stopPropagation) and Email button (stopPropagation)
+- Whole card is clickable → navigates to `/app/leads/$id`
 
-RLS: owner-only (`auth.uid() = user_id`) for select/insert/update/delete. GRANTs to `authenticated` + `service_role`.
+Remove the right-side Sheet entirely from the list page.
 
-## 2. Server functions (`src/lib/leads.functions.ts`)
+## 2. Full-page Lead detail (new route)
 
-- `listLeads()` → leads joined with company name/domain/country.
-- `promoteToLead({ companyId })` → inserts a lead seeded with company's `contact_person` / `contact_email`; idempotent (returns existing if present).
-- `updateLead({ id, patch })` → status / whatsapp / contact fields / pipeline value.
-- `deleteLead({ id })`.
-- `isProspectPromoted({ companyId })` used by prospects list to color the flame.
+New file: `src/routes/_authenticated/app.leads.$id.tsx`, styled like `app.prospects.$id.tsx`.
 
-All `.middleware([requireSupabaseAuth])`.
+Layout:
+- Back link + Delete button at top
+- Header card: avatar, contact name, company name link (if linked to a prospect, link back to `/app/prospects/$id`), status pill row (clickable to change status), WhatsApp + Email buttons, pipeline value
+- Editable fields section (contact name, email, WhatsApp, pipeline value) — same fields that were in the Sheet, now laid out as a proper form with breathing room
+- Activity log section: dropdown (Note/Email/Call/Meeting) + textarea + "Log entry" button, then a list of past entries (reuses last_activity_* for now; full history could come later)
 
-## 3. UI — Prospects card flame
+Server functions: `listLeads` already returns enough. Add a `getLead(id)` server fn that returns single lead with company join. Reuse existing `updateLead` and `deleteLead`.
 
-In `app.prospects.index.tsx` each card gets a small **Flame** icon button (top-right of the card, lucide `Flame`):
-- If not yet a lead → muted outline; click promotes (calls `promoteToLead`) then navigates to `/app/leads`.
-- If already a lead → filled orange; click navigates to `/app/leads` (and we could pre-select via search param later).
-- `e.preventDefault()` + `e.stopPropagation()` so the surrounding `<Link>` to the prospect detail still works.
+## 3. Collapsible sidebar (app.tsx)
 
-Promoted state comes from a single `listLeads` query reused as a Set of `company_id`s.
+Add a collapse/expand control to the desktop sidebar:
+- Toggle button (Chevron icon) in the sidebar header, persists state in `localStorage` (`sidebar:collapsed`)
+- Collapsed width: `w-16` (icon-only), expanded: `w-64`
+- When collapsed: hide labels, hide brand text (keep icon), center nav icons, tooltip on hover via `title` attr
+- Smooth `transition-[width]`
+- Mobile (Sheet) behavior unchanged
 
-## 4. UI — Leads module
+## Technical notes
 
-New route `src/routes/_authenticated/app.leads.tsx` (`/app/leads`).
+- Routes: add `src/routes/_authenticated/app.leads.$id.tsx` — `routeTree.gen.ts` regenerates automatically.
+- Navigation from list card: `<Link to="/app/leads/$id" params={{ id: lead.id }}>` wrapper; inner action buttons use `e.stopPropagation()` + `e.preventDefault()`.
+- Status pills + WhatsApp link helper extracted into a small shared module `src/lib/leads-ui.ts` (statusStyles map, waHref function) so list and detail both use them.
+- No DB migration needed. No changes to extraction/quick-add flow.
 
-- Sidebar entry "Leads" added to the main app shell (next to Prospects). Icon: lucide `Flame`.
-- Header: page title + sort dropdown (`Sort: High Priority` — orders HOT > WARM > COLD > FROZEN > DEAD, then most recent activity).
-- Stat cards (compact, top of page):
-  - **Hot Leads** count (flame icon)
-  - **Pipeline Value** = sum of `pipeline_value_cents`
-  - **Conversion Quota** placeholder (static for v1, e.g. won/total once we add a `won` flag — for now show count of HOT vs total as %).
-- **Priority Queue** list — each row:
-  - Avatar (initials chip from contact name).
-  - Contact name + "`{role placeholder}` @ {company}".
-  - Status pill group: HOT / WARM / COLD / FROZEN / DEAD — clicking a pill updates `status` inline (optimistic).
-  - Right side: last activity kind badge + relative time + truncated note.
-  - **WhatsApp button** (green, lucide `MessageCircle` styled or inline SVG) — `href="https://wa.me/{digits}"`, `target="_blank"`. Shown only when `whatsapp` is set; otherwise a muted "Add WhatsApp" button opens an inline edit popover.
-  - Email button → `mailto:{contact_email}`.
-- Row click opens a side `Sheet` (shadcn) with editable fields: contact name, email, whatsapp (with country-code helper text), pipeline value, quick note (creates a `last_activity_*` entry on save).
+## Out of scope
 
-Empty state when no leads: "Promote a prospect from the Prospects page using the 🔥 icon."
-
-## 5. WhatsApp deep link
-
-Helper `waHref(whatsapp: string)` strips non-digits and returns `https://wa.me/${digits}`. User stores number like `971501234567` (country code + number, no `+`, no spaces). Input shows hint: "Include country code without +, e.g. 971501234567".
-
-## 6. Out of scope (deferred)
-
-- Activity log writes from the WhatsApp / email buttons (we only record activity from the manual quick-note field in v1).
-- Won/Lost stages & conversion-quota math beyond the simple HOT% indicator.
-- Bulk promote, drag-and-drop pipeline view, Kanban.
-- Editing prospects' `contact_email` from the Leads sheet writing back to `companies`.
-
-## Files
-
-- New migration `supabase/migrations/{ts}_leads.sql`.
-- New `src/lib/leads.functions.ts`.
-- New `src/routes/_authenticated/app.leads.tsx`.
-- Edit `src/routes/_authenticated/app.tsx` (sidebar nav entry).
-- Edit `src/routes/_authenticated/app.prospects.index.tsx` (Flame icon + promote action).
+- Full multi-entry activity history table (still single last_activity_* fields). Can be a follow-up if you want a real timeline like Prospects.

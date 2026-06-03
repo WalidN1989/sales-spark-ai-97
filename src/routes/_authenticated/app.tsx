@@ -1,6 +1,17 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
-import { Users, BarChart3, MapPin, Settings, LogOut, Menu, Briefcase, Flame } from "lucide-react";
-import { useState } from "react";
+import {
+  Users,
+  BarChart3,
+  MapPin,
+  Settings,
+  LogOut,
+  Menu,
+  Briefcase,
+  Flame,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -16,6 +27,16 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("sidebar:collapsed") === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sidebar:collapsed", collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
 
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
@@ -30,7 +51,13 @@ function AppShell() {
     navigate({ to: "/login" });
   };
 
-  const NavLinks = ({ onClick }: { onClick?: () => void }) => (
+  const NavLinks = ({
+    onClick,
+    iconOnly = false,
+  }: {
+    onClick?: () => void;
+    iconOnly?: boolean;
+  }) => (
     <nav className="flex flex-col gap-1">
       {nav.map((n) => {
         const Icon = n.icon;
@@ -40,13 +67,15 @@ function AppShell() {
             key={n.to}
             to={n.to}
             onClick={onClick}
+            title={iconOnly ? n.label : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
+              iconOnly ? "justify-center px-2 py-2" : "px-3 py-2",
               active ? "bg-primary text-primary-foreground" : "hover:bg-accent",
             )}
           >
             <Icon className="h-4 w-4" />
-            {n.label}
+            {!iconOnly && n.label}
           </Link>
         );
       })}
@@ -56,16 +85,51 @@ function AppShell() {
   return (
     <div className="flex min-h-screen bg-muted/20">
       {/* Sidebar - desktop */}
-      <aside className="hidden w-64 flex-col border-r bg-card p-4 md:flex">
-        <div className="mb-6 flex items-center gap-2 px-2">
-          <Briefcase className="h-5 w-5 text-primary" />
-          <span className="font-semibold">Sales Insights</span>
+      <aside
+        className={cn(
+          "hidden flex-col border-r bg-card p-3 md:flex transition-[width] duration-200",
+          collapsed ? "w-16" : "w-64 p-4",
+        )}
+      >
+        <div
+          className={cn(
+            "mb-6 flex items-center gap-2",
+            collapsed ? "justify-center px-0" : "px-2 justify-between",
+          )}
+        >
+          {!collapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Briefcase className="h-5 w-5 text-primary shrink-0" />
+              <span className="font-semibold truncate">Sales Insights</span>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed((v) => !v)}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="h-8 w-8"
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        <NavLinks />
+        <NavLinks iconOnly={collapsed} />
         <div className="mt-auto pt-4">
-          {isAdmin && <p className="px-3 pb-2 text-xs text-muted-foreground">Admin</p>}
-          <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" /> Sign out
+          {isAdmin && !collapsed && (
+            <p className="px-3 pb-2 text-xs text-muted-foreground">Admin</p>
+          )}
+          <Button
+            variant="ghost"
+            className={cn("w-full", collapsed ? "justify-center px-0" : "justify-start")}
+            onClick={signOut}
+            title={collapsed ? "Sign out" : undefined}
+          >
+            <LogOut className={cn("h-4 w-4", !collapsed && "mr-2")} />
+            {!collapsed && "Sign out"}
           </Button>
         </div>
       </aside>
