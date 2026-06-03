@@ -17,6 +17,21 @@ export const listLeads = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+export const getLead = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("leads")
+      .select(
+        "id, company_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, created_at, updated_at, companies:company_id(name, domain, country, industry)",
+      )
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
 export const promoteToLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
