@@ -57,9 +57,19 @@ function LeadDetail() {
     }
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  type Patch = {
+    status?: LeadStatus;
+    contact_person?: string | null;
+    contact_email?: string | null;
+    whatsapp?: string | null;
+    pipeline_value_cents?: number;
+    last_activity_kind?: ActivityKind | null;
+    last_activity_note?: string | null;
+    touch_activity?: boolean;
+  };
+
   const update = useMutation({
-    mutationFn: (patch: Parameters<typeof updateFn>[0]["data"]["patch"]) =>
-      updateFn({ data: { id, patch } }),
+    mutationFn: (patch: Patch) => updateFn({ data: { id, patch } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lead", id] });
       qc.invalidateQueries({ queryKey: ["leads"] });
