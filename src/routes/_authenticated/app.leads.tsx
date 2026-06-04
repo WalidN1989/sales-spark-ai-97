@@ -258,6 +258,8 @@ function QuickAddLeadDialog({
   const [contact, setContact] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState("");
   const [product, setProduct] = useState("");
   const [note, setNote] = useState("");
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
@@ -267,6 +269,8 @@ function QuickAddLeadDialog({
     setContact("");
     setWhatsapp("");
     setEmail("");
+    setCompanyName("");
+    setWebsite("");
     setProduct("");
     setNote("");
     setExtracted(new Set());
@@ -279,6 +283,8 @@ function QuickAddLeadDialog({
       if (r.contact_person) { setContact(r.contact_person); tags.add("contact"); }
       if (r.whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
       if (r.contact_email) { setEmail(r.contact_email); tags.add("email"); }
+      if (r.company_name) { setCompanyName(r.company_name); tags.add("company"); }
+      if (r.website) { setWebsite(r.website); tags.add("website"); }
       if (r.product) { setProduct(r.product); tags.add("product"); }
       if (r.note) { setNote(r.note); tags.add("note"); }
       setExtracted(tags);
@@ -294,6 +300,8 @@ function QuickAddLeadDialog({
           contact_person: contact || null,
           whatsapp,
           contact_email: email || null,
+          company_name: companyName || null,
+          website: website || null,
           product: product || null,
           note: note || null,
         },
