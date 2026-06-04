@@ -1,53 +1,80 @@
 
-## Goal
+## Goals
 
-Make Leads feel like Prospects: a card grid for the list, a full-page detail view when you click a lead (no more cramped right-side panel), and a collapsible sidebar so the work area can breathe.
+Enhance the Leads module so a WhatsApp-only lead can grow into a fully-profiled contact over time, fix the currency + activity log bugs, and add expertise keywords + supporting docs that will later feed an AI matching engine.
 
-## 1. Leads list → grid (app.leads.tsx)
+## 1. Lead detail — schema + UI
 
-Keep the header (title + Add Lead) and the 3 stat cards (Hot Leads / Pipeline Value / Hot Ratio) as they are now.
+Add columns to `public.leads`:
+- `company_name text` (manual entry, optional)
+- `website text` (manual or auto-derived from email domain)
+- `brands text[]` (e.g. "HP", "Logitech")
+- `products_services text[]` (e.g. "Laptop accessories", "Toner")
+- `notes text` (free-form expertise / context summary)
 
-Replace the "Priority Queue" stacked list with a responsive card grid (`grid-cols-1 md:grid-cols-2 xl:grid-cols-3`, gap-4), mirroring the Prospects grid styling.
+New table `public.lead_documents`:
+- `id, lead_id, user_id, label text ('trade_license'|'vat_certificate'|'other'), file_name, storage_path, mime_type, size_bytes, created_at`
+- RLS scoped to `user_id`; GRANTs for `authenticated` + `service_role`.
 
-Each lead card shows:
-- Top row: contact initials avatar + name + status pill (HOT/WARM/COLD/FROZEN/DEAD) in top-right, colored like today
-- Company line (`@ Company` or "WhatsApp lead")
-- Email (muted) and WhatsApp number (muted) if present
-- Pipeline value (if > 0)
-- Last activity snippet (italic, truncated) + "Xd ago"
-- Footer row: WhatsApp button (green, opens wa.me link, stopPropagation) and Email button (stopPropagation)
-- Whole card is clickable → navigates to `/app/leads/$id`
+New storage bucket `lead-documents` (private). RLS on `storage.objects` so a user can read/write only under `{user_id}/...`.
 
-Remove the right-side Sheet entirely from the list page.
+New table `public.lead_activities` (proper multi-entry log):
+- `id, lead_id, user_id, kind ('note'|'email'|'call'|'meeting'|'log'), body text, created_at`
+- RLS by `user_id`; GRANTs added.
+- Keep existing `last_activity_*` columns on `leads` and update them via trigger after each insert so the grid card "last activity" still works.
 
-## 2. Full-page Lead detail (new route)
+## 2. Lead detail page (`app.leads.$id.tsx`)
 
-New file: `src/routes/_authenticated/app.leads.$id.tsx`, styled like `app.prospects.$id.tsx`.
+Layout becomes a 2-column stack on lg, single column on md:
 
-Layout:
-- Back link + Delete button at top
-- Header card: avatar, contact name, company name link (if linked to a prospect, link back to `/app/prospects/$id`), status pill row (clickable to change status), WhatsApp + Email buttons, pipeline value
-- Editable fields section (contact name, email, WhatsApp, pipeline value) — same fields that were in the Sheet, now laid out as a proper form with breathing room
-- Activity log section: dropdown (Note/Email/Call/Meeting) + textarea + "Log entry" button, then a list of past entries (reuses last_activity_* for now; full history could come later)
+```
+┌─ Header card ──────────────────────────────────────┐
+│ Avatar | Name + (company_name @ website-favicon)   │
+│ Status pills      [WhatsApp] [Email] [Open site]   │
+└────────────────────────────────────────────────────┘
+┌─ Lead info ───────────┐ ┌─ Activity log ──────────┐
+│ Contact / Email / WA  │ │ + New entry (kind+body) │
+│ Company name (manual) │ │ Timeline (all entries,  │
+│ Website (manual/auto) │ │  newest first, badges)  │
+│ Pipeline value (AED)  │ └─────────────────────────┘
+└───────────────────────┘
+┌─ Expertise ───────────┐ ┌─ Documents ─────────────┐
+│ Brands (tag input)    │ │ Upload (Trade License,  │
+│ Products/Services tag │ │  VAT Cert, Other)       │
+│ Notes (textarea)      │ │ List + download + del   │
+└───────────────────────┘ └─────────────────────────┘
+```
 
-Server functions: `listLeads` already returns enough. Add a `getLead(id)` server fn that returns single lead with company join. Reuse existing `updateLead` and `deleteLead`.
+Details:
+- **Currency**: replace "USD" label with "AED"; format via `Intl.NumberFormat('en-AE', { style:'currency', currency:'AED', maximumFractionDigits:0 })`. Update `fmtMoneyCents` in `leads-ui.ts` (and any reused call site) — grid cards reflect AED automatically.
+- **Website logo**: if `website` set → render Google favicon `https://www.google.com/s2/favicons?domain=<host>&sz=64` as a clickable chip → opens site in new tab. If empty but `contact_email` has a non-free domain (not gmail/yahoo/outlook/hotmail/icloud/proton), auto-suggest the domain on save.
+- **Activity log fix**: replace the single `last_activity_note` view with a scrollable timeline reading from `lead_activities` (TanStack Query `listLeadActivities`). Composer at top, list below, each entry with kind badge + timestamp + body.
+- **Documents**: drag/drop or click upload to `lead-documents/{user_id}/{lead_id}/{uuid}-{filename}`. Select label (Trade License / VAT Certificate / Other) before upload. Show filename, label badge, size, signed URL download, delete. Cap 10 MB/file, accept pdf/jpg/png/webp.
+- **Brands & products**: tag-input components (chip add/remove). Persist as arrays.
 
-## 3. Collapsible sidebar (app.tsx)
+## 3. Quick-add dialog (already exists in `app.leads.tsx`)
 
-Add a collapse/expand control to the desktop sidebar:
-- Toggle button (Chevron icon) in the sidebar header, persists state in `localStorage` (`sidebar:collapsed`)
-- Collapsed width: `w-16` (icon-only), expanded: `w-64`
-- When collapsed: hide labels, hide brand text (keep icon), center nav icons, tooltip on hover via `title` attr
-- Smooth `transition-[width]`
-- Mobile (Sheet) behavior unchanged
+- Add **Company Name (optional)** and **Website (optional)** fields between Contact Name and WhatsApp.
+- Keep AI extraction tool; extend tool schema with `company_name` and `website` so Gemini fills them from screenshot when visible (still optional).
+- Persist via updated `createQuickLead` server fn.
 
-## Technical notes
+## 4. Server functions (`src/lib/leads.functions.ts`)
 
-- Routes: add `src/routes/_authenticated/app.leads.$id.tsx` — `routeTree.gen.ts` regenerates automatically.
-- Navigation from list card: `<Link to="/app/leads/$id" params={{ id: lead.id }}>` wrapper; inner action buttons use `e.stopPropagation()` + `e.preventDefault()`.
-- Status pills + WhatsApp link helper extracted into a small shared module `src/lib/leads-ui.ts` (statusStyles map, waHref function) so list and detail both use them.
-- No DB migration needed. No changes to extraction/quick-add flow.
+- Extend `updateLead` patch schema with `company_name`, `website`, `brands`, `products_services`, `notes`.
+- New `listLeadActivities({ leadId })`, `addLeadActivity({ leadId, kind, body })`, `deleteLeadActivity({ id })`.
+- New `listLeadDocuments({ leadId })`, `createLeadDocumentSignedUploadUrl({ leadId, fileName, label, mimeType, sizeBytes })` → returns signed upload URL + row insert id, `getLeadDocumentDownloadUrl({ id })`, `deleteLeadDocument({ id })`.
+- Extend AI extract tool schema and `createQuickLead` validator with `company_name` and `website`.
 
-## Out of scope
+## 5. Out of scope (will be follow-ups)
 
-- Full multi-entry activity history table (still single last_activity_* fields). Can be a follow-up if you want a real timeline like Prospects.
+- The Claude/Deepgram voice agent and OCR supplier-match flow — schema lands now (brands, products_services, notes, docs) so it has the data, UI for it ships later.
+- Migrating existing `pipeline_value_cents` from USD to AED values — treated as relabel only (numbers untouched per user clarification needed if they want conversion). Assumption: relabel only.
+
+## Files touched
+
+- migration: add columns to `leads`, new tables `lead_activities` + `lead_documents` (with GRANTs + RLS + trigger), bucket `lead-documents` + storage RLS
+- `src/lib/leads.functions.ts` — new + extended server fns
+- `src/lib/leads-ui.ts` — `fmtMoneyAed`, favicon helper, free-email-domain list
+- `src/routes/_authenticated/app.leads.tsx` — quick-add dialog fields + AED labels on cards
+- `src/routes/_authenticated/app.leads.$id.tsx` — new sections (company/website, expertise, activity timeline, documents)
+- new small components: `TagInput`, `DocumentUploader`, `ActivityTimeline` under `src/components/leads/`
