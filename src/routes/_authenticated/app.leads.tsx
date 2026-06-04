@@ -424,6 +424,31 @@ function QuickAddLeadDialog({
             </div>
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Company name {tag("company")}
+              </Label>
+              <Input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                maxLength={200}
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Website {tag("website")}
+              </Label>
+              <Input
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                maxLength={300}
+                placeholder="example.com (optional)"
+              />
+            </div>
+          </div>
+
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
               Product requested {tag("product")}
