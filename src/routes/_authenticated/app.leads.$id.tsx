@@ -102,7 +102,18 @@ function LeadDetail() {
     }
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  type Patch = Parameters<typeof updateFn>[0]["data"]["patch"];
+  type Patch = {
+    status?: LeadStatus;
+    contact_person?: string | null;
+    contact_email?: string | null;
+    whatsapp?: string | null;
+    pipeline_value_cents?: number;
+    company_name?: string | null;
+    website?: string | null;
+    brands?: string[];
+    products_services?: string[];
+    notes?: string | null;
+  };
 
   const update = useMutation({
     mutationFn: (patch: Patch) => updateFn({ data: { id, patch } }),
