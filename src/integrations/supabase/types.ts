@@ -115,9 +115,90 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_activities: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          kind: string
+          lead_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          kind: string
+          lead_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lead_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          label: string
+          lead_id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          label: string
+          lead_id: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          label?: string
+          lead_id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_documents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
+          brands: string[]
           company_id: string | null
+          company_name: string | null
           contact_email: string | null
           contact_person: string | null
           created_at: string
@@ -125,14 +206,19 @@ export type Database = {
           last_activity_at: string | null
           last_activity_kind: string | null
           last_activity_note: string | null
+          notes: string | null
           pipeline_value_cents: number
+          products_services: string[]
           status: string
           updated_at: string
           user_id: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
+          brands?: string[]
           company_id?: string | null
+          company_name?: string | null
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
@@ -140,14 +226,19 @@ export type Database = {
           last_activity_at?: string | null
           last_activity_kind?: string | null
           last_activity_note?: string | null
+          notes?: string | null
           pipeline_value_cents?: number
+          products_services?: string[]
           status?: string
           updated_at?: string
           user_id: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
+          brands?: string[]
           company_id?: string | null
+          company_name?: string | null
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
@@ -155,10 +246,13 @@ export type Database = {
           last_activity_at?: string | null
           last_activity_kind?: string | null
           last_activity_note?: string | null
+          notes?: string | null
           pipeline_value_cents?: number
+          products_services?: string[]
           status?: string
           updated_at?: string
           user_id?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: [
