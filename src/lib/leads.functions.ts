@@ -3,15 +3,18 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead"]);
+const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
+const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
+
+const LEAD_SELECT =
+  "id, company_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, created_at, updated_at, companies:company_id(name, domain, country, industry)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("leads")
-      .select(
-        "id, company_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, created_at, companies:company_id(name, domain, country, industry)",
-      )
+      .select(LEAD_SELECT)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -23,9 +26,7 @@ export const getLead = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: row, error } = await context.supabase
       .from("leads")
-      .select(
-        "id, company_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, created_at, updated_at, companies:company_id(name, domain, country, industry)",
-      )
+      .select(LEAD_SELECT)
       .eq("id", data.id)
       .single();
     if (error) throw new Error(error.message);
@@ -38,7 +39,6 @@ export const promoteToLead = createServerFn({ method: "POST" })
     z.object({ companyId: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    // Idempotent: return existing if present
     const { data: existing } = await context.supabase
       .from("leads")
       .select("id")
@@ -49,7 +49,7 @@ export const promoteToLead = createServerFn({ method: "POST" })
 
     const { data: company, error: cErr } = await context.supabase
       .from("companies")
-      .select("contact_person, email")
+      .select("contact_person, email, name, domain")
       .eq("id", data.companyId)
       .single();
     if (cErr) throw new Error(cErr.message);
@@ -61,6 +61,8 @@ export const promoteToLead = createServerFn({ method: "POST" })
         company_id: data.companyId,
         contact_person: company.contact_person,
         contact_email: company.email,
+        company_name: company.name,
+        website: company.domain,
         status: "warm",
       })
       .select("id")
@@ -68,6 +70,8 @@ export const promoteToLead = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { id: row.id, created: true };
   });
+
+const stringTagArray = z.array(z.string().trim().min(1).max(80)).max(50);
 
 const patchSchema = z
   .object({
@@ -81,9 +85,11 @@ const patchSchema = z
       .nullable()
       .optional(),
     pipeline_value_cents: z.number().int().min(0).max(1_000_000_000_00).optional(),
-    last_activity_kind: z.enum(["note", "email", "call", "meeting", "log"]).nullable().optional(),
-    last_activity_note: z.string().max(1000).nullable().optional(),
-    touch_activity: z.boolean().optional(),
+    company_name: z.string().max(200).nullable().optional(),
+    website: z.string().max(300).nullable().optional(),
+    brands: stringTagArray.optional(),
+    products_services: stringTagArray.optional(),
+    notes: z.string().max(4000).nullable().optional(),
   })
   .strict();
 
@@ -93,16 +99,9 @@ export const updateLead = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), patch: patchSchema }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const { touch_activity, ...patch } = data.patch;
-    const finalPatch = {
-      ...patch,
-      ...(touch_activity || patch.last_activity_note || patch.last_activity_kind
-        ? { last_activity_at: new Date().toISOString() }
-        : {}),
-    };
     const { error } = await context.supabase
       .from("leads")
-      .update(finalPatch)
+      .update(data.patch)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -113,6 +112,186 @@ export const deleteLead = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("leads").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---- Activity log ----
+
+export const listLeadActivities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("lead_activities")
+      .select("id, kind, body, created_at")
+      .eq("lead_id", data.leadId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const addLeadActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leadId: z.string().uuid(),
+        kind: activityKindEnum,
+        body: z.string().trim().min(1).max(2000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("lead_activities")
+      .insert({
+        lead_id: data.leadId,
+        user_id: context.userId,
+        kind: data.kind,
+        body: data.body,
+      })
+      .select("id, kind, body, created_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const deleteLeadActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("lead_activities")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---- Documents ----
+
+const MAX_DOC_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+export const listLeadDocuments = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("lead_documents")
+      .select("id, lead_id, label, file_name, storage_path, mime_type, size_bytes, created_at")
+      .eq("lead_id", data.leadId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const createLeadDocumentUploadUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leadId: z.string().uuid(),
+        fileName: z.string().trim().min(1).max(200),
+        mimeType: z.string().trim().min(1).max(120),
+        sizeBytes: z.number().int().min(1).max(MAX_DOC_BYTES),
+        label: docLabelEnum,
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    if (!ALLOWED_MIME.has(data.mimeType)) {
+      throw new Error("Only PDF, PNG, JPG or WebP files are allowed");
+    }
+    // Verify lead ownership (RLS will also enforce on insert)
+    const { data: lead, error: lErr } = await context.supabase
+      .from("leads")
+      .select("id")
+      .eq("id", data.leadId)
+      .maybeSingle();
+    if (lErr) throw new Error(lErr.message);
+    if (!lead) throw new Error("Lead not found");
+
+    const safeName = data.fileName.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
+    const path = `${context.userId}/${data.leadId}/${crypto.randomUUID()}-${safeName}`;
+    const { data: signed, error: sErr } = await context.supabase.storage
+      .from("lead-documents")
+      .createSignedUploadUrl(path);
+    if (sErr) throw new Error(sErr.message);
+    return { path, token: signed.token, signedUrl: signed.signedUrl };
+  });
+
+export const registerLeadDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        leadId: z.string().uuid(),
+        label: docLabelEnum,
+        fileName: z.string().min(1).max(200),
+        storagePath: z.string().min(1).max(500),
+        mimeType: z.string().max(120),
+        sizeBytes: z.number().int().min(0).max(MAX_DOC_BYTES),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("lead_documents")
+      .insert({
+        lead_id: data.leadId,
+        user_id: context.userId,
+        label: data.label,
+        file_name: data.fileName,
+        storage_path: data.storagePath,
+        mime_type: data.mimeType,
+        size_bytes: data.sizeBytes,
+      })
+      .select("id, lead_id, label, file_name, storage_path, mime_type, size_bytes, created_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const getLeadDocumentDownloadUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("lead_documents")
+      .select("storage_path")
+      .eq("id", data.id)
+      .single();
+    if (error) throw new Error(error.message);
+    const { data: signed, error: sErr } = await context.supabase.storage
+      .from("lead-documents")
+      .createSignedUrl(row.storage_path, 60 * 5);
+    if (sErr) throw new Error(sErr.message);
+    return { url: signed.signedUrl };
+  });
+
+export const deleteLeadDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: row, error: gErr } = await context.supabase
+      .from("lead_documents")
+      .select("storage_path")
+      .eq("id", data.id)
+      .single();
+    if (gErr) throw new Error(gErr.message);
+    await context.supabase.storage.from("lead-documents").remove([row.storage_path]);
+    const { error } = await context.supabase
+      .from("lead_documents")
+      .delete()
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -135,6 +314,8 @@ const quickLeadSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal("").transform(() => null)),
+  company_name: z.string().trim().max(200).optional().nullable(),
+  website: z.string().trim().max(300).optional().nullable(),
   product: z.string().trim().max(500).optional().nullable(),
   note: z.string().trim().max(1000).optional().nullable(),
 });
@@ -146,7 +327,7 @@ export const createQuickLead = createServerFn({ method: "POST" })
     const parts: string[] = [];
     if (data.product) parts.push(`Product: ${data.product}`);
     if (data.note) parts.push(data.note);
-    const activityNote = parts.join("\n\n") || null;
+    const activityBody = parts.join("\n\n");
 
     const { data: row, error } = await context.supabase
       .from("leads")
@@ -156,14 +337,22 @@ export const createQuickLead = createServerFn({ method: "POST" })
         contact_person: data.contact_person || null,
         contact_email: data.contact_email || null,
         whatsapp: data.whatsapp,
+        company_name: data.company_name || null,
+        website: data.website || null,
         status: "warm",
-        last_activity_kind: activityNote ? "note" : null,
-        last_activity_note: activityNote,
-        last_activity_at: activityNote ? new Date().toISOString() : null,
       })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+
+    if (activityBody) {
+      await context.supabase.from("lead_activities").insert({
+        lead_id: row.id,
+        user_id: context.userId,
+        kind: "note",
+        body: activityBody,
+      });
+    }
     return { id: row.id };
   });
 
@@ -173,10 +362,12 @@ const extractToolSchema = {
     contact_person: { type: ["string", "null"], description: "Name of the contact if visible, else null" },
     whatsapp: { type: ["string", "null"], description: "Phone/WhatsApp number including country code, digits/+ only, else null" },
     contact_email: { type: ["string", "null"] },
+    company_name: { type: ["string", "null"], description: "Company / business name if visible" },
+    website: { type: ["string", "null"], description: "Company website / domain if visible" },
     product: { type: ["string", "null"], description: "Product or service the customer is asking about, if mentioned" },
     note: { type: ["string", "null"], description: "Short summary of the customer's request (one or two sentences)" },
   },
-  required: ["contact_person", "whatsapp", "contact_email", "product", "note"],
+  required: ["contact_person", "whatsapp", "contact_email", "company_name", "website", "product", "note"],
 } as const;
 
 export const extractLeadFromImage = createServerFn({ method: "POST" })
@@ -205,7 +396,7 @@ export const extractLeadFromImage = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You read screenshots of WhatsApp chats. OCR the image and extract the customer lead details. The phone number is usually at the top of the chat header. The contact name may be a sender name or signature inside a message. Identify the product/service they are asking about from the chat. Always call the extract_lead tool. Use null for any field you cannot find.",
+              "You read screenshots of WhatsApp chats. OCR the image and extract the customer lead details. The phone number is usually at the top of the chat header. The contact name may be a sender name or signature inside a message. Identify the product/service they are asking about. If a company name or website/domain is mentioned in a message, signature, or email, extract it. Always call the extract_lead tool. Use null for any field you cannot find.",
           },
           {
             role: "user",
@@ -236,6 +427,8 @@ export const extractLeadFromImage = createServerFn({ method: "POST" })
       contact_person: string | null;
       whatsapp: string | null;
       contact_email: string | null;
+      company_name: string | null;
+      website: string | null;
       product: string | null;
       note: string | null;
     };

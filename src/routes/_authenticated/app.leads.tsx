@@ -258,6 +258,8 @@ function QuickAddLeadDialog({
   const [contact, setContact] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [website, setWebsite] = useState("");
   const [product, setProduct] = useState("");
   const [note, setNote] = useState("");
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
@@ -267,6 +269,8 @@ function QuickAddLeadDialog({
     setContact("");
     setWhatsapp("");
     setEmail("");
+    setCompanyName("");
+    setWebsite("");
     setProduct("");
     setNote("");
     setExtracted(new Set());
@@ -279,6 +283,8 @@ function QuickAddLeadDialog({
       if (r.contact_person) { setContact(r.contact_person); tags.add("contact"); }
       if (r.whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
       if (r.contact_email) { setEmail(r.contact_email); tags.add("email"); }
+      if (r.company_name) { setCompanyName(r.company_name); tags.add("company"); }
+      if (r.website) { setWebsite(r.website); tags.add("website"); }
       if (r.product) { setProduct(r.product); tags.add("product"); }
       if (r.note) { setNote(r.note); tags.add("note"); }
       setExtracted(tags);
@@ -294,6 +300,8 @@ function QuickAddLeadDialog({
           contact_person: contact || null,
           whatsapp,
           contact_email: email || null,
+          company_name: companyName || null,
+          website: website || null,
           product: product || null,
           note: note || null,
         },
@@ -412,6 +420,31 @@ function QuickAddLeadDialog({
                 maxLength={30}
                 placeholder="+971 50 753 1457"
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Company name {tag("company")}
+              </Label>
+              <Input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                maxLength={200}
+                placeholder="Optional"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Website {tag("website")}
+              </Label>
+              <Input
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                maxLength={300}
+                placeholder="example.com (optional)"
               />
             </div>
           </div>
