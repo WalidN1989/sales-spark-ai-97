@@ -146,10 +146,48 @@ function LeadDetail() {
     },
   });
 
+  const setStatusManual = useMutation({
+    mutationFn: (status: LeadStatus) => setStatusFn({ data: { id, status } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clearOverride = useMutation({
+    mutationFn: () => clearOverrideFn({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      toast.success("Auto-scoring re-enabled");
+    },
+  });
+
+  const verify = useMutation({
+    mutationFn: () => verifyFn({ data: { leadId: id } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success(`Email ${r.email_status}${r.email_score != null ? ` · ${r.email_score}` : ""}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!lead) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
-  const l = lead as typeof lead & { status: LeadStatus };
+  const l = lead as typeof lead & {
+    status: LeadStatus;
+    job_title: string | null;
+    lead_score: number | null;
+    email_status: EmailStatusUI | null;
+    email_score: number | null;
+    last_verified_at: string | null;
+    lead_score_manual_override: boolean;
+  };
 
   // Auto-suggest website from a business email domain
   const suggestedDomain =
@@ -158,6 +196,7 @@ function LeadDetail() {
   const effectiveHost = hostFromWebsite(effectiveWebsite);
   const websiteHref = normalizeWebsite(effectiveWebsite);
   const favicon = faviconUrl(effectiveWebsite);
+  const sb = scoreBucket(l.lead_score);
 
   const handleSave = async () => {
     await update.mutateAsync({
@@ -166,6 +205,7 @@ function LeadDetail() {
       whatsapp: wa || null,
       company_name: companyName || null,
       website: website || (suggestedDomain ?? null),
+      job_title: jobTitle || null,
       pipeline_value_cents: Math.max(0, Math.round(Number(value || "0") * 100)),
       brands,
       products_services: products,
