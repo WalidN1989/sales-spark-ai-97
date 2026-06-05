@@ -308,7 +308,7 @@ function QuickAddLeadDialog({
   const createFn = useServerFn(createQuickLead);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [contact, setContact] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
@@ -319,7 +319,7 @@ function QuickAddLeadDialog({
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
 
   const reset = () => {
-    setImageDataUrl(null);
+    setImages([]);
     setContact("");
     setWhatsapp("");
     setEmail("");
@@ -333,16 +333,19 @@ function QuickAddLeadDialog({
   const extract = useMutation({
     mutationFn: (url: string) => extractFn({ data: { imageDataUrl: url } }),
     onSuccess: (r) => {
-      const tags = new Set<string>();
-      if (r.contact_person) { setContact(r.contact_person); tags.add("contact"); }
-      if (r.whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
-      if (r.contact_email) { setEmail(r.contact_email); tags.add("email"); }
-      if (r.company_name) { setCompanyName(r.company_name); tags.add("company"); }
-      if (r.website) { setWebsite(r.website); tags.add("website"); }
-      if (r.product) { setProduct(r.product); tags.add("product"); }
-      if (r.note) { setNote(r.note); tags.add("note"); }
+      const tags = new Set<string>(extracted);
+      // Merge: only fill empty fields so multiple images stack info
+      if (r.contact_person && !contact) { setContact(r.contact_person); tags.add("contact"); }
+      if (r.whatsapp && !whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
+      if (r.contact_email && !email) { setEmail(r.contact_email); tags.add("email"); }
+      if (r.company_name && !companyName) { setCompanyName(r.company_name); tags.add("company"); }
+      if (r.website && !website) { setWebsite(r.website); tags.add("website"); }
+      if (r.product && !product) { setProduct(r.product); tags.add("product"); }
+      if (r.note) {
+        setNote((n) => (n ? `${n}\n${r.note}` : r.note!));
+        tags.add("note");
+      }
       setExtracted(tags);
-      toast.success(`Detected ${tags.size} field${tags.size === 1 ? "" : "s"}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -368,19 +371,47 @@ function QuickAddLeadDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleFile = (file: File) => {
-    if (file.size > 6 * 1024 * 1024) {
-      toast.error("Image must be under 6 MB");
-      return;
+  const handleFiles = (files: File[] | FileList) => {
+    const arr = Array.from(files).slice(0, 10);
+    for (const file of arr) {
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > 6 * 1024 * 1024) {
+        toast.error(`${file.name || "Image"} is over 6 MB — skipped`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = String(reader.result || "");
+        setImages((prev) => [...prev, url]);
+        extract.mutate(url);
+      };
+      reader.readAsDataURL(file);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result || "");
-      setImageDataUrl(url);
-      extract.mutate(url);
-    };
-    reader.readAsDataURL(file);
   };
+
+  // Paste images directly (Ctrl/Cmd + V) while dialog is open
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.kind === "file" && it.type.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+        toast.success(`Pasted ${files.length} image${files.length === 1 ? "" : "s"}`);
+      }
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tag = (k: string) =>
     extracted.has(k) ? (
