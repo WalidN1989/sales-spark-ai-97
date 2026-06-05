@@ -79,6 +79,9 @@ function LeadDetail() {
   const getFn = useServerFn(getLead);
   const updateFn = useServerFn(updateLead);
   const deleteFn = useServerFn(deleteLead);
+  const setStatusFn = useServerFn(setLeadStatusManual);
+  const clearOverrideFn = useServerFn(clearLeadStatusOverride);
+  const verifyFn = useServerFn(hunterVerifyEmail);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
@@ -90,6 +93,7 @@ function LeadDetail() {
   const [wa, setWa] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [value, setValue] = useState("0");
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
@@ -102,6 +106,7 @@ function LeadDetail() {
       setWa(lead.whatsapp ?? "");
       setCompanyName(lead.company_name ?? "");
       setWebsite(lead.website ?? "");
+      setJobTitle((lead as { job_title?: string | null }).job_title ?? "");
       setValue(String((lead.pipeline_value_cents ?? 0) / 100));
       setBrands((lead.brands as string[] | null) ?? []);
       setProducts((lead.products_services as string[] | null) ?? []);
@@ -120,6 +125,7 @@ function LeadDetail() {
     brands?: string[];
     products_services?: string[];
     notes?: string | null;
+    job_title?: string | null;
   };
 
   const update = useMutation({
