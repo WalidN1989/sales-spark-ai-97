@@ -172,7 +172,11 @@ export function RespondTab({
     if (!responseId || !draft.trim()) return;
     try {
       await saveAct({ data: { responseId, finalText: draft } });
-      qc.invalidateQueries({ queryKey: ["company", companyId] });
+      if (companyId) qc.invalidateQueries({ queryKey: ["company", companyId] });
+      if (leadId) {
+        qc.invalidateQueries({ queryKey: ["lead-activities", leadId] });
+        qc.invalidateQueries({ queryKey: ["lead", leadId] });
+      }
       toast.success("Saved to activity log");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
