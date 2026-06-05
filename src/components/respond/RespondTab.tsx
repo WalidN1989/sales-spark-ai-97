@@ -145,7 +145,8 @@ export function RespondTab({
     mutationFn: () =>
       gen({
         data: {
-          companyId,
+          companyId: companyId ?? null,
+          leadId: leadId ?? null,
           engine,
           inputText,
           notes: notes || null,
