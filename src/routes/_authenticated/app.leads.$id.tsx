@@ -18,6 +18,8 @@ import {
   getLead,
   updateLead,
   deleteLead,
+  setLeadStatusManual,
+  clearLeadStatusOverride,
   listLeadActivities,
   addLeadActivity,
   deleteLeadActivity,
@@ -27,6 +29,7 @@ import {
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
 } from "@/lib/leads.functions";
+import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +55,10 @@ import {
   DOC_LABELS,
   type DocLabel,
   fmtFileSize,
+  scoreBucket,
+  EMAIL_STATUS_STYLES,
+  EMAIL_STATUS_LABEL,
+  type EmailStatusUI,
 } from "@/lib/leads-ui";
 import { TagInput } from "@/components/leads/TagInput";
 import { cn } from "@/lib/utils";
