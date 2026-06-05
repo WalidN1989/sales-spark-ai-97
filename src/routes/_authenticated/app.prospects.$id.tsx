@@ -134,12 +134,18 @@ function CompanyProfile() {
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
         </Button>
-        {can("prospects", "delete") && (
-          <Button variant="ghost" size="sm" onClick={handleDelete}>
-            <Trash2 className="mr-1 h-4 w-4" /> Delete
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => setFindOpen(true)}>
+            <Search className="mr-1 h-4 w-4" /> Find Contacts
           </Button>
-        )}
+          {can("prospects", "delete") && (
+            <Button variant="ghost" size="sm" onClick={handleDelete}>
+              <Trash2 className="mr-1 h-4 w-4" /> Delete
+            </Button>
+          )}
+        </div>
       </div>
+      <FindContactsDialog open={findOpen} onOpenChange={setFindOpen} companyId={id} />
 
       <Card>
         <CardHeader>
