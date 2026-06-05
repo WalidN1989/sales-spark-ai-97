@@ -2,7 +2,8 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search } from "lucide-react";
+import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
@@ -46,6 +47,7 @@ function CompanyProfile() {
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
