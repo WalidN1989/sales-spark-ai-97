@@ -96,7 +96,8 @@ function normWa(s: string | null | undefined): string {
 type DupMatch = { leadId: string; reason: "email" | "whatsapp" | "name_company" } | null;
 
 async function findDupForContact(
-  supabase: ReturnType<typeof requireSupabaseAuth> extends never ? never : any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   userId: string,
   companyId: string,
   companyName: string | null,
