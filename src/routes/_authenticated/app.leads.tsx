@@ -30,7 +30,12 @@ import {
   leadInitials,
   timeAgo,
   waHref,
+  scoreBucket,
+  EMAIL_STATUS_STYLES,
+  EMAIL_STATUS_LABEL,
+  type EmailStatusUI,
 } from "@/lib/leads-ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/leads")({
@@ -55,8 +60,16 @@ type Lead = {
   last_activity_kind: string | null;
   last_activity_at: string | null;
   last_activity_note: string | null;
+  job_title: string | null;
+  lead_score: number | null;
+  email_status: EmailStatusUI | null;
+  company_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
+
+type SortKey = "score" | "updated" | "created" | "status";
 
 function LeadsPage() {
   const listFn = useServerFn(listLeads);
