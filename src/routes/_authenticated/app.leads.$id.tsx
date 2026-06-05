@@ -515,14 +515,10 @@ function LeadDetail() {
       </div>
 
       {/* AI Respond */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">AI Respond</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RespondTab leadId={id} />
-        </CardContent>
-      </Card>
+      <div>
+        <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
+        <RespondTab leadId={id} />
+      </div>
     </div>
   );
 }
