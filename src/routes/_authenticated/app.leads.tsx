@@ -80,16 +80,23 @@ function LeadsPage() {
   const leads = (data ?? []) as unknown as Lead[];
 
   const [quickOpen, setQuickOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("status");
 
-  const sorted = useMemo(
-    () =>
-      [...leads].sort((a, b) => {
+  const sorted = useMemo(() => {
+    const arr = [...leads];
+    if (sortKey === "score") arr.sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+    else if (sortKey === "updated")
+      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+    else if (sortKey === "created")
+      arr.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+    else
+      arr.sort((a, b) => {
         const s = LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status];
         if (s !== 0) return s;
         return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
-      }),
-    [leads],
-  );
+      });
+    return arr;
+  }, [leads, sortKey]);
 
   const hotCount = leads.filter((l) => l.status === "hot").length;
   const pipelineCents = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
@@ -102,9 +109,22 @@ function LeadsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">Prospects you're actively pursuing.</p>
         </div>
-        <Button onClick={() => setQuickOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" /> Add Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="status">Sort: Status</SelectItem>
+              <SelectItem value="score">Sort: Score</SelectItem>
+              <SelectItem value="updated">Sort: Recent</SelectItem>
+              <SelectItem value="created">Sort: Newest</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setQuickOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Add Lead
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
