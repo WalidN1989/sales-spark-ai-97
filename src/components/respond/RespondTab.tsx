@@ -227,10 +227,14 @@ export function RespondTab({
           <Label className="mb-1 block text-xs">Customer email / message</Label>
           <Textarea
             rows={6}
-            placeholder="Paste the customer's email, WhatsApp message, or inquiry…"
+            placeholder="Paste the customer's email, WhatsApp message, or inquiry… (Ctrl+V images here too)"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onPaste={handlePaste}
           />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Tip: paste screenshots directly (Ctrl/Cmd + V) — multiple images supported.
+          </p>
         </div>
 
         <div>
