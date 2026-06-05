@@ -324,7 +324,7 @@ function LeadDetail() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => update.mutate({ status: s })}
+                  onClick={() => setStatusManual.mutate(s)}
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
                     l.status === s
@@ -336,9 +336,88 @@ function LeadDetail() {
                 </button>
               ))}
             </div>
+            {(l.lead_score ?? 0) > 0 && (
+              <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold", sb.className)}>
+                Score {l.lead_score} · {sb.label}
+              </span>
+            )}
+            {l.lead_score_manual_override ? (
+              <button
+                type="button"
+                onClick={() => clearOverride.mutate()}
+                className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              >
+                Manually set · Clear
+              </button>
+            ) : (
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Auto-scored
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Lead info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Lead information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Contact name</Label>
+                <Input value={contact} onChange={(e) => setContact(e.target.value)} maxLength={200} />
+              </div>
+              <div>
+                <Label>Job title</Label>
+                <Input
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  maxLength={200}
+                  placeholder="e.g. Procurement Manager"
+                />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>WhatsApp number</Label>
+                <Input
+                  value={wa}
+                  onChange={(e) => setWa(e.target.value)}
+                  maxLength={30}
+                  placeholder="+971501234567"
+                />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={200}
+                  type="email"
+                />
+                {email && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {l.email_status && (
+                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", EMAIL_STATUS_STYLES[l.email_status])}>
+                        {EMAIL_STATUS_LABEL[l.email_status]}
+                        {l.email_score != null ? ` · ${l.email_score}` : ""}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => verify.mutate()}
+                      disabled={verify.isPending}
+                      className="text-[11px] font-medium text-primary hover:underline disabled:opacity-60"
+                    >
+                      {verify.isPending ? "Verifying…" : "Verify email"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Lead info */}
