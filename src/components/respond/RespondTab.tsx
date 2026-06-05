@@ -37,7 +37,13 @@ type UploadItem = {
   error?: string;
 };
 
-export function RespondTab({ companyId }: { companyId: string }) {
+export function RespondTab({
+  companyId,
+  leadId,
+}: {
+  companyId?: string;
+  leadId?: string;
+}) {
   const qc = useQueryClient();
   const gen = useServerFn(generateResponse);
   const ocr = useServerFn(ocrImage);
