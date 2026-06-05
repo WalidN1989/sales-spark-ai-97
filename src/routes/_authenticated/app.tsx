@@ -10,6 +10,8 @@ import {
   Flame,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
+  Package,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +43,8 @@ function AppShell() {
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
+    { to: "/app/products", label: "Products", icon: Package, show: true },
+    { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },

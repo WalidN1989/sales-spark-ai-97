@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
+import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
@@ -175,6 +176,7 @@ function CompanyProfile() {
           <TabsTrigger value="activity">Activity log</TabsTrigger>
           {can("prospects", "research") && <TabsTrigger value="research">AI research</TabsTrigger>}
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}
+          <TabsTrigger value="respond">Respond</TabsTrigger>
           <TabsTrigger value="market">Market insight</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
         </TabsList>
@@ -309,6 +311,9 @@ function CompanyProfile() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="respond">
+          <RespondTab companyId={id} />
         </TabsContent>
         <TabsContent value="market">
           {(() => {
