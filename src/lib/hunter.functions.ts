@@ -315,7 +315,13 @@ export const hunterVerifyEmail = createServerFn({ method: "POST" })
     const bucket = titleBucket(lead.job_title ?? lead.contact_person);
     const lead_score = bucket.score + emailScoreFromStatus(email_status);
 
-    const update: Record<string, unknown> = {
+    const update: {
+      email_status: EmailStatus;
+      email_score: number | null;
+      last_verified_at: string;
+      lead_score: number;
+      status?: LeadStatus;
+    } = {
       email_status,
       email_score,
       last_verified_at: new Date().toISOString(),
