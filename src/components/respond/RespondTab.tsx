@@ -77,35 +77,62 @@ export function RespondTab({
     [inputText, ocrText],
   );
 
-  const handleUpload = async (files: FileList | null) => {
+  const uploadOne = async (file: File, uid: string) => {
+    const id = crypto.randomUUID();
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `${uid}/${id}.${ext}`;
+    const safeName = file.name || `pasted-${Date.now()}.${ext}`;
+    setUploads((u) => [...u, { id, path, name: safeName, status: "uploading" }]);
+    const { error } = await supabase.storage.from("respond-uploads").upload(path, file);
+    if (error) {
+      setUploads((u) =>
+        u.map((x) => (x.id === id ? { ...x, status: "error", error: error.message } : x)),
+      );
+      return;
+    }
+    setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "ocr" } : x)));
+    try {
+      const r = await ocr({ data: { storagePath: path } });
+      setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "done", text: r.text } : x)));
+    } catch (e) {
+      setUploads((u) =>
+        u.map((x) =>
+          x.id === id ? { ...x, status: "error", error: e instanceof Error ? e.message : "OCR failed" } : x,
+        ),
+      );
+    }
+  };
+
+  const handleUpload = async (files: FileList | File[] | null) => {
     if (!files) return;
+    const arr = Array.from(files).slice(0, 10);
+    if (arr.length === 0) return;
     const { data: userRes } = await supabase.auth.getUser();
     const uid = userRes.user?.id;
     if (!uid) {
       toast.error("Not signed in");
       return;
     }
-    for (const file of Array.from(files).slice(0, 10)) {
-      const id = crypto.randomUUID();
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${uid}/${id}.${ext}`;
-      setUploads((u) => [...u, { id, path, name: file.name, status: "uploading" }]);
-      const { error } = await supabase.storage.from("respond-uploads").upload(path, file);
-      if (error) {
-        setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "error", error: error.message } : x)));
-        continue;
+    for (const file of arr) {
+      await uploadOne(file, uid);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "file" && it.type.startsWith("image/")) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
       }
-      setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "ocr" } : x)));
-      try {
-        const r = await ocr({ data: { storagePath: path } });
-        setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "done", text: r.text } : x)));
-      } catch (e) {
-        setUploads((u) =>
-          u.map((x) =>
-            x.id === id ? { ...x, status: "error", error: e instanceof Error ? e.message : "OCR failed" } : x,
-          ),
-        );
-      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      void handleUpload(files);
+      toast.success(`Pasted ${files.length} image${files.length === 1 ? "" : "s"}`);
     }
   };
 
