@@ -513,6 +513,16 @@ function LeadDetail() {
         {/* Documents */}
         <DocumentsCard leadId={id} />
       </div>
+
+      {/* AI Respond */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI Respond</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RespondTab leadId={id} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
