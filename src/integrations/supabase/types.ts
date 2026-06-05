@@ -520,7 +520,7 @@ export type Database = {
       responses: {
         Row: {
           attachments: Json
-          company_id: string
+          company_id: string | null
           created_at: string
           detected_part_numbers: string[]
           draft: string | null
@@ -529,13 +529,14 @@ export type Database = {
           id: string
           input_notes: string | null
           input_text: string
+          lead_id: string | null
           ocr_text: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           attachments?: Json
-          company_id: string
+          company_id?: string | null
           created_at?: string
           detected_part_numbers?: string[]
           draft?: string | null
@@ -544,13 +545,14 @@ export type Database = {
           id?: string
           input_notes?: string | null
           input_text?: string
+          lead_id?: string | null
           ocr_text?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           attachments?: Json
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           detected_part_numbers?: string[]
           draft?: string | null
@@ -559,11 +561,20 @@ export type Database = {
           id?: string
           input_notes?: string | null
           input_text?: string
+          lead_id?: string | null
           ocr_text?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales: {
         Row: {
