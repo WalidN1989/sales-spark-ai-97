@@ -1,135 +1,82 @@
+# CRM Phase 5 — Respond, Learning & Products
 
-## Hunter.io Integration — Phases 1–4 (Approved, with addenda)
+Three new capabilities, all manual (no automation, no sending, no schedulers). All data is per-user (RLS scoped to `auth.uid()`), backed by Lovable Cloud, and uses Lovable AI Gateway for generation + OCR.
 
-Provider-agnostic: all Hunter calls and response normalization live in `src/lib/hunter.functions.ts`. UI consumes a neutral contact shape so Apollo / Snov / Clay can drop in later.
+---
 
-### 1. Secrets
+## 1. Database (one migration)
 
-- Prompt for `HUNTER_API_KEY` at start of build (server-only).
-- Base URL `https://api.hunter.io/v2`. Read `X-RateLimit-Remaining` / `X-Hunter-Request-ID` from response headers; surface a friendly "Hunter monthly quota exhausted…" message on `usage_exceeded` / 402 / 429.
+New tables in `public`, each with `user_id uuid`, timestamps, RLS, and GRANTs to `authenticated` + `service_role`.
 
-### 2. Migration (single file)
+- **products** — `brand`, `name`, `part_number` (indexed, upper-cased), `category`, `cost_price_cents`, `selling_price_cents`, `margin_l1_pct`, `margin_l2_pct`, `currency` (default `AED`), `warranty`, `stock_status`, `notes`.
+- **learning_entries** — `category` enum (`writing_style` | `business_rule` | `objection` | `negotiation`), `title`, `content`, `situation` (nullable, for objections), `tags text[]`, `engine` (nullable), `original_input` (nullable), `ai_response` (nullable), `final_response` (nullable), `company_id` (nullable FK to companies).
+- **responses** — `company_id` FK, `engine` text, `input_text`, `input_notes`, `ocr_text`, `attachments jsonb` (image refs), `detected_part_numbers text[]`, `draft` text, `final` text, `created_at`. Used for "Save to Activity Log" history & "Save to Learning" source.
 
-`public.companies` (acts as Prospects) — add:
-- `hunter_last_sync timestamptz`
-- `employee_count int`
-- `linkedin_url text`
-- `enrichment_status text`
+Indexes: `products(user_id, upper(part_number))`, `learning_entries(user_id, category)`, `responses(user_id, company_id)`.
 
-`public.leads` — add:
-- `prospect_id uuid null` referencing `public.companies(id) ON DELETE SET NULL`, indexed
-- `job_title text`
-- `source text default 'manual'`
-- `email_status text` (`valid|risky|invalid|unknown`)
-- `email_score int`
-- `last_verified_at timestamptz`
-- `lead_score int default 0`
-- `lead_score_manual_override boolean default false`
+RLS: all policies `auth.uid() = user_id`. No anon grants.
 
-Indexes: `(user_id, contact_email)`, `(user_id, whatsapp)`, `prospect_id`. Keep existing GRANTs/RLS.
+## 2. Server functions
 
-### 3. Server functions — `src/lib/hunter.functions.ts` (new)
+New files in `src/lib/`:
 
-All gated by `requireSupabaseAuth`. Neutral contact shape:
-```
-{ first_name, last_name, full_name, email, position, department, seniority, linkedin, confidence, provider:'hunter.io' }
-```
+- **products.functions.ts** — `listProducts`, `getProduct`, `upsertProduct`, `deleteProduct`, `matchProductsByText(text)` → extracts `[A-Z0-9]{6,}` tokens, queries products by part_number IN (...).
+- **learning.functions.ts** — `listLearning({category?})`, `upsertLearning`, `deleteLearning`, `searchLearningForContext(companyId, engine, inputText)` → returns top ~8 entries (filter by category relevance + tag overlap; simple text match, no embeddings this phase).
+- **respond.functions.ts**
+  - `ocrImage({ storagePath })` — calls Lovable AI (`google/gemini-2.5-flash`) with the image as a data URL, returns extracted text.
+  - `generateResponse({ companyId, engine, inputText, notes, ocrText })`:
+    1. Load company + recent activity_log (last 10) + my_company.
+    2. `matchProductsByText(inputText + ocrText)` → product context block.
+    3. `searchLearningForContext(...)` → knowledge block (writing style examples, relevant rules, objection scripts).
+    4. Call `google/gemini-3-flash-preview` with system prompt tuned per `engine` (10 presets) + structured tool call returning `{ subject?, body }`.
+    5. Insert row into `responses` (status `draft`).
+    6. Return `{ responseId, draft, matchedProducts, usedLearning }`.
+  - `saveResponseToActivityLog({ responseId, finalText })` → updates `responses.final` + inserts activity_log note.
+  - `saveResponseToLearning({ responseId, title, category, tags })` → inserts learning_entry with original_input/ai_response/final_response/engine.
 
-- **`hunterFindContacts({ companyId })`**
-  - Resolve domain from `companies.domain` (fallback: parse `companies.email`).
-  - `GET /domain-search?domain&limit=25`. Normalize emails[] to contact shape, return `{ contacts, organization, quotaRemaining }`.
-  - Update `companies.hunter_last_sync`, `linkedin_url`, `employee_count` (when Hunter returns it).
-  - Insert activity log on the **company**? No — we log on leads. Instead, return a summary so the UI can write a "search completed" entry against any imported leads.
+Storage: a private bucket `respond-uploads` for screenshots (user-scoped path `{userId}/{uuid}.png`).
 
-- **`findPossibleDuplicates({ companyId, contacts })`** (helper, used by dialog)
-  - For each candidate, find existing leads where ANY match:
-    1. `contact_email ILIKE candidate.email`
-    2. normalized digits of `whatsapp` equal candidate.whatsapp (when candidate carries one — Hunter doesn't return phones today, but interface supports it)
-    3. `contact_person ILIKE candidate.full_name AND (company_name ILIKE companies.name OR company_id = companyId)`
-  - Return `{ candidateKey → existingLead | null }` so the dialog can show "Possible existing lead found" inline with a "Merge / Skip / Create anyway" choice.
+## 3. Frontend
 
-- **`hunterImportLeads({ companyId, contacts, overrides? })`**
-  - For each selected contact: re-check dup; if match → skip OR update (depending on overrides flag), else INSERT.
-  - Fields: `prospect_id = companyId`, `company_name`, `website`, `contact_person`, `contact_email`, `job_title`, `source = 'hunter.io'`, initial `status` from §6 below, `lead_score` from §5.
-  - For every created lead, insert a `lead_activities` row: `kind='log', body='Imported from Hunter: <Name> · <title>'`.
-  - Returns `{ created, skipped, updated, leadIds }`.
+### Respond tab (Prospect detail)
+New file `src/components/respond/RespondTab.tsx`, wired into `app.prospects.$id.tsx` as a 6th tab "Respond".
 
-- **`hunterVerifyEmail({ leadId })`**
-  - `GET /email-verifier?email`. Map Hunter `status` → ours: `valid→valid`, `invalid|disposable→invalid`, `accept_all|webmail|unknown→risky/unknown`.
-  - Update `email_status`, `email_score`, `last_verified_at`. Then `recomputeLeadScore`.
-  - Insert activity: `kind='log', body='Email verified: <status> (<score>)'`.
+Layout:
+- **Engine** dropdown (10 options listed in spec).
+- **Input text** — large textarea.
+- **Screenshots** — multi-file dropzone (uses existing supabase client to upload to `respond-uploads`); each tile shows OCR status + extracted text preview. OCR runs on upload via `ocrImage`.
+- **Notes** — small textarea.
+- Detected part numbers chip row (live, derived from inputText + ocrText).
+- **Generate Response** button → calls `generateResponse`.
+- **Draft** editable textarea (prefilled), with **Copy**, **Save to Activity Log**, **Save to Learning** (opens small dialog for title/category/tags).
+- Shows "Used products" and "Used knowledge" collapsibles so the user sees what context the AI received.
 
-- **`recomputeLeadScore({ leadId })`**
-  - If `lead_score_manual_override=true` → recompute `lead_score` (number) but DO NOT change `status`.
-  - Title bucket (regex match against `job_title || contact_person`):
-    - c-level: CEO|CTO|CFO|COO|CMO|Founder|Owner|Chief|President → +70 → status `hot`
-    - director: Director|VP|Vice President|Head of → +50 → status `warm`
-    - manager: Manager|Lead|Supervisor → +30 → status `warm`
-    - other → +0 → status `cold`
-  - Email: valid +20, risky +5, else 0.
-  - Status set per bucket above (not by raw score) so default Hunter import maps to §6.
-  - Insert activity: `kind='log', body='Lead score recalculated: <score> (<status>)'`.
+### Learning module
+- Sidebar entry "Learning" → route `src/routes/_authenticated/app.learning.tsx` (list with category tabs + search) and `app.learning.$id.tsx` (edit).
+- Form fields adapt per category (Writing Style / Business Rule / Objection / Negotiation).
+- "New entry" button. Tag input reuses `src/components/leads/TagInput.tsx`.
 
-- **`setLeadStatusManual({ leadId, status })`** (extends `updateLead` path)
-  - Sets `status` + `lead_score_manual_override=true`. Activity: `'Status manually set to <status>'`.
-  - "Clear override" action resets flag and runs `recomputeLeadScore`.
+### Products module
+- Sidebar entry "Products" → `app.products.tsx` (table: brand, name, part number, category, selling price, margin L1/L2, stock) with search + filters.
+- `app.products.new.tsx` and `app.products.$id.tsx` for create/edit.
+- Margin shown computed from cost vs selling.
 
-### 4. Initial status mapping (Hunter import) — §8
+Sidebar update: extend nav in `src/routes/_authenticated/app.tsx` with the two new items (icons `GraduationCap`, `Package`). Permissions reuse the existing `useAccess` patterns; default both modules visible to all roles, add `prospects.respond` capability gate.
 
-```
-C-level   → hot
-Director  → warm
-Manager   → warm
-Other     → cold
-```
+## 4. AI prompts (engine presets)
 
-### 5. Lead-score formula
+A single `src/lib/respond-engines.ts` exports `{ id, label, systemPrompt }[]` for the 10 engines (Initial Inquiry, General Reply, Follow Up, No Response, Negotiation, Bluffing, Payment Terms, Credit Request, Delivery Concern, Competitor Threat). Each prompt instructs: keep it concise, mirror tone, reference matched products with part numbers, apply any business rules verbatim, no fabrications.
 
-```
-score = titleScore + emailScore
-title: c_level=70 | director=50 | manager=30 | other=0
-email: valid=20 | risky=5 | else=0
-status: from title bucket (manual override wins)
-```
+## 5. Out of scope (per user)
 
-### 6. UI — Find Contacts dialog (`src/components/prospects/FindContactsDialog.tsx`, new)
+- No email sending, no scheduling, no background jobs.
+- No embeddings / vector search this phase (simple keyword + tag match).
+- No bulk product import (single add/edit only — CSV import can come later).
 
-- Triggered from Prospect detail header next to AI Research / Create Lead.
-- Top row: quick filter pills **All · Executives · Directors · Managers · IT · Procurement · Sales** (filter by seniority + department + title regex; pure client-side over the result set).
-- Table: checkbox · Name · Title · Dept · Email · Confidence chip · LinkedIn icon · Dup indicator.
-  - Confidence chip: `≥90 green · 70–89 orange · <70 gray`, label shows `95% confidence`.
-  - Dup indicator: "Possible match: <existing lead name>" with link to that lead; row default-unchecked when dup.
-- Footer: quota remaining text, "Import as Leads" runs `hunterImportLeads`.
-- On success: toast `{created} created, {skipped} skipped`, invalidate `["leads"]`, close.
+## Technical notes
 
-### 7. UI — Lead detail (`app.leads.$id.tsx`)
-
-- Header: status pills now write `lead_score_manual_override=true` via `setLeadStatusManual`; show a small "Auto-scored" / "Manually set · Clear" toggle.
-- Score chip next to status: `Score 85 · Hot`, color by bucket.
-- New editable `job_title` field in Lead info (extends `updateLead` patch). Saving triggers `recomputeLeadScore`.
-- Email row: "Verify Email" button → result chip 🟢 Valid / 🟡 Risky / 🔴 Invalid / ⚪ Unknown with score + "verified <relative time>".
-- Activity timeline auto-shows all log entries from §3.
-
-### 8. UI — Leads grid (`app.leads.tsx`) — §9
-
-- Card now shows: Name · Company · Job title · Email status chip · Score chip · Pipeline (AED).
-- Add sort menu: Score desc / Updated desc / Created desc.
-- Quick-add dialog gains optional `job_title`.
-
-### 9. Out of scope (next plan, in order)
-
-- Phase 5 AI Insight tab (Lovable AI Gateway)
-- Phase 6 prospect auto-enrichment on create
-- Phase 7 bulk "Find Contacts for all Prospects"
-
-### Files touched
-
-- migration: columns on `companies` + `leads`, indexes, FK
-- new `src/lib/hunter.functions.ts`
-- edit `src/lib/leads.functions.ts` (extend `updateLead` patch with `job_title`, add `setLeadStatusManual`, expose `recomputeLeadScore` wrapper)
-- edit `src/lib/leads-ui.ts` (score bucket + email status chip helpers)
-- new `src/components/prospects/FindContactsDialog.tsx`
-- edit `src/routes/_authenticated/app.prospects.$id.tsx` (Find Contacts button)
-- edit `src/routes/_authenticated/app.leads.$id.tsx` (score, verify, manual override, job title)
-- edit `src/routes/_authenticated/app.leads.tsx` (grid fields + sort + quick-add job_title)
-- secrets prompt: `HUNTER_API_KEY`
+- Lovable AI Gateway via `LOVABLE_API_KEY`; OCR uses Gemini vision with image_url content parts.
+- Part-number regex: `/\b[A-Z]{2,}[A-Z0-9]{3,}\b/g`, uppercased, de-duplicated, then matched against `products.part_number` (case-insensitive).
+- All server fns use `requireSupabaseAuth`; no admin client needed.
+- Storage bucket created in the same migration with RLS limiting access to `auth.uid()` folder prefix.
+- No edits to auto-generated files (`client.ts`, `types.ts` regenerates after migration).
