@@ -312,6 +312,9 @@ function CompanyProfile() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="respond">
+          <RespondTab companyId={id} />
+        </TabsContent>
         <TabsContent value="market">
           {(() => {
             const cm = c as typeof c & {
