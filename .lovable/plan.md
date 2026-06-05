@@ -1,80 +1,135 @@
 
-## Goals
+## Hunter.io Integration — Phases 1–4 (Approved, with addenda)
 
-Enhance the Leads module so a WhatsApp-only lead can grow into a fully-profiled contact over time, fix the currency + activity log bugs, and add expertise keywords + supporting docs that will later feed an AI matching engine.
+Provider-agnostic: all Hunter calls and response normalization live in `src/lib/hunter.functions.ts`. UI consumes a neutral contact shape so Apollo / Snov / Clay can drop in later.
 
-## 1. Lead detail — schema + UI
+### 1. Secrets
 
-Add columns to `public.leads`:
-- `company_name text` (manual entry, optional)
-- `website text` (manual or auto-derived from email domain)
-- `brands text[]` (e.g. "HP", "Logitech")
-- `products_services text[]` (e.g. "Laptop accessories", "Toner")
-- `notes text` (free-form expertise / context summary)
+- Prompt for `HUNTER_API_KEY` at start of build (server-only).
+- Base URL `https://api.hunter.io/v2`. Read `X-RateLimit-Remaining` / `X-Hunter-Request-ID` from response headers; surface a friendly "Hunter monthly quota exhausted…" message on `usage_exceeded` / 402 / 429.
 
-New table `public.lead_documents`:
-- `id, lead_id, user_id, label text ('trade_license'|'vat_certificate'|'other'), file_name, storage_path, mime_type, size_bytes, created_at`
-- RLS scoped to `user_id`; GRANTs for `authenticated` + `service_role`.
+### 2. Migration (single file)
 
-New storage bucket `lead-documents` (private). RLS on `storage.objects` so a user can read/write only under `{user_id}/...`.
+`public.companies` (acts as Prospects) — add:
+- `hunter_last_sync timestamptz`
+- `employee_count int`
+- `linkedin_url text`
+- `enrichment_status text`
 
-New table `public.lead_activities` (proper multi-entry log):
-- `id, lead_id, user_id, kind ('note'|'email'|'call'|'meeting'|'log'), body text, created_at`
-- RLS by `user_id`; GRANTs added.
-- Keep existing `last_activity_*` columns on `leads` and update them via trigger after each insert so the grid card "last activity" still works.
+`public.leads` — add:
+- `prospect_id uuid null` referencing `public.companies(id) ON DELETE SET NULL`, indexed
+- `job_title text`
+- `source text default 'manual'`
+- `email_status text` (`valid|risky|invalid|unknown`)
+- `email_score int`
+- `last_verified_at timestamptz`
+- `lead_score int default 0`
+- `lead_score_manual_override boolean default false`
 
-## 2. Lead detail page (`app.leads.$id.tsx`)
+Indexes: `(user_id, contact_email)`, `(user_id, whatsapp)`, `prospect_id`. Keep existing GRANTs/RLS.
 
-Layout becomes a 2-column stack on lg, single column on md:
+### 3. Server functions — `src/lib/hunter.functions.ts` (new)
 
+All gated by `requireSupabaseAuth`. Neutral contact shape:
 ```
-┌─ Header card ──────────────────────────────────────┐
-│ Avatar | Name + (company_name @ website-favicon)   │
-│ Status pills      [WhatsApp] [Email] [Open site]   │
-└────────────────────────────────────────────────────┘
-┌─ Lead info ───────────┐ ┌─ Activity log ──────────┐
-│ Contact / Email / WA  │ │ + New entry (kind+body) │
-│ Company name (manual) │ │ Timeline (all entries,  │
-│ Website (manual/auto) │ │  newest first, badges)  │
-│ Pipeline value (AED)  │ └─────────────────────────┘
-└───────────────────────┘
-┌─ Expertise ───────────┐ ┌─ Documents ─────────────┐
-│ Brands (tag input)    │ │ Upload (Trade License,  │
-│ Products/Services tag │ │  VAT Cert, Other)       │
-│ Notes (textarea)      │ │ List + download + del   │
-└───────────────────────┘ └─────────────────────────┘
+{ first_name, last_name, full_name, email, position, department, seniority, linkedin, confidence, provider:'hunter.io' }
 ```
 
-Details:
-- **Currency**: replace "USD" label with "AED"; format via `Intl.NumberFormat('en-AE', { style:'currency', currency:'AED', maximumFractionDigits:0 })`. Update `fmtMoneyCents` in `leads-ui.ts` (and any reused call site) — grid cards reflect AED automatically.
-- **Website logo**: if `website` set → render Google favicon `https://www.google.com/s2/favicons?domain=<host>&sz=64` as a clickable chip → opens site in new tab. If empty but `contact_email` has a non-free domain (not gmail/yahoo/outlook/hotmail/icloud/proton), auto-suggest the domain on save.
-- **Activity log fix**: replace the single `last_activity_note` view with a scrollable timeline reading from `lead_activities` (TanStack Query `listLeadActivities`). Composer at top, list below, each entry with kind badge + timestamp + body.
-- **Documents**: drag/drop or click upload to `lead-documents/{user_id}/{lead_id}/{uuid}-{filename}`. Select label (Trade License / VAT Certificate / Other) before upload. Show filename, label badge, size, signed URL download, delete. Cap 10 MB/file, accept pdf/jpg/png/webp.
-- **Brands & products**: tag-input components (chip add/remove). Persist as arrays.
+- **`hunterFindContacts({ companyId })`**
+  - Resolve domain from `companies.domain` (fallback: parse `companies.email`).
+  - `GET /domain-search?domain&limit=25`. Normalize emails[] to contact shape, return `{ contacts, organization, quotaRemaining }`.
+  - Update `companies.hunter_last_sync`, `linkedin_url`, `employee_count` (when Hunter returns it).
+  - Insert activity log on the **company**? No — we log on leads. Instead, return a summary so the UI can write a "search completed" entry against any imported leads.
 
-## 3. Quick-add dialog (already exists in `app.leads.tsx`)
+- **`findPossibleDuplicates({ companyId, contacts })`** (helper, used by dialog)
+  - For each candidate, find existing leads where ANY match:
+    1. `contact_email ILIKE candidate.email`
+    2. normalized digits of `whatsapp` equal candidate.whatsapp (when candidate carries one — Hunter doesn't return phones today, but interface supports it)
+    3. `contact_person ILIKE candidate.full_name AND (company_name ILIKE companies.name OR company_id = companyId)`
+  - Return `{ candidateKey → existingLead | null }` so the dialog can show "Possible existing lead found" inline with a "Merge / Skip / Create anyway" choice.
 
-- Add **Company Name (optional)** and **Website (optional)** fields between Contact Name and WhatsApp.
-- Keep AI extraction tool; extend tool schema with `company_name` and `website` so Gemini fills them from screenshot when visible (still optional).
-- Persist via updated `createQuickLead` server fn.
+- **`hunterImportLeads({ companyId, contacts, overrides? })`**
+  - For each selected contact: re-check dup; if match → skip OR update (depending on overrides flag), else INSERT.
+  - Fields: `prospect_id = companyId`, `company_name`, `website`, `contact_person`, `contact_email`, `job_title`, `source = 'hunter.io'`, initial `status` from §6 below, `lead_score` from §5.
+  - For every created lead, insert a `lead_activities` row: `kind='log', body='Imported from Hunter: <Name> · <title>'`.
+  - Returns `{ created, skipped, updated, leadIds }`.
 
-## 4. Server functions (`src/lib/leads.functions.ts`)
+- **`hunterVerifyEmail({ leadId })`**
+  - `GET /email-verifier?email`. Map Hunter `status` → ours: `valid→valid`, `invalid|disposable→invalid`, `accept_all|webmail|unknown→risky/unknown`.
+  - Update `email_status`, `email_score`, `last_verified_at`. Then `recomputeLeadScore`.
+  - Insert activity: `kind='log', body='Email verified: <status> (<score>)'`.
 
-- Extend `updateLead` patch schema with `company_name`, `website`, `brands`, `products_services`, `notes`.
-- New `listLeadActivities({ leadId })`, `addLeadActivity({ leadId, kind, body })`, `deleteLeadActivity({ id })`.
-- New `listLeadDocuments({ leadId })`, `createLeadDocumentSignedUploadUrl({ leadId, fileName, label, mimeType, sizeBytes })` → returns signed upload URL + row insert id, `getLeadDocumentDownloadUrl({ id })`, `deleteLeadDocument({ id })`.
-- Extend AI extract tool schema and `createQuickLead` validator with `company_name` and `website`.
+- **`recomputeLeadScore({ leadId })`**
+  - If `lead_score_manual_override=true` → recompute `lead_score` (number) but DO NOT change `status`.
+  - Title bucket (regex match against `job_title || contact_person`):
+    - c-level: CEO|CTO|CFO|COO|CMO|Founder|Owner|Chief|President → +70 → status `hot`
+    - director: Director|VP|Vice President|Head of → +50 → status `warm`
+    - manager: Manager|Lead|Supervisor → +30 → status `warm`
+    - other → +0 → status `cold`
+  - Email: valid +20, risky +5, else 0.
+  - Status set per bucket above (not by raw score) so default Hunter import maps to §6.
+  - Insert activity: `kind='log', body='Lead score recalculated: <score> (<status>)'`.
 
-## 5. Out of scope (will be follow-ups)
+- **`setLeadStatusManual({ leadId, status })`** (extends `updateLead` path)
+  - Sets `status` + `lead_score_manual_override=true`. Activity: `'Status manually set to <status>'`.
+  - "Clear override" action resets flag and runs `recomputeLeadScore`.
 
-- The Claude/Deepgram voice agent and OCR supplier-match flow — schema lands now (brands, products_services, notes, docs) so it has the data, UI for it ships later.
-- Migrating existing `pipeline_value_cents` from USD to AED values — treated as relabel only (numbers untouched per user clarification needed if they want conversion). Assumption: relabel only.
+### 4. Initial status mapping (Hunter import) — §8
 
-## Files touched
+```
+C-level   → hot
+Director  → warm
+Manager   → warm
+Other     → cold
+```
 
-- migration: add columns to `leads`, new tables `lead_activities` + `lead_documents` (with GRANTs + RLS + trigger), bucket `lead-documents` + storage RLS
-- `src/lib/leads.functions.ts` — new + extended server fns
-- `src/lib/leads-ui.ts` — `fmtMoneyAed`, favicon helper, free-email-domain list
-- `src/routes/_authenticated/app.leads.tsx` — quick-add dialog fields + AED labels on cards
-- `src/routes/_authenticated/app.leads.$id.tsx` — new sections (company/website, expertise, activity timeline, documents)
-- new small components: `TagInput`, `DocumentUploader`, `ActivityTimeline` under `src/components/leads/`
+### 5. Lead-score formula
+
+```
+score = titleScore + emailScore
+title: c_level=70 | director=50 | manager=30 | other=0
+email: valid=20 | risky=5 | else=0
+status: from title bucket (manual override wins)
+```
+
+### 6. UI — Find Contacts dialog (`src/components/prospects/FindContactsDialog.tsx`, new)
+
+- Triggered from Prospect detail header next to AI Research / Create Lead.
+- Top row: quick filter pills **All · Executives · Directors · Managers · IT · Procurement · Sales** (filter by seniority + department + title regex; pure client-side over the result set).
+- Table: checkbox · Name · Title · Dept · Email · Confidence chip · LinkedIn icon · Dup indicator.
+  - Confidence chip: `≥90 green · 70–89 orange · <70 gray`, label shows `95% confidence`.
+  - Dup indicator: "Possible match: <existing lead name>" with link to that lead; row default-unchecked when dup.
+- Footer: quota remaining text, "Import as Leads" runs `hunterImportLeads`.
+- On success: toast `{created} created, {skipped} skipped`, invalidate `["leads"]`, close.
+
+### 7. UI — Lead detail (`app.leads.$id.tsx`)
+
+- Header: status pills now write `lead_score_manual_override=true` via `setLeadStatusManual`; show a small "Auto-scored" / "Manually set · Clear" toggle.
+- Score chip next to status: `Score 85 · Hot`, color by bucket.
+- New editable `job_title` field in Lead info (extends `updateLead` patch). Saving triggers `recomputeLeadScore`.
+- Email row: "Verify Email" button → result chip 🟢 Valid / 🟡 Risky / 🔴 Invalid / ⚪ Unknown with score + "verified <relative time>".
+- Activity timeline auto-shows all log entries from §3.
+
+### 8. UI — Leads grid (`app.leads.tsx`) — §9
+
+- Card now shows: Name · Company · Job title · Email status chip · Score chip · Pipeline (AED).
+- Add sort menu: Score desc / Updated desc / Created desc.
+- Quick-add dialog gains optional `job_title`.
+
+### 9. Out of scope (next plan, in order)
+
+- Phase 5 AI Insight tab (Lovable AI Gateway)
+- Phase 6 prospect auto-enrichment on create
+- Phase 7 bulk "Find Contacts for all Prospects"
+
+### Files touched
+
+- migration: columns on `companies` + `leads`, indexes, FK
+- new `src/lib/hunter.functions.ts`
+- edit `src/lib/leads.functions.ts` (extend `updateLead` patch with `job_title`, add `setLeadStatusManual`, expose `recomputeLeadScore` wrapper)
+- edit `src/lib/leads-ui.ts` (score bucket + email status chip helpers)
+- new `src/components/prospects/FindContactsDialog.tsx`
+- edit `src/routes/_authenticated/app.prospects.$id.tsx` (Find Contacts button)
+- edit `src/routes/_authenticated/app.leads.$id.tsx` (score, verify, manual override, job title)
+- edit `src/routes/_authenticated/app.leads.tsx` (grid fields + sort + quick-add job_title)
+- secrets prompt: `HUNTER_API_KEY`
