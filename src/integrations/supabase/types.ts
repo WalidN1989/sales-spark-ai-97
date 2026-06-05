@@ -308,6 +308,57 @@ export type Database = {
           },
         ]
       }
+      learning_entries: {
+        Row: {
+          ai_response: string | null
+          category: Database["public"]["Enums"]["learning_category"]
+          company_id: string | null
+          content: string
+          created_at: string
+          engine: string | null
+          final_response: string | null
+          id: string
+          original_input: string | null
+          situation: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_response?: string | null
+          category: Database["public"]["Enums"]["learning_category"]
+          company_id?: string | null
+          content?: string
+          created_at?: string
+          engine?: string | null
+          final_response?: string | null
+          id?: string
+          original_input?: string | null
+          situation?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_response?: string | null
+          category?: Database["public"]["Enums"]["learning_category"]
+          company_id?: string | null
+          content?: string
+          created_at?: string
+          engine?: string | null
+          final_response?: string | null
+          id?: string
+          original_input?: string | null
+          situation?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           company_id: string | null
@@ -385,6 +436,63 @@ export type Database = {
         }
         Relationships: []
       }
+      products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          cost_price_cents: number | null
+          created_at: string
+          currency: string
+          id: string
+          margin_l1_pct: number | null
+          margin_l2_pct: number | null
+          name: string
+          notes: string | null
+          part_number: string | null
+          selling_price_cents: number | null
+          stock_status: string | null
+          updated_at: string
+          user_id: string
+          warranty: string | null
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          cost_price_cents?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          margin_l1_pct?: number | null
+          margin_l2_pct?: number | null
+          name: string
+          notes?: string | null
+          part_number?: string | null
+          selling_price_cents?: number | null
+          stock_status?: string | null
+          updated_at?: string
+          user_id: string
+          warranty?: string | null
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          cost_price_cents?: number | null
+          created_at?: string
+          currency?: string
+          id?: string
+          margin_l1_pct?: number | null
+          margin_l2_pct?: number | null
+          name?: string
+          notes?: string | null
+          part_number?: string | null
+          selling_price_cents?: number | null
+          stock_status?: string | null
+          updated_at?: string
+          user_id?: string
+          warranty?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -406,6 +514,54 @@ export type Database = {
           full_name?: string | null
           id?: string
           status?: Database["public"]["Enums"]["user_status"]
+        }
+        Relationships: []
+      }
+      responses: {
+        Row: {
+          attachments: Json
+          company_id: string
+          created_at: string
+          detected_part_numbers: string[]
+          draft: string | null
+          engine: string
+          final: string | null
+          id: string
+          input_notes: string | null
+          input_text: string
+          ocr_text: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json
+          company_id: string
+          created_at?: string
+          detected_part_numbers?: string[]
+          draft?: string | null
+          engine: string
+          final?: string | null
+          id?: string
+          input_notes?: string | null
+          input_text?: string
+          ocr_text?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attachments?: Json
+          company_id?: string
+          created_at?: string
+          detected_part_numbers?: string[]
+          draft?: string | null
+          engine?: string
+          final?: string | null
+          id?: string
+          input_notes?: string | null
+          input_text?: string
+          ocr_text?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -540,6 +696,11 @@ export type Database = {
     Enums: {
       activity_type: "note" | "call" | "visit" | "email"
       app_role: "admin" | "manager" | "sales_rep"
+      learning_category:
+        | "writing_style"
+        | "business_rule"
+        | "objection"
+        | "negotiation"
       user_status: "active" | "inactive"
     }
     CompositeTypes: {
@@ -670,6 +831,12 @@ export const Constants = {
     Enums: {
       activity_type: ["note", "call", "visit", "email"],
       app_role: ["admin", "manager", "sales_rep"],
+      learning_category: [
+        "writing_style",
+        "business_rule",
+        "objection",
+        "negotiation",
+      ],
       user_status: ["active", "inactive"],
     },
   },
