@@ -184,19 +184,40 @@ function LeadsPage() {
                       <div className="truncate font-semibold">
                         {l.contact_person || l.whatsapp || "—"}
                       </div>
+                      {l.job_title && (
+                        <div className="truncate text-xs font-medium text-foreground/80">
+                          {l.job_title}
+                        </div>
+                      )}
                       <div className="truncate text-xs text-muted-foreground">
-                        {l.companies?.name ? `@ ${l.companies.name}` : "WhatsApp lead"}
+                        {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
                       </div>
                     </div>
-                    <span
-                      className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
-                    >
-                      {l.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
+                      >
+                        {l.status}
+                      </span>
+                      {l.lead_score != null && l.lead_score > 0 && (
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
+                          {l.lead_score}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    {l.contact_email && <div className="truncate">✉ {l.contact_email}</div>}
+                    {l.contact_email && (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="truncate">✉ {l.contact_email}</span>
+                        {l.email_status && (
+                          <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
+                            {EMAIL_STATUS_LABEL[l.email_status]}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
                     {l.pipeline_value_cents > 0 && (
                       <div className="text-foreground font-medium">
