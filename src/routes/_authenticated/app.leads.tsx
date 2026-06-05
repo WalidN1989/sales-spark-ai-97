@@ -30,7 +30,12 @@ import {
   leadInitials,
   timeAgo,
   waHref,
+  scoreBucket,
+  EMAIL_STATUS_STYLES,
+  EMAIL_STATUS_LABEL,
+  type EmailStatusUI,
 } from "@/lib/leads-ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/leads")({
@@ -55,8 +60,16 @@ type Lead = {
   last_activity_kind: string | null;
   last_activity_at: string | null;
   last_activity_note: string | null;
+  job_title: string | null;
+  lead_score: number | null;
+  email_status: EmailStatusUI | null;
+  company_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
+
+type SortKey = "score" | "updated" | "created" | "status";
 
 function LeadsPage() {
   const listFn = useServerFn(listLeads);
@@ -67,16 +80,23 @@ function LeadsPage() {
   const leads = (data ?? []) as unknown as Lead[];
 
   const [quickOpen, setQuickOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("status");
 
-  const sorted = useMemo(
-    () =>
-      [...leads].sort((a, b) => {
+  const sorted = useMemo(() => {
+    const arr = [...leads];
+    if (sortKey === "score") arr.sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
+    else if (sortKey === "updated")
+      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+    else if (sortKey === "created")
+      arr.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+    else
+      arr.sort((a, b) => {
         const s = LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status];
         if (s !== 0) return s;
         return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
-      }),
-    [leads],
-  );
+      });
+    return arr;
+  }, [leads, sortKey]);
 
   const hotCount = leads.filter((l) => l.status === "hot").length;
   const pipelineCents = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
@@ -89,9 +109,22 @@ function LeadsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">Prospects you're actively pursuing.</p>
         </div>
-        <Button onClick={() => setQuickOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" /> Add Lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="status">Sort: Status</SelectItem>
+              <SelectItem value="score">Sort: Score</SelectItem>
+              <SelectItem value="updated">Sort: Recent</SelectItem>
+              <SelectItem value="created">Sort: Newest</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setQuickOpen(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Add Lead
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -151,19 +184,40 @@ function LeadsPage() {
                       <div className="truncate font-semibold">
                         {l.contact_person || l.whatsapp || "—"}
                       </div>
+                      {l.job_title && (
+                        <div className="truncate text-xs font-medium text-foreground/80">
+                          {l.job_title}
+                        </div>
+                      )}
                       <div className="truncate text-xs text-muted-foreground">
-                        {l.companies?.name ? `@ ${l.companies.name}` : "WhatsApp lead"}
+                        {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
                       </div>
                     </div>
-                    <span
-                      className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
-                    >
-                      {l.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
+                      >
+                        {l.status}
+                      </span>
+                      {l.lead_score != null && l.lead_score > 0 && (
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
+                          {l.lead_score}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    {l.contact_email && <div className="truncate">✉ {l.contact_email}</div>}
+                    {l.contact_email && (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="truncate">✉ {l.contact_email}</span>
+                        {l.email_status && (
+                          <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
+                            {EMAIL_STATUS_LABEL[l.email_status]}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
                     {l.pipeline_value_cents > 0 && (
                       <div className="text-foreground font-medium">

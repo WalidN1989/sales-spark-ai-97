@@ -2,7 +2,8 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search } from "lucide-react";
+import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
@@ -46,6 +47,7 @@ function CompanyProfile() {
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
   const [scanning, setScanning] = useState(false);
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -132,12 +134,18 @@ function CompanyProfile() {
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
         </Button>
-        {can("prospects", "delete") && (
-          <Button variant="ghost" size="sm" onClick={handleDelete}>
-            <Trash2 className="mr-1 h-4 w-4" /> Delete
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={() => setFindOpen(true)}>
+            <Search className="mr-1 h-4 w-4" /> Find Contacts
           </Button>
-        )}
+          {can("prospects", "delete") && (
+            <Button variant="ghost" size="sm" onClick={handleDelete}>
+              <Trash2 className="mr-1 h-4 w-4" /> Delete
+            </Button>
+          )}
+        </div>
       </div>
+      <FindContactsDialog open={findOpen} onOpenChange={setFindOpen} companyId={id} />
 
       <Card>
         <CardHeader>

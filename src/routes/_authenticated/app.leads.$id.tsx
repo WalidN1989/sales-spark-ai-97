@@ -18,6 +18,8 @@ import {
   getLead,
   updateLead,
   deleteLead,
+  setLeadStatusManual,
+  clearLeadStatusOverride,
   listLeadActivities,
   addLeadActivity,
   deleteLeadActivity,
@@ -27,6 +29,7 @@ import {
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
 } from "@/lib/leads.functions";
+import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +55,10 @@ import {
   DOC_LABELS,
   type DocLabel,
   fmtFileSize,
+  scoreBucket,
+  EMAIL_STATUS_STYLES,
+  EMAIL_STATUS_LABEL,
+  type EmailStatusUI,
 } from "@/lib/leads-ui";
 import { TagInput } from "@/components/leads/TagInput";
 import { cn } from "@/lib/utils";
@@ -72,6 +79,9 @@ function LeadDetail() {
   const getFn = useServerFn(getLead);
   const updateFn = useServerFn(updateLead);
   const deleteFn = useServerFn(deleteLead);
+  const setStatusFn = useServerFn(setLeadStatusManual);
+  const clearOverrideFn = useServerFn(clearLeadStatusOverride);
+  const verifyFn = useServerFn(hunterVerifyEmail);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
@@ -83,6 +93,7 @@ function LeadDetail() {
   const [wa, setWa] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [value, setValue] = useState("0");
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
@@ -95,6 +106,7 @@ function LeadDetail() {
       setWa(lead.whatsapp ?? "");
       setCompanyName(lead.company_name ?? "");
       setWebsite(lead.website ?? "");
+      setJobTitle((lead as { job_title?: string | null }).job_title ?? "");
       setValue(String((lead.pipeline_value_cents ?? 0) / 100));
       setBrands((lead.brands as string[] | null) ?? []);
       setProducts((lead.products_services as string[] | null) ?? []);
@@ -113,6 +125,7 @@ function LeadDetail() {
     brands?: string[];
     products_services?: string[];
     notes?: string | null;
+    job_title?: string | null;
   };
 
   const update = useMutation({
@@ -133,10 +146,48 @@ function LeadDetail() {
     },
   });
 
+  const setStatusManual = useMutation({
+    mutationFn: (status: LeadStatus) => setStatusFn({ data: { id, status } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const clearOverride = useMutation({
+    mutationFn: () => clearOverrideFn({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      toast.success("Auto-scoring re-enabled");
+    },
+  });
+
+  const verify = useMutation({
+    mutationFn: () => verifyFn({ data: { leadId: id } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["lead-activities", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success(`Email ${r.email_status}${r.email_score != null ? ` · ${r.email_score}` : ""}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!lead) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
-  const l = lead as typeof lead & { status: LeadStatus };
+  const l = lead as typeof lead & {
+    status: LeadStatus;
+    job_title: string | null;
+    lead_score: number | null;
+    email_status: EmailStatusUI | null;
+    email_score: number | null;
+    last_verified_at: string | null;
+    lead_score_manual_override: boolean;
+  };
 
   // Auto-suggest website from a business email domain
   const suggestedDomain =
@@ -145,6 +196,7 @@ function LeadDetail() {
   const effectiveHost = hostFromWebsite(effectiveWebsite);
   const websiteHref = normalizeWebsite(effectiveWebsite);
   const favicon = faviconUrl(effectiveWebsite);
+  const sb = scoreBucket(l.lead_score);
 
   const handleSave = async () => {
     await update.mutateAsync({
@@ -153,6 +205,7 @@ function LeadDetail() {
       whatsapp: wa || null,
       company_name: companyName || null,
       website: website || (suggestedDomain ?? null),
+      job_title: jobTitle || null,
       pipeline_value_cents: Math.max(0, Math.round(Number(value || "0") * 100)),
       brands,
       products_services: products,
@@ -271,7 +324,7 @@ function LeadDetail() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => update.mutate({ status: s })}
+                  onClick={() => setStatusManual.mutate(s)}
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
                     l.status === s
@@ -283,6 +336,24 @@ function LeadDetail() {
                 </button>
               ))}
             </div>
+            {(l.lead_score ?? 0) > 0 && (
+              <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold", sb.className)}>
+                Score {l.lead_score} · {sb.label}
+              </span>
+            )}
+            {l.lead_score_manual_override ? (
+              <button
+                type="button"
+                onClick={() => clearOverride.mutate()}
+                className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              >
+                Manually set · Clear
+              </button>
+            ) : (
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Auto-scored
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -300,6 +371,17 @@ function LeadDetail() {
                 <Input value={contact} onChange={(e) => setContact(e.target.value)} maxLength={200} />
               </div>
               <div>
+                <Label>Job title</Label>
+                <Input
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  maxLength={200}
+                  placeholder="e.g. Procurement Manager"
+                />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
                 <Label>WhatsApp number</Label>
                 <Input
                   value={wa}
@@ -308,15 +390,33 @@ function LeadDetail() {
                   placeholder="+971501234567"
                 />
               </div>
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                maxLength={200}
-                type="email"
-              />
+              <div>
+                <Label>Email</Label>
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={200}
+                  type="email"
+                />
+                {email && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {l.email_status && (
+                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", EMAIL_STATUS_STYLES[l.email_status])}>
+                        {EMAIL_STATUS_LABEL[l.email_status]}
+                        {l.email_score != null ? ` · ${l.email_score}` : ""}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => verify.mutate()}
+                      disabled={verify.isPending}
+                      className="text-[11px] font-medium text-primary hover:underline disabled:opacity-60"
+                    >
+                      {verify.isPending ? "Verifying…" : "Verify email"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>

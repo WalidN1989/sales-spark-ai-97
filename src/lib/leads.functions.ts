@@ -7,7 +7,7 @@ const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 const LEAD_SELECT =
-  "id, company_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, created_at, updated_at, companies:company_id(name, domain, country, industry)";
+  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -90,6 +90,7 @@ const patchSchema = z
     brands: stringTagArray.optional(),
     products_services: stringTagArray.optional(),
     notes: z.string().max(4000).nullable().optional(),
+    job_title: z.string().max(200).nullable().optional(),
   })
   .strict();
 
@@ -107,6 +108,45 @@ export const updateLead = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Manually set status — sets override flag so future automation won't change status
+export const setLeadStatusManual = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), status: statusEnum }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("leads")
+      .update({ status: data.status, lead_score_manual_override: true })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await context.supabase.from("lead_activities").insert({
+      lead_id: data.id,
+      user_id: context.userId,
+      kind: "log",
+      body: `Status manually set to ${data.status}`,
+    });
+    return { ok: true };
+  });
+
+export const clearLeadStatusOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("leads")
+      .update({ lead_score_manual_override: false })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await context.supabase.from("lead_activities").insert({
+      lead_id: data.id,
+      user_id: context.userId,
+      kind: "log",
+      body: "Manual status override cleared",
+    });
+    return { ok: true };
+  });
+
 export const deleteLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -115,6 +155,9 @@ export const deleteLead = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+
+
 
 // ---- Activity log ----
 

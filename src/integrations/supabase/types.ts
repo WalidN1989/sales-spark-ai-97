@@ -57,10 +57,14 @@ export type Database = {
           created_at: string
           domain: string | null
           email: string | null
+          employee_count: number | null
+          enrichment_status: string | null
+          hunter_last_sync: string | null
           id: string
           industry: string | null
           last_research_at: string | null
           lat: number | null
+          linkedin_url: string | null
           lng: number | null
           market_insight: Json | null
           market_insight_at: string | null
@@ -78,10 +82,14 @@ export type Database = {
           created_at?: string
           domain?: string | null
           email?: string | null
+          employee_count?: number | null
+          enrichment_status?: string | null
+          hunter_last_sync?: string | null
           id?: string
           industry?: string | null
           last_research_at?: string | null
           lat?: number | null
+          linkedin_url?: string | null
           lng?: number | null
           market_insight?: Json | null
           market_insight_at?: string | null
@@ -99,10 +107,14 @@ export type Database = {
           created_at?: string
           domain?: string | null
           email?: string | null
+          employee_count?: number | null
+          enrichment_status?: string | null
+          hunter_last_sync?: string | null
           id?: string
           industry?: string | null
           last_research_at?: string | null
           lat?: number | null
+          linkedin_url?: string | null
           lng?: number | null
           market_insight?: Json | null
           market_insight_at?: string | null
@@ -202,13 +214,21 @@ export type Database = {
           contact_email: string | null
           contact_person: string | null
           created_at: string
+          email_score: number | null
+          email_status: string | null
           id: string
+          job_title: string | null
           last_activity_at: string | null
           last_activity_kind: string | null
           last_activity_note: string | null
+          last_verified_at: string | null
+          lead_score: number
+          lead_score_manual_override: boolean
           notes: string | null
           pipeline_value_cents: number
           products_services: string[]
+          prospect_id: string | null
+          source: string
           status: string
           updated_at: string
           user_id: string
@@ -222,13 +242,21 @@ export type Database = {
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
+          email_score?: number | null
+          email_status?: string | null
           id?: string
+          job_title?: string | null
           last_activity_at?: string | null
           last_activity_kind?: string | null
           last_activity_note?: string | null
+          last_verified_at?: string | null
+          lead_score?: number
+          lead_score_manual_override?: boolean
           notes?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
+          prospect_id?: string | null
+          source?: string
           status?: string
           updated_at?: string
           user_id: string
@@ -242,13 +270,21 @@ export type Database = {
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
+          email_score?: number | null
+          email_status?: string | null
           id?: string
+          job_title?: string | null
           last_activity_at?: string | null
           last_activity_kind?: string | null
           last_activity_note?: string | null
+          last_verified_at?: string | null
+          lead_score?: number
+          lead_score_manual_override?: boolean
           notes?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
+          prospect_id?: string | null
+          source?: string
           status?: string
           updated_at?: string
           user_id?: string
@@ -259,6 +295,13 @@ export type Database = {
           {
             foreignKeyName: "leads_company_id_fkey"
             columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_prospect_id_fkey"
+            columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]

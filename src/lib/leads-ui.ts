@@ -118,3 +118,38 @@ export function fmtFileSize(bytes: number | null | undefined): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+// ---------- Hunter / scoring UI helpers ----------
+
+export type EmailStatusUI = "valid" | "risky" | "invalid" | "unknown";
+
+export const EMAIL_STATUS_STYLES: Record<EmailStatusUI, string> = {
+  valid: "bg-emerald-100 text-emerald-700",
+  risky: "bg-amber-100 text-amber-700",
+  invalid: "bg-rose-100 text-rose-700",
+  unknown: "bg-slate-100 text-slate-600",
+};
+
+export const EMAIL_STATUS_LABEL: Record<EmailStatusUI, string> = {
+  valid: "Valid",
+  risky: "Risky",
+  invalid: "Invalid",
+  unknown: "Unknown",
+};
+
+export function scoreBucket(score: number | null | undefined): {
+  label: "Hot" | "Warm" | "Cold";
+  className: string;
+} {
+  const s = score ?? 0;
+  if (s >= 70) return { label: "Hot", className: "bg-orange-500 text-white" };
+  if (s >= 40) return { label: "Warm", className: "bg-amber-400 text-amber-950" };
+  return { label: "Cold", className: "bg-sky-300 text-sky-950" };
+}
+
+export function confidenceColor(confidence: number | null | undefined): string {
+  const c = confidence ?? 0;
+  if (c >= 90) return "bg-emerald-100 text-emerald-700";
+  if (c >= 70) return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-600";
+}
