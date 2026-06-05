@@ -136,7 +136,8 @@ function CompanyProfile() {
         </Button>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" onClick={() => setFindOpen(true)}>
-            <Search className="mr-1 h-4 w-4" /> Find Contacts
+            <Search className="mr-1 h-4 w-4" />
+            {qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}
           </Button>
           {can("prospects", "delete") && (
             <Button variant="ghost" size="sm" onClick={handleDelete}>

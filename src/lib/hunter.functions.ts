@@ -256,11 +256,13 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
       }
       const bucket = titleBucket(c.position);
       const lead_score = bucket.score; // email not verified yet
+      // NOTE: company_id intentionally omitted — the (user_id, company_id) unique
+      // index allows only one lead per prospect. We link via prospect_id instead
+      // so multiple Hunter contacts can be imported for the same prospect.
       const { data: row, error } = await context.supabase
         .from("leads")
         .insert({
           user_id: context.userId,
-          company_id: data.companyId,
           prospect_id: data.companyId,
           contact_person: c.full_name,
           contact_email: c.email,
@@ -274,8 +276,7 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
         .select("id")
         .single();
       if (error) {
-        // unique-conflict on (user_id, company_id) — skip silently
-        if (/duplicate key|leads_user_company_unique/i.test(error.message)) {
+        if (/duplicate key/i.test(error.message)) {
           skipped++;
           continue;
         }
