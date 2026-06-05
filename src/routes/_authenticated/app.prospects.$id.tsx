@@ -176,6 +176,7 @@ function CompanyProfile() {
           <TabsTrigger value="activity">Activity log</TabsTrigger>
           {can("prospects", "research") && <TabsTrigger value="research">AI research</TabsTrigger>}
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}
+          <TabsTrigger value="respond">Respond</TabsTrigger>
           <TabsTrigger value="market">Market insight</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
         </TabsList>
