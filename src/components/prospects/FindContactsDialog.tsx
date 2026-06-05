@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Linkedin, Search, ExternalLink } from "lucide-react";
@@ -77,7 +77,7 @@ export function FindContactsDialog({
   }, [filtered, dupes]);
 
   // Re-init selection when data changes
-  useMemo(() => setSelected(initSelected), [initSelected]);
+  useEffect(() => setSelected(initSelected), [initSelected]);
 
   const toggle = (email: string) => {
     setSelected((prev) => {
