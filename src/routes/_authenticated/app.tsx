@@ -10,6 +10,8 @@ import {
   Flame,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
+  Package,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
