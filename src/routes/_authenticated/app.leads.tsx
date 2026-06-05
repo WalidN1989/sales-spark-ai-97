@@ -439,44 +439,56 @@ function QuickAddLeadDialog({
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
+              if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
             }}
             className="relative cursor-pointer rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center hover:bg-muted/50"
           >
-            {imageDataUrl ? (
-              <div className="flex items-center gap-3">
-                <img src={imageDataUrl} alt="screenshot" className="h-20 w-20 rounded object-cover" />
-                <div className="text-left text-xs text-muted-foreground">
-                  {extract.isPending ? "Reading screenshot…" : "Click to replace screenshot"}
+            {images.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {images.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img
+                        src={src}
+                        alt={`screenshot ${i + 1}`}
+                        className="h-20 w-20 rounded object-cover ring-1 ring-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImages((prev) => prev.filter((_, idx) => idx !== i));
+                        }}
+                        className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-background ring-1 ring-border hover:bg-muted"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setImageDataUrl(null);
-                    setExtracted(new Set());
-                  }}
-                  className="ml-auto rounded p-1 hover:bg-muted"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="text-xs text-muted-foreground">
+                  {extract.isPending
+                    ? "Reading screenshot(s)…"
+                    : "Click, drop, or paste (Ctrl+V) more images"}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 py-4 text-sm text-muted-foreground">
                 <ImageIcon className="h-6 w-6" />
-                <div>Drop a WhatsApp screenshot or <span className="font-medium text-foreground">click to upload</span></div>
-                <div className="text-xs">PNG / JPG / WebP, up to 6 MB</div>
+                <div>
+                  Drop, click to upload, or <span className="font-medium text-foreground">paste (Ctrl+V)</span> WhatsApp screenshots
+                </div>
+                <div className="text-xs">PNG / JPG / WebP, up to 6 MB each — multiple supported</div>
               </div>
             )}
             <input
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
+                if (e.target.files?.length) handleFiles(e.target.files);
                 e.target.value = "";
               }}
             />
