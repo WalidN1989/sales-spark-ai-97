@@ -156,7 +156,7 @@ export const hunterFindContacts = createServerFn({ method: "POST" })
     domain = domain.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/.*$/, "");
     if (!domain) throw new Error("No domain on this prospect. Add a website or business email first.");
 
-    const json = await hunterFetch("/domain-search", { domain, limit: "25" });
+    const json = await hunterFetch("/domain-search", { domain, limit: "10" });
     type HunterEmail = {
       value?: string;
       first_name?: string | null;
