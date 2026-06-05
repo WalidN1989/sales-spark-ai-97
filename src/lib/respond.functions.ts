@@ -141,15 +141,25 @@ export const generateResponse = createServerFn({ method: "POST" })
     // Product detection
     const combinedInput = `${data.inputText}\n${data.ocrText ?? ""}`;
     const partCandidates = extractPartNumberCandidates(combinedInput);
-    let matchedProducts: Array<Record<string, unknown>> = [];
+    type MatchedProduct = {
+      id: string;
+      brand: string | null;
+      name: string;
+      part_number: string | null;
+      currency: string | null;
+      selling_price_cents: number | null;
+      warranty: string | null;
+      stock_status: string | null;
+    };
+    let matchedProducts: MatchedProduct[] = [];
     let detectedParts: string[] = [];
     if (partCandidates.length > 0) {
       const { data: prods } = await context.supabase
         .from("products")
-        .select("*")
+        .select("id, brand, name, part_number, currency, selling_price_cents, warranty, stock_status")
         .in("part_number", partCandidates);
-      matchedProducts = prods ?? [];
-      const matchedSet = new Set(matchedProducts.map((p) => String(p.part_number ?? "").toUpperCase()));
+      matchedProducts = (prods ?? []) as MatchedProduct[];
+      const matchedSet = new Set(matchedProducts.map((p) => (p.part_number ?? "").toUpperCase()));
       detectedParts = partCandidates.filter((c) => matchedSet.has(c));
     }
 
