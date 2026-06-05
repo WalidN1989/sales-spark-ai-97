@@ -147,6 +147,17 @@ export const clearLeadStatusOverride = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const deleteLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase.from("leads").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
+
 
 // ---- Activity log ----
 
