@@ -61,6 +61,7 @@ import {
   type EmailStatusUI,
 } from "@/lib/leads-ui";
 import { TagInput } from "@/components/leads/TagInput";
+import { RespondTab } from "@/components/respond/RespondTab";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -511,6 +512,12 @@ function LeadDetail() {
 
         {/* Documents */}
         <DocumentsCard leadId={id} />
+      </div>
+
+      {/* AI Respond */}
+      <div>
+        <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
+        <RespondTab leadId={id} />
       </div>
     </div>
   );

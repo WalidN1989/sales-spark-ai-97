@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   Flame,
   TrendingUp,
@@ -308,7 +308,7 @@ function QuickAddLeadDialog({
   const createFn = useServerFn(createQuickLead);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [contact, setContact] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
@@ -319,7 +319,7 @@ function QuickAddLeadDialog({
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
 
   const reset = () => {
-    setImageDataUrl(null);
+    setImages([]);
     setContact("");
     setWhatsapp("");
     setEmail("");
@@ -333,16 +333,19 @@ function QuickAddLeadDialog({
   const extract = useMutation({
     mutationFn: (url: string) => extractFn({ data: { imageDataUrl: url } }),
     onSuccess: (r) => {
-      const tags = new Set<string>();
-      if (r.contact_person) { setContact(r.contact_person); tags.add("contact"); }
-      if (r.whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
-      if (r.contact_email) { setEmail(r.contact_email); tags.add("email"); }
-      if (r.company_name) { setCompanyName(r.company_name); tags.add("company"); }
-      if (r.website) { setWebsite(r.website); tags.add("website"); }
-      if (r.product) { setProduct(r.product); tags.add("product"); }
-      if (r.note) { setNote(r.note); tags.add("note"); }
+      const tags = new Set<string>(extracted);
+      // Merge: only fill empty fields so multiple images stack info
+      if (r.contact_person && !contact) { setContact(r.contact_person); tags.add("contact"); }
+      if (r.whatsapp && !whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
+      if (r.contact_email && !email) { setEmail(r.contact_email); tags.add("email"); }
+      if (r.company_name && !companyName) { setCompanyName(r.company_name); tags.add("company"); }
+      if (r.website && !website) { setWebsite(r.website); tags.add("website"); }
+      if (r.product && !product) { setProduct(r.product); tags.add("product"); }
+      if (r.note) {
+        setNote((n) => (n ? `${n}\n${r.note}` : r.note!));
+        tags.add("note");
+      }
       setExtracted(tags);
-      toast.success(`Detected ${tags.size} field${tags.size === 1 ? "" : "s"}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -368,19 +371,47 @@ function QuickAddLeadDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleFile = (file: File) => {
-    if (file.size > 6 * 1024 * 1024) {
-      toast.error("Image must be under 6 MB");
-      return;
+  const handleFiles = (files: File[] | FileList) => {
+    const arr = Array.from(files).slice(0, 10);
+    for (const file of arr) {
+      if (!file.type.startsWith("image/")) continue;
+      if (file.size > 6 * 1024 * 1024) {
+        toast.error(`${file.name || "Image"} is over 6 MB — skipped`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = String(reader.result || "");
+        setImages((prev) => [...prev, url]);
+        extract.mutate(url);
+      };
+      reader.readAsDataURL(file);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result || "");
-      setImageDataUrl(url);
-      extract.mutate(url);
-    };
-    reader.readAsDataURL(file);
   };
+
+  // Paste images directly (Ctrl/Cmd + V) while dialog is open
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.kind === "file" && it.type.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+        toast.success(`Pasted ${files.length} image${files.length === 1 ? "" : "s"}`);
+      }
+    };
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tag = (k: string) =>
     extracted.has(k) ? (
@@ -408,44 +439,56 @@ function QuickAddLeadDialog({
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              const f = e.dataTransfer.files?.[0];
-              if (f) handleFile(f);
+              if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
             }}
             className="relative cursor-pointer rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center hover:bg-muted/50"
           >
-            {imageDataUrl ? (
-              <div className="flex items-center gap-3">
-                <img src={imageDataUrl} alt="screenshot" className="h-20 w-20 rounded object-cover" />
-                <div className="text-left text-xs text-muted-foreground">
-                  {extract.isPending ? "Reading screenshot…" : "Click to replace screenshot"}
+            {images.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {images.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img
+                        src={src}
+                        alt={`screenshot ${i + 1}`}
+                        className="h-20 w-20 rounded object-cover ring-1 ring-border"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImages((prev) => prev.filter((_, idx) => idx !== i));
+                        }}
+                        className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-background ring-1 ring-border hover:bg-muted"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setImageDataUrl(null);
-                    setExtracted(new Set());
-                  }}
-                  className="ml-auto rounded p-1 hover:bg-muted"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="text-xs text-muted-foreground">
+                  {extract.isPending
+                    ? "Reading screenshot(s)…"
+                    : "Click, drop, or paste (Ctrl+V) more images"}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 py-4 text-sm text-muted-foreground">
                 <ImageIcon className="h-6 w-6" />
-                <div>Drop a WhatsApp screenshot or <span className="font-medium text-foreground">click to upload</span></div>
-                <div className="text-xs">PNG / JPG / WebP, up to 6 MB</div>
+                <div>
+                  Drop, click to upload, or <span className="font-medium text-foreground">paste (Ctrl+V)</span> WhatsApp screenshots
+                </div>
+                <div className="text-xs">PNG / JPG / WebP, up to 6 MB each — multiple supported</div>
               </div>
             )}
             <input
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
+                if (e.target.files?.length) handleFiles(e.target.files);
                 e.target.value = "";
               }}
             />

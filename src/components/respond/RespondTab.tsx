@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ClipboardEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Sparkles, Copy, Save, BookOpen, Upload, X } from "lucide-react";
@@ -37,7 +37,13 @@ type UploadItem = {
   error?: string;
 };
 
-export function RespondTab({ companyId }: { companyId: string }) {
+export function RespondTab({
+  companyId,
+  leadId,
+}: {
+  companyId?: string;
+  leadId?: string;
+}) {
   const qc = useQueryClient();
   const gen = useServerFn(generateResponse);
   const ocr = useServerFn(ocrImage);
@@ -71,35 +77,62 @@ export function RespondTab({ companyId }: { companyId: string }) {
     [inputText, ocrText],
   );
 
-  const handleUpload = async (files: FileList | null) => {
+  const uploadOne = async (file: File, uid: string) => {
+    const id = crypto.randomUUID();
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const path = `${uid}/${id}.${ext}`;
+    const safeName = file.name || `pasted-${Date.now()}.${ext}`;
+    setUploads((u) => [...u, { id, path, name: safeName, status: "uploading" }]);
+    const { error } = await supabase.storage.from("respond-uploads").upload(path, file);
+    if (error) {
+      setUploads((u) =>
+        u.map((x) => (x.id === id ? { ...x, status: "error", error: error.message } : x)),
+      );
+      return;
+    }
+    setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "ocr" } : x)));
+    try {
+      const r = await ocr({ data: { storagePath: path } });
+      setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "done", text: r.text } : x)));
+    } catch (e) {
+      setUploads((u) =>
+        u.map((x) =>
+          x.id === id ? { ...x, status: "error", error: e instanceof Error ? e.message : "OCR failed" } : x,
+        ),
+      );
+    }
+  };
+
+  const handleUpload = async (files: FileList | File[] | null) => {
     if (!files) return;
+    const arr = Array.from(files).slice(0, 10);
+    if (arr.length === 0) return;
     const { data: userRes } = await supabase.auth.getUser();
     const uid = userRes.user?.id;
     if (!uid) {
       toast.error("Not signed in");
       return;
     }
-    for (const file of Array.from(files).slice(0, 10)) {
-      const id = crypto.randomUUID();
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${uid}/${id}.${ext}`;
-      setUploads((u) => [...u, { id, path, name: file.name, status: "uploading" }]);
-      const { error } = await supabase.storage.from("respond-uploads").upload(path, file);
-      if (error) {
-        setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "error", error: error.message } : x)));
-        continue;
+    for (const file of arr) {
+      await uploadOne(file, uid);
+    }
+  };
+
+  const handlePaste = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "file" && it.type.startsWith("image/")) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
       }
-      setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "ocr" } : x)));
-      try {
-        const r = await ocr({ data: { storagePath: path } });
-        setUploads((u) => u.map((x) => (x.id === id ? { ...x, status: "done", text: r.text } : x)));
-      } catch (e) {
-        setUploads((u) =>
-          u.map((x) =>
-            x.id === id ? { ...x, status: "error", error: e instanceof Error ? e.message : "OCR failed" } : x,
-          ),
-        );
-      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      void handleUpload(files);
+      toast.success(`Pasted ${files.length} image${files.length === 1 ? "" : "s"}`);
     }
   };
 
@@ -112,7 +145,8 @@ export function RespondTab({ companyId }: { companyId: string }) {
     mutationFn: () =>
       gen({
         data: {
-          companyId,
+          companyId: companyId ?? null,
+          leadId: leadId ?? null,
           engine,
           inputText,
           notes: notes || null,
@@ -138,7 +172,11 @@ export function RespondTab({ companyId }: { companyId: string }) {
     if (!responseId || !draft.trim()) return;
     try {
       await saveAct({ data: { responseId, finalText: draft } });
-      qc.invalidateQueries({ queryKey: ["company", companyId] });
+      if (companyId) qc.invalidateQueries({ queryKey: ["company", companyId] });
+      if (leadId) {
+        qc.invalidateQueries({ queryKey: ["lead-activities", leadId] });
+        qc.invalidateQueries({ queryKey: ["lead", leadId] });
+      }
       toast.success("Saved to activity log");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
@@ -189,10 +227,14 @@ export function RespondTab({ companyId }: { companyId: string }) {
           <Label className="mb-1 block text-xs">Customer email / message</Label>
           <Textarea
             rows={6}
-            placeholder="Paste the customer's email, WhatsApp message, or inquiry…"
+            placeholder="Paste the customer's email, WhatsApp message, or inquiry… (Ctrl+V images here too)"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onPaste={handlePaste}
           />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Tip: paste screenshots directly (Ctrl/Cmd + V) — multiple images supported.
+          </p>
         </div>
 
         <div>

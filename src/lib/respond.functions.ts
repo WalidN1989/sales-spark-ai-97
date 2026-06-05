@@ -6,17 +6,22 @@ import { extractPartNumberCandidates } from "@/lib/products.functions";
 
 const ENGINE_IDS = RESPOND_ENGINES.map((e) => e.id) as [EngineId, ...EngineId[]];
 
-const generateSchema = z.object({
-  companyId: z.string().uuid(),
-  engine: z.enum(ENGINE_IDS),
-  inputText: z.string().max(20000).default(""),
-  notes: z.string().max(5000).optional().nullable(),
-  ocrText: z.string().max(40000).optional().nullable(),
-  attachments: z
-    .array(z.object({ path: z.string(), name: z.string().optional() }))
-    .max(10)
-    .default([]),
-});
+const generateSchema = z
+  .object({
+    companyId: z.string().uuid().optional().nullable(),
+    leadId: z.string().uuid().optional().nullable(),
+    engine: z.enum(ENGINE_IDS),
+    inputText: z.string().max(20000).default(""),
+    notes: z.string().max(5000).optional().nullable(),
+    ocrText: z.string().max(40000).optional().nullable(),
+    attachments: z
+      .array(z.object({ path: z.string(), name: z.string().optional() }))
+      .max(10)
+      .default([]),
+  })
+  .refine((d) => !!d.companyId || !!d.leadId, {
+    message: "companyId or leadId is required",
+  });
 
 async function callAI(apiKey: string, system: string, user: string) {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -69,13 +74,11 @@ export const ocrImage = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Sign a short-lived URL so we don't have to download bytes into memory
     const { data: signed, error: signErr } = await context.supabase.storage
       .from("respond-uploads")
       .createSignedUrl(data.storagePath, 300);
     if (signErr || !signed?.signedUrl) throw new Error(signErr?.message || "Could not access uploaded image");
 
-    // Download → base64 (Worker-safe)
     const imgRes = await fetch(signed.signedUrl);
     if (!imgRes.ok) throw new Error(`Failed to read image: ${imgRes.status}`);
     const ct = imgRes.headers.get("content-type") || "image/png";
@@ -125,18 +128,84 @@ export const generateResponse = createServerFn({ method: "POST" })
 
     const engine = RESPOND_ENGINES.find((e) => e.id === data.engine)!;
 
-    // Context: company, recent activity, my_company
-    const [{ data: company }, { data: activities }, { data: mine }] = await Promise.all([
-      context.supabase.from("companies").select("*").eq("id", data.companyId).single(),
-      context.supabase
-        .from("activity_log")
-        .select("type, content, logged_at")
-        .eq("company_id", data.companyId)
-        .order("logged_at", { ascending: false })
-        .limit(10),
-      context.supabase.from("my_company").select("*").eq("user_id", context.userId).maybeSingle(),
-    ]);
-    if (!company) throw new Error("Prospect not found");
+    // Resolve target — company or lead
+    type TargetInfo = {
+      name: string;
+      contact: string | null;
+      industry: string | null;
+      country: string | null;
+      website: string | null;
+      extras: string;
+    };
+    let target: TargetInfo;
+    let activityLines: string[] = [];
+
+    if (data.companyId) {
+      const [{ data: company }, { data: activities }] = await Promise.all([
+        context.supabase.from("companies").select("*").eq("id", data.companyId).single(),
+        context.supabase
+          .from("activity_log")
+          .select("type, content, logged_at")
+          .eq("company_id", data.companyId)
+          .order("logged_at", { ascending: false })
+          .limit(10),
+      ]);
+      if (!company) throw new Error("Prospect not found");
+      target = {
+        name: company.name,
+        contact: company.contact_person ?? null,
+        industry: company.industry ?? null,
+        country: company.country ?? null,
+        website: company.domain ?? null,
+        extras: "",
+      };
+      activityLines = (activities ?? []).map(
+        (a) => `- [${a.type}] ${new Date(a.logged_at).toLocaleDateString()} — ${a.content}`,
+      );
+    } else if (data.leadId) {
+      const [{ data: lead }, { data: activities }] = await Promise.all([
+        context.supabase.from("leads").select("*").eq("id", data.leadId).single(),
+        context.supabase
+          .from("lead_activities")
+          .select("kind, body, created_at")
+          .eq("lead_id", data.leadId)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+      if (!lead) throw new Error("Lead not found");
+      const brandList = Array.isArray(lead.brands) ? lead.brands.join(", ") : "";
+      const prodList = Array.isArray(lead.products_services)
+        ? lead.products_services.join(", ")
+        : "";
+      target = {
+        name: lead.company_name || lead.contact_person || "Lead",
+        contact: lead.contact_person ?? null,
+        industry: null,
+        country: null,
+        website: lead.website ?? null,
+        extras: [
+          lead.job_title ? `Job title: ${lead.job_title}` : null,
+          lead.whatsapp ? `WhatsApp: ${lead.whatsapp}` : null,
+          lead.contact_email ? `Email: ${lead.contact_email}` : null,
+          brandList ? `Brands: ${brandList}` : null,
+          prodList ? `Products/services: ${prodList}` : null,
+          lead.notes ? `Notes: ${lead.notes}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      };
+      activityLines = (activities ?? []).map(
+        (a) => `- [${a.kind}] ${new Date(a.created_at).toLocaleDateString()} — ${a.body}`,
+      );
+    } else {
+      throw new Error("Missing target");
+    }
+
+    const { data: mine } = await context.supabase
+      .from("my_company")
+      .select("*")
+      .eq("user_id", context.userId)
+      .maybeSingle();
 
     // Product detection
     const combinedInput = `${data.inputText}\n${data.ocrText ?? ""}`;
@@ -163,7 +232,7 @@ export const generateResponse = createServerFn({ method: "POST" })
       detectedParts = partCandidates.filter((c) => matchedSet.has(c));
     }
 
-    // Learning context — fetch all and rank by tag/text overlap (simple)
+    // Learning context
     const { data: learning } = await context.supabase
       .from("learning_entries")
       .select("category, title, content, situation, tags, engine");
@@ -209,10 +278,8 @@ export const generateResponse = createServerFn({ method: "POST" })
         : "RELEVANT KNOWLEDGE: (none yet)";
 
     const activityBlock =
-      (activities ?? []).length > 0
-        ? `RECENT ACTIVITY:\n${(activities ?? [])
-            .map((a) => `- [${a.type}] ${new Date(a.logged_at).toLocaleDateString()} — ${a.content}`)
-            .join("\n")}`
+      activityLines.length > 0
+        ? `RECENT ACTIVITY:\n${activityLines.join("\n")}`
         : "RECENT ACTIVITY: (none)";
 
     const system = `You are an experienced B2B sales rep drafting a reply for the user to review and send manually.
@@ -228,13 +295,13 @@ Rules:
     const user = `MY COMPANY:
 ${mine ? JSON.stringify(mine, null, 2) : "(not set)"}
 
-PROSPECT:
-Name: ${company.name}
-Contact: ${company.contact_person ?? "n/a"}
-Industry: ${company.industry ?? "n/a"}
-Country: ${company.country ?? "n/a"}
-Website: ${company.domain ?? "n/a"}
-
+PROSPECT / LEAD:
+Name: ${target.name}
+Contact: ${target.contact ?? "n/a"}
+Industry: ${target.industry ?? "n/a"}
+Country: ${target.country ?? "n/a"}
+Website: ${target.website ?? "n/a"}
+${target.extras ? target.extras + "\n" : ""}
 ${activityBlock}
 
 ${productBlock}
@@ -258,7 +325,8 @@ ${data.notes || "(none)"}`;
       .from("responses")
       .insert({
         user_id: context.userId,
-        company_id: data.companyId,
+        company_id: data.companyId ?? null,
+        lead_id: data.leadId ?? null,
         engine: data.engine,
         input_text: data.inputText,
         input_notes: data.notes ?? null,
@@ -293,20 +361,33 @@ export const saveResponseToActivityLog = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { data: row, error } = await context.supabase
       .from("responses")
-      .select("company_id, engine")
+      .select("company_id, lead_id, engine")
       .eq("id", data.responseId)
       .single();
     if (error) throw new Error(error.message);
 
-    await context.supabase.from("responses").update({ final: data.finalText }).eq("id", data.responseId);
+    await context.supabase
+      .from("responses")
+      .update({ final: data.finalText })
+      .eq("id", data.responseId);
 
-    const { error: actErr } = await context.supabase.from("activity_log").insert({
-      company_id: row.company_id,
-      user_id: context.userId,
-      type: "email",
-      content: `[Respond · ${row.engine}]\n${data.finalText}`,
-    });
-    if (actErr) throw new Error(actErr.message);
+    if (row.company_id) {
+      const { error: actErr } = await context.supabase.from("activity_log").insert({
+        company_id: row.company_id,
+        user_id: context.userId,
+        type: "email",
+        content: `[Respond · ${row.engine}]\n${data.finalText}`,
+      });
+      if (actErr) throw new Error(actErr.message);
+    } else if (row.lead_id) {
+      const { error: actErr } = await context.supabase.from("lead_activities").insert({
+        lead_id: row.lead_id,
+        user_id: context.userId,
+        kind: "email",
+        body: `[Respond · ${row.engine}]\n${data.finalText}`,
+      });
+      if (actErr) throw new Error(actErr.message);
+    }
     return { ok: true };
   });
 
