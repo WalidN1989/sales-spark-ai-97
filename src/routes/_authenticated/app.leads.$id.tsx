@@ -418,38 +418,6 @@ function LeadDetail() {
                 )}
               </div>
             </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Lead info */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Lead information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Contact name</Label>
-                <Input value={contact} onChange={(e) => setContact(e.target.value)} maxLength={200} />
-              </div>
-              <div>
-                <Label>WhatsApp number</Label>
-                <Input
-                  value={wa}
-                  onChange={(e) => setWa(e.target.value)}
-                  maxLength={30}
-                  placeholder="+971501234567"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                maxLength={200}
-                type="email"
-              />
-            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Company name</Label>
