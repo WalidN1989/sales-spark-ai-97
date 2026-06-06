@@ -91,29 +91,38 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
-  // ---------- Group by company ----------
+  // ---------- Group by company (uses company_id when present, else normalized name) ----------
   type Item =
     | { kind: "single"; lead: Lead }
-    | { kind: "group"; companyId: string; companyName: string; leads: Lead[] };
+    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] };
 
   const items = useMemo<Item[]>(() => {
+    const normalizeName = (n: string | null | undefined) =>
+      (n ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    const groupKeyFor = (l: Lead): string | null => {
+      if (l.company_id) return `id:${l.company_id}`;
+      const name = normalizeName(l.company_name ?? l.companies?.name);
+      return name ? `name:${name}` : null;
+    };
+
     const groupsMap = new Map<string, Lead[]>();
     const singles: Lead[] = [];
     for (const l of leads) {
-      if (l.company_id) {
-        const arr = groupsMap.get(l.company_id) ?? [];
-        arr.push(l);
-        groupsMap.set(l.company_id, arr);
-      } else {
+      const k = groupKeyFor(l);
+      if (!k) {
         singles.push(l);
+        continue;
       }
+      const arr = groupsMap.get(k) ?? [];
+      arr.push(l);
+      groupsMap.set(k, arr);
     }
     const out: Item[] = [];
-    for (const [companyId, arr] of groupsMap) {
+    for (const [groupKey, arr] of groupsMap) {
       if (arr.length >= 2) {
         out.push({
           kind: "group",
-          companyId,
+          groupKey,
           companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
           leads: arr,
         });
@@ -230,7 +239,7 @@ function LeadsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((item) =>
             item.kind === "group" ? (
-              <GroupCard key={`g-${item.companyId}`} companyId={item.companyId} companyName={item.companyName} leads={item.leads} />
+              <GroupCard key={`g-${item.groupKey}`} groupKey={item.groupKey} companyName={item.companyName} leads={item.leads} />
             ) : (
               <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
             ),
@@ -377,11 +386,11 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
 // ---------- Group Card (multiple leads from same company) ----------
 
 function GroupCard({
-  companyId,
+  groupKey,
   companyName,
   leads,
 }: {
-  companyId: string;
+  groupKey: string;
   companyName: string;
   leads: Lead[];
 }) {
@@ -403,7 +412,7 @@ function GroupCard({
   return (
     <div className="relative">
       {groupHasNew && <NewBadge />}
-      <Link to="/app/leads/group/$companyId" params={{ companyId }} className="block">
+      <Link to="/app/leads/group/$companyId" params={{ companyId: encodeURIComponent(groupKey) }} className="block">
         <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30">
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">

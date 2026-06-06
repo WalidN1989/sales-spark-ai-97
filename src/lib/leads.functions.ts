@@ -36,14 +36,26 @@ export const getLead = createServerFn({ method: "GET" })
 export const listLeadsByCompany = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ companyId: z.string().uuid() }).parse(d),
+    z.object({ companyId: z.string().min(1).max(300) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
-      .from("leads")
-      .select(LEAD_SELECT)
-      .eq("company_id", data.companyId)
-      .order("created_at", { ascending: false });
+    // Accept either a UUID company_id, "id:<uuid>", or "name:<normalized name>"
+    const raw = decodeURIComponent(data.companyId);
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let query = context.supabase.from("leads").select(LEAD_SELECT);
+    if (uuidRe.test(raw)) {
+      query = query.eq("company_id", raw);
+    } else if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) {
+      query = query.eq("company_id", raw.slice(3));
+    } else if (raw.startsWith("name:")) {
+      // Case-insensitive match on company_name (normalize spaces by relying on ilike)
+      const name = raw.slice(5).trim();
+      query = query.ilike("company_name", name);
+    } else {
+      // Fallback: try as name
+      query = query.ilike("company_name", raw);
+    }
+    const { data: rows, error } = await query.order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
