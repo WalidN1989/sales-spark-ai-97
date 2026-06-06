@@ -34,7 +34,7 @@ async function firecrawlScrape(url: string) {
 
 async function googleGeocode(address: string) {
   const lovableKey = process.env.LOVABLE_API_KEY;
-  const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
+  const gmapsKey = process.env.GOOGLE_MAPS_API_KEY_1 ?? process.env.GOOGLE_MAPS_API_KEY;
   if (!lovableKey || !gmapsKey) return null;
   const res = await fetch(
     `https://connector-gateway.lovable.dev/google_maps/maps/api/geocode/json?address=${encodeURIComponent(address)}`,
