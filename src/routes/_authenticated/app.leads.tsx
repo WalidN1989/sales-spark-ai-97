@@ -91,29 +91,38 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
-  // ---------- Group by company ----------
+  // ---------- Group by company (uses company_id when present, else normalized name) ----------
   type Item =
     | { kind: "single"; lead: Lead }
-    | { kind: "group"; companyId: string; companyName: string; leads: Lead[] };
+    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] };
 
   const items = useMemo<Item[]>(() => {
+    const normalizeName = (n: string | null | undefined) =>
+      (n ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    const groupKeyFor = (l: Lead): string | null => {
+      if (l.company_id) return `id:${l.company_id}`;
+      const name = normalizeName(l.company_name ?? l.companies?.name);
+      return name ? `name:${name}` : null;
+    };
+
     const groupsMap = new Map<string, Lead[]>();
     const singles: Lead[] = [];
     for (const l of leads) {
-      if (l.company_id) {
-        const arr = groupsMap.get(l.company_id) ?? [];
-        arr.push(l);
-        groupsMap.set(l.company_id, arr);
-      } else {
+      const k = groupKeyFor(l);
+      if (!k) {
         singles.push(l);
+        continue;
       }
+      const arr = groupsMap.get(k) ?? [];
+      arr.push(l);
+      groupsMap.set(k, arr);
     }
     const out: Item[] = [];
-    for (const [companyId, arr] of groupsMap) {
+    for (const [groupKey, arr] of groupsMap) {
       if (arr.length >= 2) {
         out.push({
           kind: "group",
-          companyId,
+          groupKey,
           companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
           leads: arr,
         });
