@@ -12,7 +12,7 @@ import {
   SplitSquareHorizontal,
   ExternalLink,
 } from "lucide-react";
-import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
+
 import { listLeadsByCompany } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
