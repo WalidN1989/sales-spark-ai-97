@@ -189,6 +189,10 @@ function LeadDetail() {
     email_score: number | null;
     last_verified_at: string | null;
     lead_score_manual_override: boolean;
+    linkedin_url: string | null;
+    department: string | null;
+    seniority: string | null;
+    hunter_confidence: number | null;
   };
 
   // Auto-suggest website from a business email domain
