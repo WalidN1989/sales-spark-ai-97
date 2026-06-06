@@ -228,116 +228,13 @@ function LeadsPage() {
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sorted.map((l) => (
-            <div key={l.id} className="relative">
-              <Link
-                to="/app/leads/$id"
-                params={{ id: l.id }}
-                className="block"
-              >
-                <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-sm font-semibold">
-                      {leadInitials(l.contact_person, l.companies?.name ?? "?")}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold">
-                        {l.contact_person || l.whatsapp || "—"}
-                      </div>
-                      {l.job_title && (
-                        <div className="truncate text-xs font-medium text-foreground/80">
-                          {l.job_title}
-                        </div>
-                      )}
-                      <div className="truncate text-xs text-muted-foreground">
-                        {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
-                      >
-                        {l.status}
-                      </span>
-                      {l.lead_score != null && l.lead_score > 0 && (
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
-                          {l.lead_score}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    {l.contact_email && (
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="truncate">✉ {l.contact_email}</span>
-                        {l.email_status && (
-                          <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
-                            {EMAIL_STATUS_LABEL[l.email_status]}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
-                    {l.pipeline_value_cents > 0 && (
-                      <div className="text-foreground font-medium">
-                        {fmtMoneyCents(l.pipeline_value_cents)}
-                      </div>
-                    )}
-                  </div>
-
-                  {l.last_activity_note && (
-                    <div className="border-l-2 border-muted pl-2 text-xs italic text-muted-foreground line-clamp-2">
-                      "{l.last_activity_note}"
-                    </div>
-                  )}
-
-                  <div className="mt-auto flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[l.status]}`} />
-                      {timeAgo(l.last_activity_at)}
-                    </div>
-                    <div
-                      className="flex items-center gap-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      {waHref(l.whatsapp) ? (
-                        <a
-                          href={waHref(l.whatsapp)!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open WhatsApp"
-                          className="grid h-8 w-8 place-items-center rounded-md bg-[#25D366] text-white hover:opacity-90"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => navigate({ to: "/app/leads/$id", params: { id: l.id } })}
-                          className="grid h-8 px-2 place-items-center rounded-md border text-xs hover:bg-accent"
-                        >
-                          + WhatsApp
-                        </button>
-                      )}
-                      {l.contact_email && (
-                        <a
-                          href={`mailto:${l.contact_email}`}
-                          title="Send email"
-                          className="grid h-8 w-8 place-items-center rounded-md border hover:bg-accent"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            </div>
-          ))}
+          {sorted.map((item) =>
+            item.kind === "group" ? (
+              <GroupCard key={`g-${item.companyId}`} companyId={item.companyId} companyName={item.companyName} leads={item.leads} />
+            ) : (
+              <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
+            ),
+          )}
         </div>
       )}
 
