@@ -358,7 +358,3 @@ function LeadPanel({
     </Card>
   );
 }
-
-// Suppress unused-icons warning
-void ChevronLeft;
-void ChevronRight;
