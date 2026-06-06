@@ -12,7 +12,12 @@ function SettingsLayout() {
   const loc = useLocation();
   const tabs = [
     { to: "/app/settings/my-company", label: "My company" },
-    ...(isAdmin ? [{ to: "/app/settings/users", label: "User management" }] : []),
+    ...(isAdmin
+      ? [
+          { to: "/app/settings/users", label: "User management" },
+          { to: "/app/settings/import", label: "Import data" },
+        ]
+      : []),
   ];
   return (
     <div className="space-y-4">
