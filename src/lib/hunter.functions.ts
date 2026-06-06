@@ -269,6 +269,10 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
           company_name: company.name,
           website: company.domain,
           job_title: c.position,
+          department: c.department,
+          seniority: c.seniority,
+          linkedin_url: c.linkedin,
+          hunter_confidence: c.confidence,
           status: bucket.status,
           source: "hunter.io",
           lead_score,
@@ -284,11 +288,20 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
       }
       created++;
       leadIds.push(row.id);
+      const summary = [
+        c.full_name,
+        c.position,
+        c.department,
+        c.linkedin ? "LinkedIn ✓" : null,
+        c.confidence != null ? `conf ${c.confidence}%` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
       await context.supabase.from("lead_activities").insert({
         lead_id: row.id,
         user_id: context.userId,
         kind: "log",
-        body: `Imported from Hunter: ${c.full_name}${c.position ? ` · ${c.position}` : ""}`,
+        body: `Imported from Hunter: ${summary}`,
       });
     }
 
