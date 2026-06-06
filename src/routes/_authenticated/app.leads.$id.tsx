@@ -13,6 +13,7 @@ import {
   Upload,
   FileText,
   Download,
+  Linkedin,
 } from "lucide-react";
 import {
   getLead,
