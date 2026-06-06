@@ -13,6 +13,8 @@ import {
   Sparkles,
   X,
   Image as ImageIcon,
+  Linkedin,
+  Users as UsersIcon,
 } from "lucide-react";
 import { listLeads, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
