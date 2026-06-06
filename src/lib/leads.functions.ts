@@ -91,6 +91,10 @@ const patchSchema = z
     products_services: stringTagArray.optional(),
     notes: z.string().max(4000).nullable().optional(),
     job_title: z.string().max(200).nullable().optional(),
+    linkedin_url: z.string().max(500).nullable().optional(),
+    department: z.string().max(120).nullable().optional(),
+    seniority: z.string().max(80).nullable().optional(),
+    phone: z.string().max(40).nullable().optional(),
   })
   .strict();
 
