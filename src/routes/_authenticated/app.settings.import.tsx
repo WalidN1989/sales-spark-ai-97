@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAccess } from "@/hooks/use-access";
-import { importProspects, importLeads } from "@/lib/import.functions";
+import { importProspects, importLeads, resolveProspectMap } from "@/lib/import.functions";
 
 export const Route = createFileRoute("/_authenticated/app/settings/import")({
   component: ImportPage,
@@ -48,6 +48,7 @@ function ImportPage() {
   const { isAdmin, isLoading } = useAccess();
   const importProspectsFn = useServerFn(importProspects);
   const importLeadsFn = useServerFn(importLeads);
+  const resolveMapFn = useServerFn(resolveProspectMap);
 
   const [prospectRows, setProspectRows] = useState<Record<string, string>[]>([]);
   const [prospectHeaders, setProspectHeaders] = useState<string[]>([]);
@@ -100,14 +101,18 @@ function ImportPage() {
   };
 
   const runLeads = async () => {
-    if (!prospectMap) {
-      toast.error("Import prospects first");
-      return;
-    }
     setLeadBusy(true);
     try {
+      let map = prospectMap;
+      // Rebuild map from prospects CSV against already-imported companies
+      if (!map && prospectRows.length > 0) {
+        const r = await resolveMapFn({ data: { rows: prospectRows } });
+        map = r.prospectIdMap;
+        setProspectMap(map);
+        toast.message(`Linked ${r.matched} prospects to existing companies`);
+      }
       const res = await importLeadsFn({
-        data: { rows: leadRows, prospectIdMap: prospectMap },
+        data: { rows: leadRows, prospectIdMap: map ?? {} },
       });
       setLeadResult(res);
       toast.success(
@@ -120,10 +125,12 @@ function ImportPage() {
     }
   };
 
+  const step1Done = !!prospectResult || !!prospectMap;
+
   return (
     <div className="space-y-6">
       <Step
-        title="Step 1 — Import Prospects"
+        title={`Step 1 — Import Prospects${step1Done ? " ✓" : ""}`}
         expectedCols={PROSPECT_COLS}
         rows={prospectRows}
         headers={prospectHeaders}
@@ -143,9 +150,14 @@ function ImportPage() {
         onImport={runLeads}
         busy={leadBusy}
         result={leadResult}
-        disabled={!prospectMap}
-        disabledReason="Complete Step 1 first."
         importLabel="Import leads"
+        hint={
+          !prospectMap && prospectRows.length === 0
+            ? "Tip: also upload your Prospects CSV in Step 1 (no need to re-import) so leads can be linked to their companies. Otherwise leads will be imported with no company link."
+            : !prospectMap && prospectRows.length > 0
+              ? "Prospects CSV detected — company links will be rebuilt by name."
+              : undefined
+        }
       />
     </div>
   );
@@ -153,7 +165,7 @@ function ImportPage() {
 
 function Step({
   title, expectedCols, rows, headers, onFile, onImport, busy, result,
-  disabled, disabledReason, importLabel,
+  disabled, disabledReason, importLabel, hint,
 }: {
   title: string;
   expectedCols: string[];
@@ -166,6 +178,7 @@ function Step({
   disabled?: boolean;
   disabledReason?: string;
   importLabel: string;
+  hint?: string;
 }) {
   const matched = expectedCols.filter((c) => headers.includes(c));
   const missing = expectedCols.filter((c) => !headers.includes(c));
@@ -180,6 +193,9 @@ function Step({
       <CardContent className="space-y-4">
         {disabled && (
           <p className="text-sm text-muted-foreground">{disabledReason}</p>
+        )}
+        {hint && !disabled && (
+          <p className="text-sm text-muted-foreground">{hint}</p>
         )}
         <Input
           type="file"
