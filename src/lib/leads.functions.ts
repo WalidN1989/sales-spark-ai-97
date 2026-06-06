@@ -33,6 +33,22 @@ export const getLead = createServerFn({ method: "GET" })
     return row;
   });
 
+export const listLeadsByCompany = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ companyId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("leads")
+      .select(LEAD_SELECT)
+      .eq("company_id", data.companyId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+
 export const promoteToLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
