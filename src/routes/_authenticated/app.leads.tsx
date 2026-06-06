@@ -69,6 +69,7 @@ type Lead = {
   linkedin_url: string | null;
   department: string | null;
   seniority: string | null;
+  website: string | null;
   created_at: string | null;
   updated_at: string | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
