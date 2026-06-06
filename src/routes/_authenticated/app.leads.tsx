@@ -239,7 +239,7 @@ function LeadsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((item) =>
             item.kind === "group" ? (
-              <GroupCard key={`g-${item.companyId}`} companyId={item.companyId} companyName={item.companyName} leads={item.leads} />
+              <GroupCard key={`g-${item.groupKey}`} groupKey={item.groupKey} companyName={item.companyName} leads={item.leads} />
             ) : (
               <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
             ),
