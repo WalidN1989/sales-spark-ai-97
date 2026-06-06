@@ -14,7 +14,18 @@ import {
   FileText,
   Download,
   Linkedin,
+  Link2,
+  Plus,
+  X,
+  Target,
 } from "lucide-react";
+import {
+  listInquiriesForLead,
+  listInquiries,
+  linkLeadToInquiry,
+  unlinkLeadFromInquiry,
+  createInquiry,
+} from "@/lib/inquiries.functions";
 import {
   getLead,
   updateLead,
@@ -541,6 +552,9 @@ function LeadDetail() {
         <DocumentsCard leadId={id} />
       </div>
 
+      {/* Inquiries */}
+      <InquiriesCard leadId={id} />
+
       {/* AI Respond */}
       <div>
         <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
@@ -804,6 +818,179 @@ function DocumentsCard({ leadId }: { leadId: string }) {
                 </button>
               </div>
             ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------- Inquiries link ----------------
+
+function InquiriesCard({ leadId }: { leadId: string }) {
+  const qc = useQueryClient();
+  const listForLeadFn = useServerFn(listInquiriesForLead);
+  const listAllFn = useServerFn(listInquiries);
+  const linkFn = useServerFn(linkLeadToInquiry);
+  const unlinkFn = useServerFn(unlinkLeadFromInquiry);
+  const createFn = useServerFn(createInquiry);
+
+  const linkedQ = useQuery({
+    queryKey: ["lead-inquiries", leadId],
+    queryFn: () => listForLeadFn({ data: { leadId } }),
+  });
+  const allQ = useQuery({
+    queryKey: ["inquiries-all"],
+    queryFn: () => listAllFn(),
+  });
+
+  const linked = (linkedQ.data ?? []) as Array<{
+    inquiry_id: string;
+    inquiries: { id: string; title: string; status: string } | null;
+  }>;
+  const linkedIds = new Set(linked.map((l) => l.inquiry_id));
+  const available = ((allQ.data ?? []) as Array<{ id: string; title: string; status: string }>)
+    .filter((i) => !linkedIds.has(i.id));
+
+  const [picker, setPicker] = useState<string>("");
+  const [creating, setCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["lead-inquiries", leadId] });
+    qc.invalidateQueries({ queryKey: ["inquiries-all"] });
+  };
+
+  const linkExisting = useMutation({
+    mutationFn: async (inquiryId: string) => linkFn({ data: { inquiryId, leadId } }),
+    onSuccess: () => {
+      toast.success("Linked to inquiry");
+      setPicker("");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const unlink = useMutation({
+    mutationFn: async (inquiryId: string) => unlinkFn({ data: { inquiryId, leadId } }),
+    onSuccess: () => {
+      toast.success("Unlinked");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const createAndLink = useMutation({
+    mutationFn: async (title: string) =>
+      createFn({ data: { title, leadIds: [leadId] } }),
+    onSuccess: () => {
+      toast.success("Inquiry created");
+      setCreating(false);
+      setNewTitle("");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Target className="h-4 w-4" /> Linked inquiries
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {linked.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Not linked to any inquiry yet. Group competing leads under an inquiry to track them together.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {linked.map((l) => (
+              <li
+                key={l.inquiry_id}
+                className="flex items-center justify-between gap-2 rounded border p-2"
+              >
+                <Link
+                  to="/app/inquiries/$id"
+                  params={{ id: l.inquiry_id }}
+                  className="flex min-w-0 items-center gap-2 text-sm hover:underline"
+                >
+                  <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate font-medium">
+                    {l.inquiries?.title ?? "Inquiry"}
+                  </span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">
+                    {l.inquiries?.status ?? "open"}
+                  </span>
+                </Link>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => unlink.mutate(l.inquiry_id)}
+                  disabled={unlink.isPending}
+                  title="Unlink"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Select
+            value={picker}
+            onValueChange={(v) => {
+              setPicker(v);
+              linkExisting.mutate(v);
+            }}
+          >
+            <SelectTrigger className="w-[260px]">
+              <SelectValue placeholder={available.length ? "Link to existing inquiry…" : "No other inquiries"} />
+            </SelectTrigger>
+            <SelectContent>
+              {available.map((i) => (
+                <SelectItem key={i.id} value={i.id}>
+                  {i.title}{" "}
+                  <span className="text-xs text-muted-foreground">({i.status})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {!creating ? (
+            <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+              <Plus className="mr-1 h-4 w-4" /> New inquiry
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Input
+                autoFocus
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Inquiry title (e.g. 50× Laptops RFQ)"
+                className="w-[260px]"
+                maxLength={200}
+              />
+              <Button
+                size="sm"
+                disabled={!newTitle.trim() || createAndLink.isPending}
+                onClick={() => createAndLink.mutate(newTitle.trim())}
+              >
+                {createAndLink.isPending ? "Creating…" : "Create & link"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setCreating(false);
+                  setNewTitle("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>
