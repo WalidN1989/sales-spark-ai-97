@@ -13,6 +13,8 @@ import {
   Sparkles,
   X,
   Image as ImageIcon,
+  Linkedin,
+  Users as UsersIcon,
 } from "lucide-react";
 import { listLeads, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
@@ -64,12 +66,19 @@ type Lead = {
   lead_score: number | null;
   email_status: EmailStatusUI | null;
   company_name: string | null;
+  linkedin_url: string | null;
+  department: string | null;
+  seniority: string | null;
   created_at: string | null;
   updated_at: string | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
 
 type SortKey = "score" | "updated" | "created" | "status";
+
+const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const isNewLead = (l: Lead) =>
+  !!l.created_at && Date.now() - new Date(l.created_at).getTime() < NEW_WINDOW_MS;
 
 function LeadsPage() {
   const listFn = useServerFn(listLeads);
@@ -82,21 +91,72 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
+  // ---------- Group by company ----------
+  type Item =
+    | { kind: "single"; lead: Lead }
+    | { kind: "group"; companyId: string; companyName: string; leads: Lead[] };
+
+  const items = useMemo<Item[]>(() => {
+    const groupsMap = new Map<string, Lead[]>();
+    const singles: Lead[] = [];
+    for (const l of leads) {
+      if (l.company_id) {
+        const arr = groupsMap.get(l.company_id) ?? [];
+        arr.push(l);
+        groupsMap.set(l.company_id, arr);
+      } else {
+        singles.push(l);
+      }
+    }
+    const out: Item[] = [];
+    for (const [companyId, arr] of groupsMap) {
+      if (arr.length >= 2) {
+        out.push({
+          kind: "group",
+          companyId,
+          companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+          leads: arr,
+        });
+      } else {
+        singles.push(arr[0]);
+      }
+    }
+    for (const l of singles) out.push({ kind: "single", lead: l });
+    return out;
+  }, [leads]);
+
   const sorted = useMemo(() => {
-    const arr = [...leads];
-    if (sortKey === "score") arr.sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
-    else if (sortKey === "updated")
-      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
-    else if (sortKey === "created")
-      arr.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+    const arr = [...items];
+    const itemScore = (i: Item) =>
+      i.kind === "single" ? i.lead.lead_score ?? 0 : Math.max(...i.leads.map((l) => l.lead_score ?? 0));
+    const itemUpdated = (i: Item) =>
+      i.kind === "single" ? i.lead.updated_at ?? "" : i.leads.map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemCreated = (i: Item) =>
+      i.kind === "single" ? i.lead.created_at ?? "" : i.leads.map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemStatus = (i: Item) =>
+      i.kind === "single"
+        ? LEAD_STATUS_ORDER[i.lead.status]
+        : Math.min(...i.leads.map((l) => LEAD_STATUS_ORDER[l.status]));
+    const itemActivity = (i: Item) =>
+      i.kind === "single" ? i.lead.last_activity_at ?? "" : i.leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemIsNew = (i: Item) =>
+      i.kind === "single" ? isNewLead(i.lead) : i.leads.some(isNewLead);
+
+    if (sortKey === "score") arr.sort((a, b) => itemScore(b) - itemScore(a));
+    else if (sortKey === "updated") arr.sort((a, b) => itemUpdated(b).localeCompare(itemUpdated(a)));
+    else if (sortKey === "created") arr.sort((a, b) => itemCreated(b).localeCompare(itemCreated(a)));
     else
       arr.sort((a, b) => {
-        const s = LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status];
+        // bubble "new" leads to the top regardless of status
+        const an = itemIsNew(a) ? 0 : 1;
+        const bn = itemIsNew(b) ? 0 : 1;
+        if (an !== bn) return an - bn;
+        const s = itemStatus(a) - itemStatus(b);
         if (s !== 0) return s;
-        return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
+        return itemActivity(b).localeCompare(itemActivity(a));
       });
     return arr;
-  }, [leads, sortKey]);
+  }, [items, sortKey]);
 
   const hotCount = leads.filter((l) => l.status === "hot").length;
   const pipelineCents = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
@@ -168,116 +228,13 @@ function LeadsPage() {
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sorted.map((l) => (
-            <div key={l.id} className="relative">
-              <Link
-                to="/app/leads/$id"
-                params={{ id: l.id }}
-                className="block"
-              >
-                <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-sm font-semibold">
-                      {leadInitials(l.contact_person, l.companies?.name ?? "?")}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold">
-                        {l.contact_person || l.whatsapp || "—"}
-                      </div>
-                      {l.job_title && (
-                        <div className="truncate text-xs font-medium text-foreground/80">
-                          {l.job_title}
-                        </div>
-                      )}
-                      <div className="truncate text-xs text-muted-foreground">
-                        {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}
-                      >
-                        {l.status}
-                      </span>
-                      {l.lead_score != null && l.lead_score > 0 && (
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
-                          {l.lead_score}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    {l.contact_email && (
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="truncate">✉ {l.contact_email}</span>
-                        {l.email_status && (
-                          <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
-                            {EMAIL_STATUS_LABEL[l.email_status]}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
-                    {l.pipeline_value_cents > 0 && (
-                      <div className="text-foreground font-medium">
-                        {fmtMoneyCents(l.pipeline_value_cents)}
-                      </div>
-                    )}
-                  </div>
-
-                  {l.last_activity_note && (
-                    <div className="border-l-2 border-muted pl-2 text-xs italic text-muted-foreground line-clamp-2">
-                      "{l.last_activity_note}"
-                    </div>
-                  )}
-
-                  <div className="mt-auto flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[l.status]}`} />
-                      {timeAgo(l.last_activity_at)}
-                    </div>
-                    <div
-                      className="flex items-center gap-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      {waHref(l.whatsapp) ? (
-                        <a
-                          href={waHref(l.whatsapp)!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open WhatsApp"
-                          className="grid h-8 w-8 place-items-center rounded-md bg-[#25D366] text-white hover:opacity-90"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => navigate({ to: "/app/leads/$id", params: { id: l.id } })}
-                          className="grid h-8 px-2 place-items-center rounded-md border text-xs hover:bg-accent"
-                        >
-                          + WhatsApp
-                        </button>
-                      )}
-                      {l.contact_email && (
-                        <a
-                          href={`mailto:${l.contact_email}`}
-                          title="Send email"
-                          className="grid h-8 w-8 place-items-center rounded-md border hover:bg-accent"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            </div>
-          ))}
+          {sorted.map((item) =>
+            item.kind === "group" ? (
+              <GroupCard key={`g-${item.companyId}`} companyId={item.companyId} companyName={item.companyName} leads={item.leads} />
+            ) : (
+              <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
+            ),
+          )}
         </div>
       )}
 
@@ -293,7 +250,221 @@ function LeadsPage() {
   );
 }
 
+// ---------- Single Lead Card ----------
+
+function NewBadge() {
+  return (
+    <span className="absolute -left-1 -top-1 z-10 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow">
+      New
+    </span>
+  );
+}
+
+function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) => void }) {
+  const isNew = isNewLead(l);
+  return (
+    <div className="relative">
+      {isNew && <NewBadge />}
+      <Link to="/app/leads/$id" params={{ id: l.id }} className="block">
+        <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-sm font-semibold">
+              {leadInitials(l.contact_person, l.companies?.name ?? "?")}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{l.contact_person || l.whatsapp || "—"}</div>
+              {l.job_title && (
+                <div className="truncate text-xs font-medium text-foreground/80">{l.job_title}</div>
+              )}
+              <div className="truncate text-xs text-muted-foreground">
+                {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}>
+                {l.status}
+              </span>
+              {l.lead_score != null && l.lead_score > 0 && (
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
+                  {l.lead_score}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1 text-xs text-muted-foreground">
+            {l.contact_email && (
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="truncate">✉ {l.contact_email}</span>
+                {l.email_status && (
+                  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
+                    {EMAIL_STATUS_LABEL[l.email_status]}
+                  </span>
+                )}
+              </div>
+            )}
+            {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
+            {l.pipeline_value_cents > 0 && (
+              <div className="text-foreground font-medium">{fmtMoneyCents(l.pipeline_value_cents)}</div>
+            )}
+          </div>
+
+          {l.last_activity_note && (
+            <div className="border-l-2 border-muted pl-2 text-xs italic text-muted-foreground line-clamp-2">
+              "{l.last_activity_note}"
+            </div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[l.status]}`} />
+              {timeAgo(l.last_activity_at)}
+            </div>
+            <div
+              className="flex items-center gap-1"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              {l.linkedin_url && (
+                <a
+                  href={l.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="LinkedIn"
+                  className="grid h-8 w-8 place-items-center rounded-md bg-[#0A66C2] text-white hover:opacity-90"
+                >
+                  <Linkedin className="h-4 w-4" />
+                </a>
+              )}
+              {waHref(l.whatsapp) ? (
+                <a
+                  href={waHref(l.whatsapp)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open WhatsApp"
+                  className="grid h-8 w-8 place-items-center rounded-md bg-[#25D366] text-white hover:opacity-90"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onWhatsApp(l.id)}
+                  className="grid h-8 px-2 place-items-center rounded-md border text-xs hover:bg-accent"
+                >
+                  + WhatsApp
+                </button>
+              )}
+              {l.contact_email && (
+                <a
+                  href={`mailto:${l.contact_email}`}
+                  title="Send email"
+                  className="grid h-8 w-8 place-items-center rounded-md border hover:bg-accent"
+                >
+                  <Mail className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
+// ---------- Group Card (multiple leads from same company) ----------
+
+function GroupCard({
+  companyId,
+  companyName,
+  leads,
+}: {
+  companyId: string;
+  companyName: string;
+  leads: Lead[];
+}) {
+  const groupHasNew = leads.some(isNewLead);
+  const topStatus = [...leads].sort(
+    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
+  )[0].status;
+  const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
+  const lastActivity = leads
+    .map((l) => l.last_activity_at ?? "")
+    .sort()
+    .slice(-1)[0];
+  const visible = leads.slice(0, 3);
+  const overflow = leads.length - visible.length;
+  const domain = leads[0].companies?.domain ?? null;
+  const country = leads[0].companies?.country ?? null;
+  const industry = leads[0].companies?.industry ?? null;
+
+  return (
+    <div className="relative">
+      {groupHasNew && <NewBadge />}
+      <Link to="/app/leads/group/$companyId" params={{ companyId }} className="block">
+        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <UsersIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold flex items-center gap-2">
+                {companyName}
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                  {leads.length} leads
+                </span>
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {[industry, country, domain].filter(Boolean).join(" · ") || "Group"}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
+                {topStatus}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {visible.map((l) => (
+              <div
+                key={l.id}
+                title={`${l.contact_person ?? "—"}${l.job_title ? ` · ${l.job_title}` : ""}`}
+                className="flex items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+              >
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-[9px] font-bold">
+                  {leadInitials(l.contact_person, l.company_name ?? "?")}
+                </span>
+                <span className="max-w-[100px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+                {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+              </div>
+            ))}
+            {overflow > 0 && (
+              <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium">+{overflow} more</span>
+            )}
+          </div>
+
+          {sumValue > 0 && (
+            <div className="text-xs font-medium text-foreground">Pipeline · {fmtMoneyCents(sumValue)}</div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[topStatus]}`} />
+              {timeAgo(lastActivity || null)}
+            </div>
+            <span className="text-primary font-medium">Open group →</span>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
 // ---------- Quick Add Lead (WhatsApp) ----------
+
 
 function QuickAddLeadDialog({
   open,

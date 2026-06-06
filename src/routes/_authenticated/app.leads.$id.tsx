@@ -13,6 +13,7 @@ import {
   Upload,
   FileText,
   Download,
+  Linkedin,
 } from "lucide-react";
 import {
   getLead,
@@ -188,6 +189,10 @@ function LeadDetail() {
     email_score: number | null;
     last_verified_at: string | null;
     lead_score_manual_override: boolean;
+    linkedin_url: string | null;
+    department: string | null;
+    seniority: string | null;
+    hunter_confidence: number | null;
   };
 
   // Auto-suggest website from a business email domain
@@ -296,8 +301,30 @@ function LeadDetail() {
                   </a>
                 )}
               </div>
+              {(l.department || l.seniority || l.hunter_confidence != null) && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {l.department && (
+                    <span className="rounded bg-muted px-2 py-0.5">{l.department}</span>
+                  )}
+                  {l.seniority && (
+                    <span className="rounded bg-muted px-2 py-0.5 capitalize">{l.seniority}</span>
+                  )}
+                  {l.hunter_confidence != null && (
+                    <span className="rounded bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-700">
+                      Hunter {l.hunter_confidence}%
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {l.linkedin_url && (
+                <Button asChild variant="outline" className="bg-[#0A66C2] text-white hover:bg-[#0a4f96] hover:text-white border-[#0A66C2]">
+                  <a href={l.linkedin_url} target="_blank" rel="noopener noreferrer" title="Open LinkedIn profile">
+                    <Linkedin className="mr-1 h-4 w-4" /> LinkedIn
+                  </a>
+                </Button>
+              )}
               {wa_link && (
                 <Button asChild className="bg-[#25D366] text-white hover:bg-[#1ebc59]">
                   <a href={wa_link} target="_blank" rel="noopener noreferrer">

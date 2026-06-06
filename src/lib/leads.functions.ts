@@ -7,7 +7,7 @@ const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 const LEAD_SELECT =
-  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry)";
+  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -32,6 +32,22 @@ export const getLead = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return row;
   });
+
+export const listLeadsByCompany = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ companyId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("leads")
+      .select(LEAD_SELECT)
+      .eq("company_id", data.companyId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 
 export const promoteToLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -91,6 +107,10 @@ const patchSchema = z
     products_services: stringTagArray.optional(),
     notes: z.string().max(4000).nullable().optional(),
     job_title: z.string().max(200).nullable().optional(),
+    linkedin_url: z.string().max(500).nullable().optional(),
+    department: z.string().max(120).nullable().optional(),
+    seniority: z.string().max(80).nullable().optional(),
+    phone: z.string().max(40).nullable().optional(),
   })
   .strict();
 

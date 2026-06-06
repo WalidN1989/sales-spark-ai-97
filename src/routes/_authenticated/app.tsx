@@ -12,6 +12,7 @@ import {
   ChevronRight,
   GraduationCap,
   Package,
+  Layers,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,20 +30,22 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("sidebar:collapsed") === "1";
-  });
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("sidebar:collapsed", collapsed ? "1" : "0");
-    }
-  }, [collapsed]);
+    setCollapsed(window.localStorage.getItem("sidebar:collapsed") === "1");
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem("sidebar:collapsed", collapsed ? "1" : "0");
+  }, [collapsed, hydrated]);
 
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
+    { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("prospects") },
     { to: "/app/products", label: "Products", icon: Package, show: true },
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },

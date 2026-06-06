@@ -127,6 +127,140 @@ export type Database = {
         }
         Relationships: []
       }
+      inquiries: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          product: string | null
+          status: string
+          target_value_cents: number
+          title: string
+          updated_at: string
+          user_id: string
+          won_lead_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          product?: string | null
+          status?: string
+          target_value_cents?: number
+          title: string
+          updated_at?: string
+          user_id: string
+          won_lead_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          product?: string | null
+          status?: string
+          target_value_cents?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+          won_lead_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_won_lead_id_fkey"
+            columns: ["won_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_activities: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          inquiry_id: string
+          kind: string
+          lead_id: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          inquiry_id: string
+          kind?: string
+          lead_id?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          inquiry_id?: string
+          kind?: string
+          lead_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_activities_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_leads: {
+        Row: {
+          id: string
+          inquiry_id: string
+          joined_at: string
+          lead_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          inquiry_id: string
+          joined_at?: string
+          lead_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          inquiry_id?: string
+          joined_at?: string
+          lead_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_leads_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "inquiries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_activities: {
         Row: {
           body: string
@@ -214,8 +348,10 @@ export type Database = {
           contact_email: string | null
           contact_person: string | null
           created_at: string
+          department: string | null
           email_score: number | null
           email_status: string | null
+          hunter_confidence: number | null
           id: string
           job_title: string | null
           last_activity_at: string | null
@@ -224,10 +360,13 @@ export type Database = {
           last_verified_at: string | null
           lead_score: number
           lead_score_manual_override: boolean
+          linkedin_url: string | null
           notes: string | null
+          phone: string | null
           pipeline_value_cents: number
           products_services: string[]
           prospect_id: string | null
+          seniority: string | null
           source: string
           status: string
           updated_at: string
@@ -242,8 +381,10 @@ export type Database = {
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
+          department?: string | null
           email_score?: number | null
           email_status?: string | null
+          hunter_confidence?: number | null
           id?: string
           job_title?: string | null
           last_activity_at?: string | null
@@ -252,10 +393,13 @@ export type Database = {
           last_verified_at?: string | null
           lead_score?: number
           lead_score_manual_override?: boolean
+          linkedin_url?: string | null
           notes?: string | null
+          phone?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
           prospect_id?: string | null
+          seniority?: string | null
           source?: string
           status?: string
           updated_at?: string
@@ -270,8 +414,10 @@ export type Database = {
           contact_email?: string | null
           contact_person?: string | null
           created_at?: string
+          department?: string | null
           email_score?: number | null
           email_status?: string | null
+          hunter_confidence?: number | null
           id?: string
           job_title?: string | null
           last_activity_at?: string | null
@@ -280,10 +426,13 @@ export type Database = {
           last_verified_at?: string | null
           lead_score?: number
           lead_score_manual_override?: boolean
+          linkedin_url?: string | null
           notes?: string | null
+          phone?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
           prospect_id?: string | null
+          seniority?: string | null
           source?: string
           status?: string
           updated_at?: string
