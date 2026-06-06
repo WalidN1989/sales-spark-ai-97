@@ -386,11 +386,11 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
 // ---------- Group Card (multiple leads from same company) ----------
 
 function GroupCard({
-  companyId,
+  groupKey,
   companyName,
   leads,
 }: {
-  companyId: string;
+  groupKey: string;
   companyName: string;
   leads: Lead[];
 }) {
@@ -412,7 +412,7 @@ function GroupCard({
   return (
     <div className="relative">
       {groupHasNew && <NewBadge />}
-      <Link to="/app/leads/group/$companyId" params={{ companyId }} className="block">
+      <Link to="/app/leads/group/$companyId" params={{ companyId: encodeURIComponent(groupKey) }} className="block">
         <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30">
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
