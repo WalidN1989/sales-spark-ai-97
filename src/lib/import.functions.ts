@@ -96,6 +96,33 @@ const leadsInputSchema = z.object({
   rows: z.array(rowSchema).max(50000),
   prospectIdMap: z.record(z.string(), z.string()),
 });
+const resolveMapSchema = z.object({ rows: z.array(rowSchema).max(50000) });
+
+// Rebuild old-prospect-id → new-company-id map by matching CSV name
+// against companies already imported into the caller's account.
+export const resolveProspectMap = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => resolveMapSchema.parse(d))
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const { data: existing } = await supabase
+      .from("companies")
+      .select("id, name")
+      .eq("user_id", userId);
+    const byName = new Map<string, string>();
+    for (const r of existing ?? []) {
+      if (r.name) byName.set(r.name.toLowerCase().trim(), r.id);
+    }
+    const map: Record<string, string> = {};
+    for (const row of data.rows) {
+      const oldId = emptyToNull(row.id);
+      const name = emptyToNull(row.name);
+      if (!oldId || !name) continue;
+      const newId = byName.get(name.toLowerCase().trim());
+      if (newId) map[oldId] = newId;
+    }
+    return { prospectIdMap: map, matched: Object.keys(map).length };
+  });
 
 // ---------- importProspects ----------
 
