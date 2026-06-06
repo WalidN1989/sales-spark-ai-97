@@ -162,15 +162,10 @@ function GroupView() {
       ) : focus === "right" && rightLead ? (
         <LeadPanel lead={rightLead} side="right" onUnfocus={() => setFocus(undefined)} focused />
       ) : right && leftLead && rightLead ? (
-        <ResizablePanelGroup direction="horizontal" className="min-h-[480px] rounded-lg border">
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <LeadPanel lead={leftLead} side="left" onFocus={() => setFocus("left")} />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <LeadPanel lead={rightLead} side="right" onFocus={() => setFocus("right")} />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="grid min-h-[480px] gap-3 md:grid-cols-2 rounded-lg border p-2">
+          <LeadPanel lead={leftLead} side="left" onFocus={() => setFocus("left")} />
+          <LeadPanel lead={rightLead} side="right" onFocus={() => setFocus("right")} />
+        </div>
       ) : leftLead ? (
         <LeadPanel lead={leftLead} side="left" />
       ) : null}
