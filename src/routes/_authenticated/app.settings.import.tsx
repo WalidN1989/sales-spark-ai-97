@@ -61,7 +61,7 @@ function ImportPage() {
   const [leadBusy, setLeadBusy] = useState(false);
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (!isAdmin) return <p className="text-sm text-muted-foreground">Admin only.</p>;
+  void isAdmin;
 
   const parseFile = (
     file: File,
