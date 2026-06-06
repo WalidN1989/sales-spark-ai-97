@@ -91,17 +91,34 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
-  // ---------- Group by company (uses company_id when present, else normalized name) ----------
+  // ---------- Group by visible company first, even when some rows have company_id ----------
   type Item =
     | { kind: "single"; lead: Lead }
     | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] };
 
   const items = useMemo<Item[]>(() => {
     const normalizeName = (n: string | null | undefined) =>
-      (n ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+      (n ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const normalizeDomain = (d: string | null | undefined) =>
+      (d ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        .trim();
     const groupKeyFor = (l: Lead): string | null => {
-      if (l.company_id) return `id:${l.company_id}`;
       const name = normalizeName(l.company_name ?? l.companies?.name);
+      if (name) return `name:${name}`;
+      const domain = normalizeDomain(l.website ?? l.companies?.domain);
+      if (domain) return `domain:${domain}`;
+      if (l.company_id) return `id:${l.company_id}`;
       return name ? `name:${name}` : null;
     };
 
