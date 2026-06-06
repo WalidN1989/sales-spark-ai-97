@@ -250,7 +250,221 @@ function LeadsPage() {
   );
 }
 
+// ---------- Single Lead Card ----------
+
+function NewBadge() {
+  return (
+    <span className="absolute -left-1 -top-1 z-10 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow">
+      New
+    </span>
+  );
+}
+
+function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) => void }) {
+  const isNew = isNewLead(l);
+  return (
+    <div className="relative">
+      {isNew && <NewBadge />}
+      <Link to="/app/leads/$id" params={{ id: l.id }} className="block">
+        <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-sm font-semibold">
+              {leadInitials(l.contact_person, l.companies?.name ?? "?")}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{l.contact_person || l.whatsapp || "—"}</div>
+              {l.job_title && (
+                <div className="truncate text-xs font-medium text-foreground/80">{l.job_title}</div>
+              )}
+              <div className="truncate text-xs text-muted-foreground">
+                {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}>
+                {l.status}
+              </span>
+              {l.lead_score != null && l.lead_score > 0 && (
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${scoreBucket(l.lead_score).className}`}>
+                  {l.lead_score}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1 text-xs text-muted-foreground">
+            {l.contact_email && (
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="truncate">✉ {l.contact_email}</span>
+                {l.email_status && (
+                  <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase ${EMAIL_STATUS_STYLES[l.email_status]}`}>
+                    {EMAIL_STATUS_LABEL[l.email_status]}
+                  </span>
+                )}
+              </div>
+            )}
+            {l.whatsapp && <div className="truncate">☎ {l.whatsapp}</div>}
+            {l.pipeline_value_cents > 0 && (
+              <div className="text-foreground font-medium">{fmtMoneyCents(l.pipeline_value_cents)}</div>
+            )}
+          </div>
+
+          {l.last_activity_note && (
+            <div className="border-l-2 border-muted pl-2 text-xs italic text-muted-foreground line-clamp-2">
+              "{l.last_activity_note}"
+            </div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[l.status]}`} />
+              {timeAgo(l.last_activity_at)}
+            </div>
+            <div
+              className="flex items-center gap-1"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
+              {l.linkedin_url && (
+                <a
+                  href={l.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="LinkedIn"
+                  className="grid h-8 w-8 place-items-center rounded-md bg-[#0A66C2] text-white hover:opacity-90"
+                >
+                  <Linkedin className="h-4 w-4" />
+                </a>
+              )}
+              {waHref(l.whatsapp) ? (
+                <a
+                  href={waHref(l.whatsapp)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open WhatsApp"
+                  className="grid h-8 w-8 place-items-center rounded-md bg-[#25D366] text-white hover:opacity-90"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onWhatsApp(l.id)}
+                  className="grid h-8 px-2 place-items-center rounded-md border text-xs hover:bg-accent"
+                >
+                  + WhatsApp
+                </button>
+              )}
+              {l.contact_email && (
+                <a
+                  href={`mailto:${l.contact_email}`}
+                  title="Send email"
+                  className="grid h-8 w-8 place-items-center rounded-md border hover:bg-accent"
+                >
+                  <Mail className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
+// ---------- Group Card (multiple leads from same company) ----------
+
+function GroupCard({
+  companyId,
+  companyName,
+  leads,
+}: {
+  companyId: string;
+  companyName: string;
+  leads: Lead[];
+}) {
+  const groupHasNew = leads.some(isNewLead);
+  const topStatus = [...leads].sort(
+    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
+  )[0].status;
+  const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
+  const lastActivity = leads
+    .map((l) => l.last_activity_at ?? "")
+    .sort()
+    .slice(-1)[0];
+  const visible = leads.slice(0, 3);
+  const overflow = leads.length - visible.length;
+  const domain = leads[0].companies?.domain ?? null;
+  const country = leads[0].companies?.country ?? null;
+  const industry = leads[0].companies?.industry ?? null;
+
+  return (
+    <div className="relative">
+      {groupHasNew && <NewBadge />}
+      <Link to="/app/leads/group/$companyId" params={{ companyId }} className="block">
+        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <UsersIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold flex items-center gap-2">
+                {companyName}
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                  {leads.length} leads
+                </span>
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {[industry, country, domain].filter(Boolean).join(" · ") || "Group"}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
+                {topStatus}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {visible.map((l) => (
+              <div
+                key={l.id}
+                title={`${l.contact_person ?? "—"}${l.job_title ? ` · ${l.job_title}` : ""}`}
+                className="flex items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+              >
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-[9px] font-bold">
+                  {leadInitials(l.contact_person, l.company_name ?? "?")}
+                </span>
+                <span className="max-w-[100px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+                {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+              </div>
+            ))}
+            {overflow > 0 && (
+              <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium">+{overflow} more</span>
+            )}
+          </div>
+
+          {sumValue > 0 && (
+            <div className="text-xs font-medium text-foreground">Pipeline · {fmtMoneyCents(sumValue)}</div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[topStatus]}`} />
+              {timeAgo(lastActivity || null)}
+            </div>
+            <span className="text-primary font-medium">Open group →</span>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
 // ---------- Quick Add Lead (WhatsApp) ----------
+
 
 function QuickAddLeadDialog({
   open,
