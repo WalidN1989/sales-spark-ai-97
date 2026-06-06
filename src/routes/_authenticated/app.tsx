@@ -29,16 +29,17 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("sidebar:collapsed") === "1";
-  });
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("sidebar:collapsed", collapsed ? "1" : "0");
-    }
-  }, [collapsed]);
+    setCollapsed(window.localStorage.getItem("sidebar:collapsed") === "1");
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem("sidebar:collapsed", collapsed ? "1" : "0");
+  }, [collapsed, hydrated]);
 
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
