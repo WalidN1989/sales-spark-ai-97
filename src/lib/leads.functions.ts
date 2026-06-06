@@ -39,25 +39,57 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
     z.object({ companyId: z.string().min(1).max(300) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    // Accept either a UUID company_id, "id:<uuid>", or "name:<normalized name>"
+    // Accept UUID / id:<uuid>, plus fallback groups built from normalized company name or domain.
     const raw = decodeURIComponent(data.companyId);
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    let query = context.supabase.from("leads").select(LEAD_SELECT);
+    const normalizeName = (n: string | null | undefined) =>
+      (n ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const normalizeDomain = (d: string | null | undefined) =>
+      (d ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        .trim();
+
     if (uuidRe.test(raw)) {
-      query = query.eq("company_id", raw);
-    } else if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) {
-      query = query.eq("company_id", raw.slice(3));
-    } else if (raw.startsWith("name:")) {
-      // Case-insensitive match on company_name (normalize spaces by relying on ilike)
-      const name = raw.slice(5).trim();
-      query = query.ilike("company_name", name);
-    } else {
-      // Fallback: try as name
-      query = query.ilike("company_name", raw);
+      const { data: rows, error } = await context.supabase
+        .from("leads")
+        .select(LEAD_SELECT)
+        .eq("company_id", raw)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return rows ?? [];
     }
-    const { data: rows, error } = await query.order("created_at", { ascending: false });
+    if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) {
+      const { data: rows, error } = await context.supabase
+        .from("leads")
+        .select(LEAD_SELECT)
+        .eq("company_id", raw.slice(3))
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return rows ?? [];
+    }
+
+    const { data: rows, error } = await context.supabase
+      .from("leads")
+      .select(LEAD_SELECT)
+      .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    const all = rows ?? [];
+    if (raw.startsWith("domain:")) {
+      const domain = normalizeDomain(raw.slice(7));
+      return all.filter((l) => normalizeDomain(l.website ?? l.companies?.domain) === domain);
+    }
+    const name = normalizeName(raw.startsWith("name:") ? raw.slice(5) : raw);
+    return all.filter((l) => normalizeName(l.company_name ?? l.companies?.name) === name);
   });
 
 
