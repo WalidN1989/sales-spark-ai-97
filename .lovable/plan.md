@@ -1,82 +1,69 @@
-# CRM Phase 5 — Respond, Learning & Products
 
-Three new capabilities, all manual (no automation, no sending, no schedulers). All data is per-user (RLS scoped to `auth.uid()`), backed by Lovable Cloud, and uses Lovable AI Gateway for generation + OCR.
+## Goal
 
----
+Add an admin-only **Import Data** page under Settings that restores `companies` (Prospects) and `leads` from CSV files exported from another workspace. Used after remixing a project to a new user.
 
-## 1. Database (one migration)
+## Routing & UI
 
-New tables in `public`, each with `user_id uuid`, timestamps, RLS, and GRANTs to `authenticated` + `service_role`.
+- Edit `src/routes/_authenticated/app.settings.tsx` — add `{ to: "/app/settings/import", label: "Import data" }` to the tabs array (only when `isAdmin`).
+- New route `src/routes/_authenticated/app.settings.import.tsx`:
+  - 2-step wizard with shadcn `Card` per step.
+  - **Step 1 — Prospects**: `<Input type="file" accept=".csv" />`, parse with papaparse client-side, show first 5 rows in a shadcn `Table`, detected-column match report (matched ✓ / missing ✗ / extra ⚠), total row count, **Import prospects** button. On success: toast with `inserted / skipped / failed`, per-row error list, then "Continue to leads".
+  - **Step 2 — Leads**: same UI; disabled until Step 1 completes. Uses the `prospectIdMap` returned from Step 1 to rewrite `company_id` / `prospect_id`.
+  - Both steps gated by `useAccess().isAdmin` — non-admins see "Admin only".
 
-- **products** — `brand`, `name`, `part_number` (indexed, upper-cased), `category`, `cost_price_cents`, `selling_price_cents`, `margin_l1_pct`, `margin_l2_pct`, `currency` (default `AED`), `warranty`, `stock_status`, `notes`.
-- **learning_entries** — `category` enum (`writing_style` | `business_rule` | `objection` | `negotiation`), `title`, `content`, `situation` (nullable, for objections), `tags text[]`, `engine` (nullable), `original_input` (nullable), `ai_response` (nullable), `final_response` (nullable), `company_id` (nullable FK to companies).
-- **responses** — `company_id` FK, `engine` text, `input_text`, `input_notes`, `ocr_text`, `attachments jsonb` (image refs), `detected_part_numbers text[]`, `draft` text, `final` text, `created_at`. Used for "Save to Activity Log" history & "Save to Learning" source.
+## Dependencies
 
-Indexes: `products(user_id, upper(part_number))`, `learning_entries(user_id, category)`, `responses(user_id, company_id)`.
+- `bun add papaparse` + `bun add -d @types/papaparse`.
 
-RLS: all policies `auth.uid() = user_id`. No anon grants.
+## Server functions — `src/lib/import.functions.ts`
 
-## 2. Server functions
+Both use `createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])` with zod `inputValidator`. Use `context.supabase` (RLS as user). Helpers:
 
-New files in `src/lib/`:
+- `parsePgArray(s)` → `text[]` (handles `{a,b,"quoted,c"}`, `{}`, `null`).
+- `parseJsonish(s)` → object or `null`.
+- `parseIntish`, `parseFloatish`, `parseBoolish` (`t/f/true/false/1/0`), `parseTs` (ISO or null).
+- `chunk(arr, 500)`.
 
-- **products.functions.ts** — `listProducts`, `getProduct`, `upsertProduct`, `deleteProduct`, `matchProductsByText(text)` → extracts `[A-Z0-9]{6,}` tokens, queries products by part_number IN (...).
-- **learning.functions.ts** — `listLearning({category?})`, `upsertLearning`, `deleteLearning`, `searchLearningForContext(companyId, engine, inputText)` → returns top ~8 entries (filter by category relevance + tag overlap; simple text match, no embeddings this phase).
-- **respond.functions.ts**
-  - `ocrImage({ storagePath })` — calls Lovable AI (`google/gemini-2.5-flash`) with the image as a data URL, returns extracted text.
-  - `generateResponse({ companyId, engine, inputText, notes, ocrText })`:
-    1. Load company + recent activity_log (last 10) + my_company.
-    2. `matchProductsByText(inputText + ocrText)` → product context block.
-    3. `searchLearningForContext(...)` → knowledge block (writing style examples, relevant rules, objection scripts).
-    4. Call `google/gemini-3-flash-preview` with system prompt tuned per `engine` (10 presets) + structured tool call returning `{ subject?, body }`.
-    5. Insert row into `responses` (status `draft`).
-    6. Return `{ responseId, draft, matchedProducts, usedLearning }`.
-  - `saveResponseToActivityLog({ responseId, finalText })` → updates `responses.final` + inserts activity_log note.
-  - `saveResponseToLearning({ responseId, title, category, tags })` → inserts learning_entry with original_input/ai_response/final_response/engine.
+### `importProspects({ rows })`
 
-Storage: a private bucket `respond-uploads` for screenshots (user-scoped path `{userId}/{uuid}.png`).
+- Zod row schema permissive: all fields optional strings, `name` required & trimmed.
+- Pre-fetch existing names: `supabase.from("companies").select("name").eq("user_id", userId)` → Set.
+- For each row:
+  - Skip if `name` empty or already exists → record in `skipped`.
+  - Build new record: `id = crypto.randomUUID()`, `user_id = context.userId`, coerce types, `market_seed_urls = parsePgArray(...) ?? []`, `research_data/market_insight = parseJsonish(...)`, numeric fields via `parseIntish/Floatish`, timestamps via `parseTs`.
+  - Track `prospectIdMap[row.id] = newId`.
+- Insert in batches of 500; per-batch errors push to `failed[]` with row index + message.
+- Return `{ inserted, skipped, failed, prospectIdMap }`.
 
-## 3. Frontend
+### `importLeads({ rows, prospectIdMap })`
 
-### Respond tab (Prospect detail)
-New file `src/components/respond/RespondTab.tsx`, wired into `app.prospects.$id.tsx` as a 6th tab "Respond".
+- Zod row schema permissive; required: at least one of `contact_email`/`whatsapp`/`company_name`.
+- Pre-fetch existing leads for dedupe: `select("contact_email, whatsapp").eq("user_id", userId)` → two Sets (lowercased email, trimmed whatsapp).
+- For each row:
+  - Rewrite `company_id` and `prospect_id` via `prospectIdMap` — set to `null` if the source id is missing from the map.
+  - Force `user_id = context.userId`, `id = crypto.randomUUID()`.
+  - Dedupe against pre-fetched sets AND within the current batch (track seen in-loop).
+  - Coerce `brands`/`products_services` via `parsePgArray` → `[]`; numerics; booleans (`lead_score_manual_override`); timestamps.
+  - Default `status = "warm"`, `source = "manual"`, `pipeline_value_cents = 0`, `lead_score = 0`, `lead_score_manual_override = false` when missing.
+- Insert in batches of 500. Return `{ inserted, skipped, failed }`.
 
-Layout:
-- **Engine** dropdown (10 options listed in spec).
-- **Input text** — large textarea.
-- **Screenshots** — multi-file dropzone (uses existing supabase client to upload to `respond-uploads`); each tile shows OCR status + extracted text preview. OCR runs on upload via `ocrImage`.
-- **Notes** — small textarea.
-- Detected part numbers chip row (live, derived from inputText + ocrText).
-- **Generate Response** button → calls `generateResponse`.
-- **Draft** editable textarea (prefilled), with **Copy**, **Save to Activity Log**, **Save to Learning** (opens small dialog for title/category/tags).
-- Shows "Used products" and "Used knowledge" collapsibles so the user sees what context the AI received.
+## Security
 
-### Learning module
-- Sidebar entry "Learning" → route `src/routes/_authenticated/app.learning.tsx` (list with category tabs + search) and `app.learning.$id.tsx` (edit).
-- Form fields adapt per category (Writing Style / Business Rule / Objection / Negotiation).
-- "New entry" button. Tag input reuses `src/components/leads/TagInput.tsx`.
+- `user_id` from CSV is always discarded; rewritten to `context.userId`.
+- Every field validated by zod; unknown columns ignored.
+- RLS via `requireSupabaseAuth` client; no admin client used.
+- Admin gate enforced both client-side (tab visibility + page guard) and implicitly by RLS (data only lands in caller's account regardless).
 
-### Products module
-- Sidebar entry "Products" → `app.products.tsx` (table: brand, name, part number, category, selling price, margin L1/L2, stock) with search + filters.
-- `app.products.new.tsx` and `app.products.$id.tsx` for create/edit.
-- Margin shown computed from cost vs selling.
+## File list
 
-Sidebar update: extend nav in `src/routes/_authenticated/app.tsx` with the two new items (icons `GraduationCap`, `Package`). Permissions reuse the existing `useAccess` patterns; default both modules visible to all roles, add `prospects.respond` capability gate.
+- new `src/lib/import.functions.ts`
+- new `src/routes/_authenticated/app.settings.import.tsx`
+- edit `src/routes/_authenticated/app.settings.tsx` (add tab)
+- `bun add papaparse @types/papaparse`
 
-## 4. AI prompts (engine presets)
+## Out of scope
 
-A single `src/lib/respond-engines.ts` exports `{ id, label, systemPrompt }[]` for the 10 engines (Initial Inquiry, General Reply, Follow Up, No Response, Negotiation, Bluffing, Payment Terms, Credit Request, Delivery Concern, Competitor Threat). Each prompt instructs: keep it concise, mirror tone, reference matched products with part numbers, apply any business rules verbatim, no fabrications.
-
-## 5. Out of scope (per user)
-
-- No email sending, no scheduling, no background jobs.
-- No embeddings / vector search this phase (simple keyword + tag match).
-- No bulk product import (single add/edit only — CSV import can come later).
-
-## Technical notes
-
-- Lovable AI Gateway via `LOVABLE_API_KEY`; OCR uses Gemini vision with image_url content parts.
-- Part-number regex: `/\b[A-Z]{2,}[A-Z0-9]{3,}\b/g`, uppercased, de-duplicated, then matched against `products.part_number` (case-insensitive).
-- All server fns use `requireSupabaseAuth`; no admin client needed.
-- Storage bucket created in the same migration with RLS limiting access to `auth.uid()` folder prefix.
-- No edits to auto-generated files (`client.ts`, `types.ts` regenerates after migration).
+- No edits to other tables (activity_log, lead_documents, products, learning, responses, sales, my_company).
+- No re-upload of stored files; only row data.
+- No update/merge mode — duplicates are skipped, not overwritten.
