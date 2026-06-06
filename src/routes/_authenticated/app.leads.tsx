@@ -66,12 +66,19 @@ type Lead = {
   lead_score: number | null;
   email_status: EmailStatusUI | null;
   company_name: string | null;
+  linkedin_url: string | null;
+  department: string | null;
+  seniority: string | null;
   created_at: string | null;
   updated_at: string | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
 
 type SortKey = "score" | "updated" | "created" | "status";
+
+const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const isNewLead = (l: Lead) =>
+  !!l.created_at && Date.now() - new Date(l.created_at).getTime() < NEW_WINDOW_MS;
 
 function LeadsPage() {
   const listFn = useServerFn(listLeads);
@@ -84,21 +91,72 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
+  // ---------- Group by company ----------
+  type Item =
+    | { kind: "single"; lead: Lead }
+    | { kind: "group"; companyId: string; companyName: string; leads: Lead[] };
+
+  const items = useMemo<Item[]>(() => {
+    const groupsMap = new Map<string, Lead[]>();
+    const singles: Lead[] = [];
+    for (const l of leads) {
+      if (l.company_id) {
+        const arr = groupsMap.get(l.company_id) ?? [];
+        arr.push(l);
+        groupsMap.set(l.company_id, arr);
+      } else {
+        singles.push(l);
+      }
+    }
+    const out: Item[] = [];
+    for (const [companyId, arr] of groupsMap) {
+      if (arr.length >= 2) {
+        out.push({
+          kind: "group",
+          companyId,
+          companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+          leads: arr,
+        });
+      } else {
+        singles.push(arr[0]);
+      }
+    }
+    for (const l of singles) out.push({ kind: "single", lead: l });
+    return out;
+  }, [leads]);
+
   const sorted = useMemo(() => {
-    const arr = [...leads];
-    if (sortKey === "score") arr.sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0));
-    else if (sortKey === "updated")
-      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
-    else if (sortKey === "created")
-      arr.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+    const arr = [...items];
+    const itemScore = (i: Item) =>
+      i.kind === "single" ? i.lead.lead_score ?? 0 : Math.max(...i.leads.map((l) => l.lead_score ?? 0));
+    const itemUpdated = (i: Item) =>
+      i.kind === "single" ? i.lead.updated_at ?? "" : i.leads.map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemCreated = (i: Item) =>
+      i.kind === "single" ? i.lead.created_at ?? "" : i.leads.map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemStatus = (i: Item) =>
+      i.kind === "single"
+        ? LEAD_STATUS_ORDER[i.lead.status]
+        : Math.min(...i.leads.map((l) => LEAD_STATUS_ORDER[l.status]));
+    const itemActivity = (i: Item) =>
+      i.kind === "single" ? i.lead.last_activity_at ?? "" : i.leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemIsNew = (i: Item) =>
+      i.kind === "single" ? isNewLead(i.lead) : i.leads.some(isNewLead);
+
+    if (sortKey === "score") arr.sort((a, b) => itemScore(b) - itemScore(a));
+    else if (sortKey === "updated") arr.sort((a, b) => itemUpdated(b).localeCompare(itemUpdated(a)));
+    else if (sortKey === "created") arr.sort((a, b) => itemCreated(b).localeCompare(itemCreated(a)));
     else
       arr.sort((a, b) => {
-        const s = LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status];
+        // bubble "new" leads to the top regardless of status
+        const an = itemIsNew(a) ? 0 : 1;
+        const bn = itemIsNew(b) ? 0 : 1;
+        if (an !== bn) return an - bn;
+        const s = itemStatus(a) - itemStatus(b);
         if (s !== 0) return s;
-        return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
+        return itemActivity(b).localeCompare(itemActivity(a));
       });
     return arr;
-  }, [leads, sortKey]);
+  }, [items, sortKey]);
 
   const hotCount = leads.filter((l) => l.status === "hot").length;
   const pipelineCents = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
