@@ -1,13 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
-import { z } from "zod";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { useEffect, useMemo } from "react";
 import {
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
   Mail,
   MessageCircle,
   Linkedin,
@@ -16,10 +12,10 @@ import {
   SplitSquareHorizontal,
   ExternalLink,
 } from "lucide-react";
+import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { listLeadsByCompany } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import {
   LEAD_STATUS_STYLES,
   type LeadStatus,
@@ -31,14 +27,18 @@ import {
 } from "@/lib/leads-ui";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  left: fallback(z.string().uuid().optional(), undefined),
-  right: fallback(z.string().uuid().optional(), undefined),
-  focus: fallback(z.enum(["left", "right"]).optional(), undefined),
-});
+type Search = {
+  left?: string;
+  right?: string;
+  focus?: "left" | "right";
+};
 
 export const Route = createFileRoute("/_authenticated/app/leads/group/$companyId")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    left: typeof s.left === "string" ? s.left : undefined,
+    right: typeof s.right === "string" ? s.right : undefined,
+    focus: s.focus === "left" || s.focus === "right" ? s.focus : undefined,
+  }),
   head: () => ({ meta: [{ title: "Lead Group — Sales Insights" }] }),
   component: GroupView,
 });
