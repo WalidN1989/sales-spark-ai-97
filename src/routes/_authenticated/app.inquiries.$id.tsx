@@ -204,7 +204,7 @@ function InquiryDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={inq.status} onValueChange={(v) => upd.mutate({ status: v as typeof inq.status })}>
+            <Select value={inq.status} onValueChange={(v) => upd.mutate({ status: v as "open" | "won" | "lost" | "cancelled" })}>
               <SelectTrigger className="w-32">
                 <SelectValue />
               </SelectTrigger>
