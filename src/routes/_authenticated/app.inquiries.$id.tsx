@@ -81,8 +81,13 @@ function InquiryDetail() {
   };
 
   const upd = useMutation({
-    mutationFn: (patch: Parameters<typeof updateFn>[0]["data"]["patch"]) =>
-      updateFn({ data: { id, patch } }),
+    mutationFn: (patch: {
+      title?: string;
+      description?: string | null;
+      product?: string | null;
+      target_value_cents?: number;
+      status?: "open" | "won" | "lost" | "cancelled";
+    }) => updateFn({ data: { id, patch } }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
