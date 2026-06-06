@@ -14,7 +14,18 @@ import {
   FileText,
   Download,
   Linkedin,
+  Link2,
+  Plus,
+  X,
+  Target,
 } from "lucide-react";
+import {
+  listInquiriesForLead,
+  listInquiries,
+  linkLeadToInquiry,
+  unlinkLeadFromInquiry,
+  createInquiry,
+} from "@/lib/inquiries.functions";
 import {
   getLead,
   updateLead,
