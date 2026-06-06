@@ -541,6 +541,9 @@ function LeadDetail() {
         <DocumentsCard leadId={id} />
       </div>
 
+      {/* Inquiries */}
+      <InquiriesCard leadId={id} />
+
       {/* AI Respond */}
       <div>
         <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
