@@ -45,6 +45,7 @@ function AppShell() {
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
+    { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("prospects") },
     { to: "/app/products", label: "Products", icon: Package, show: true },
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
