@@ -66,6 +66,7 @@
       "devDependencies": {
         "@eslint/js": "^9.32.0",
         "@lovable.dev/vite-tanstack-config": "^1.7.0",
+        "@types/google.maps": "^3.65.1",
         "@types/node": "^22.16.5",
         "@types/papaparse": "^5.5.2",
         "@types/react": "^19.2.0",
@@ -612,6 +613,8 @@
     "@types/d3-timer": ["@types/d3-timer@3.0.2", "", {}, "sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw=="],
 
     "@types/estree": ["@types/estree@1.0.8", "", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
+
+    "@types/google.maps": ["@types/google.maps@3.65.1", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@types/google.maps/-/google.maps-3.65.1.tgz", {}, "sha512-O9monmoXfyWsuyR4Wz3TZU26qai9y7jUV7DSRySluae6O5tQt3Obw5ETt0HKfNsjctnlF/yx/Tfn3WQNmKRXZA=="],
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
