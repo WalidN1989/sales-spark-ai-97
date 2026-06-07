@@ -1,41 +1,37 @@
-## Meetings — Nearby Scan
+## Mobile + Layout Fixes
 
-Build a real-time "who's around me?" view in the Meetings module that filters your prospects + leads by distance from your current location.
+### 1. Meetings — Nearby Scan (mobile)
 
-### User flow
+Issues observed in the screenshots:
+- Radius slider row overflows the card on mobile (the "5" km label is clipped off-screen).
+- After Scan, the side-by-side `lg:grid-cols-[1fr_360px]` map+results layout still overflows on narrow widths and the map/list ordering feels wrong on mobile.
+- User wants the **Results list above the map** on mobile.
 
-1. Open Meetings → "Nearby Scan" panel.
-2. Pick origin: **Use my location** (browser GPS) or **Search address** (Google Places autocomplete).
-3. Adjust radius slider (1–25 km, default 5).
-4. Hit **Scan** → map centers on origin with a radius circle; matching companies appear as pins and as a distance-sorted list beside the map.
-5. Click a pin or list row → side panel with name, address, distance, status (Prospect / Lead + status badge), and buttons: **Open** (prospect detail), **Directions** (opens Google Maps app in new tab), **Schedule meeting** (prefills location + company).
+Changes in `src/routes/_authenticated/app.meetings.tsx`:
+- Stack the controls vertically on mobile: GPS button full-width, address search on its own row, radius slider on its own row, Scan button full-width. Keep current horizontal layout on `sm:`/`md:` and up.
+- Make the radius row a flex column on mobile so the "X km" label sits cleanly above the slider; ensure no horizontal overflow (`min-w-0`, `w-full` on slider container).
+- Reorder the map + results on mobile using `flex flex-col` with `order-*` utilities: Results card first, map card second on mobile; revert to current map-left / results-right two-column grid at `lg:`.
+- Reduce map height on mobile (e.g. `h-[320px] md:h-[500px]`) in `NearbyMap.tsx` to avoid pushing list way down.
+- Keep desktop layout exactly as-is.
 
-### Data — already in place, no schema changes
+### 2. Grouped Lead view — desktop grid (no horizontal scroll)
 
-- `companies.lat` / `companies.lng` populated by AI Research geocoding (24 of 27 companies already have coords).
-- Leads join to companies via `leads.company_id`, so a single query covers both groups.
-- Google Maps connector: server key for geocoding the address input; `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` for the in-browser map.
+Issue: the carousel in `src/routes/_authenticated/app.leads.group.$companyId.tsx` uses `flex gap-2 overflow-x-auto` with fixed `w-56` cards, producing the right-edge scroll bar shown in the annotated screenshot.
 
-### Components
+Changes:
+- Replace the horizontal-scroll `Carousel` container with a responsive **CSS grid** on `sm:` and up (`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2`), so all lead mini-cards wrap onto multiple rows.
+- Drop the fixed `w-56`/`shrink-0`/`snap-*` classes from each card; let them fill the grid cell (`w-full`).
+- Keep a horizontal scroll fallback **only on mobile** (`flex overflow-x-auto sm:grid ...`) since horizontal swipe is acceptable on phones; or just use the grid everywhere — simpler and consistent.
+- Remove the right-edge gradient overlay (`absolute right-0 ... bg-gradient-to-l`) since there is no longer horizontal overflow.
+- Selection/compare behavior and ring styling stay identical.
 
-- `src/routes/_authenticated/app.meetings.tsx` — replace placeholder with the scan UI (origin picker, radius slider, Scan button, map+list layout, side panel).
-- `src/components/meetings/NearbyMap.tsx` — loads Maps JS API async with the browser key, draws origin marker + radius circle + result pins (`google.maps.Marker`, no `mapId`/AdvancedMarker).
-- `src/components/meetings/NearbyList.tsx` — sortable list (distance asc by default), status badges using existing `LEAD_STATUS_STYLES`.
-- `src/components/meetings/AddressSearch.tsx` — Places API (New) `AutocompleteSuggestion.fetchAutocompleteSuggestions` for address input.
+### 3. Out of scope
 
-### Server functions (`src/lib/meetings.functions.ts`)
+- No changes to server functions, data, or the underlying Maps integration.
+- Other modules ("breaking on some other modules") — not specific enough to act on; if you can point me to which other pages are broken on mobile, I'll fix those in a follow-up.
 
-- `listNearbyCompanies({ lat, lng, radiusKm })` — auth-protected; selects companies with non-null lat/lng for the user, computes Haversine distance in JS, filters ≤ radius, returns `{ id, name, lat, lng, address, industry, distance_km, isLead, leadStatus }` sorted by distance.
-- `geocodeAddress({ address })` — proxies through Maps connector gateway to resolve a typed address to lat/lng (reuses pattern in `research.functions.ts`).
+### Files touched
 
-### Edge cases handled
-
-- Companies without coordinates → counted as "skipped (no location)" badge with a "Run AI Research" hint link.
-- Browser GPS denied → fall back to address search with a toast.
-- Empty result → friendly "No prospects within X km — try expanding the radius."
-- Custom domain referrer issue → uses the connected custom browser key, not the managed one.
-
-### Out of scope (next iteration)
-
-- Saving a meeting from this screen actually creating a `meetings` row (button can stub to existing flow or navigate to a meeting form). Confirm if you want full meeting creation in this pass.
-- Live-tracking origin as you drive (would need watchPosition).
+- `src/routes/_authenticated/app.meetings.tsx` — responsive stacking + reorder.
+- `src/components/meetings/NearbyMap.tsx` — responsive map height.
+- `src/routes/_authenticated/app.leads.group.$companyId.tsx` — replace carousel with responsive grid, remove gradient overlay.
