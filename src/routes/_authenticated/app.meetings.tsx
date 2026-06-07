@@ -177,7 +177,7 @@ function MeetingsPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-3">
+        <div className="order-1 space-y-3 lg:order-2">
           {selected && (
             <Card>
               <CardContent className="space-y-3 pt-6">
