@@ -191,57 +191,53 @@ function Carousel({
   compareMode: boolean;
 }) {
   return (
-    <div className="relative">
-      <div className="flex gap-2 overflow-x-auto pb-2 scroll-smooth snap-x">
-        {leads.map((l) => {
-          const isLeft = l.id === leftId;
-          const isRight = l.id === rightId;
-          return (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => {
-                if (compareMode) {
-                  // toggle between left / right slots
-                  if (isLeft) return;
-                  if (isRight) return;
-                  onPickRight(l.id);
-                } else {
-                  onPickLeft(l.id);
-                }
-              }}
-              className={cn(
-                "snap-start shrink-0 w-56 rounded-lg border p-3 text-left transition-colors",
-                isLeft
-                  ? "border-primary bg-primary/5 ring-2 ring-primary"
-                  : isRight
-                    ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500"
-                    : "hover:bg-accent",
-              )}
-            >
-              <div className="flex items-start gap-2">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-secondary text-xs font-bold">
-                  {leadInitials(l.contact_person, l.company_name ?? "?")}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{l.contact_person || l.contact_email || "—"}</div>
-                  {l.job_title && (
-                    <div className="truncate text-[11px] text-muted-foreground">{l.job_title}</div>
-                  )}
-                </div>
-                <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase", LEAD_STATUS_STYLES[l.status])}>
-                  {l.status}
-                </span>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {leads.map((l) => {
+        const isLeft = l.id === leftId;
+        const isRight = l.id === rightId;
+        return (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => {
+              if (compareMode) {
+                if (isLeft) return;
+                if (isRight) return;
+                onPickRight(l.id);
+              } else {
+                onPickLeft(l.id);
+              }
+            }}
+            className={cn(
+              "w-full rounded-lg border p-3 text-left transition-colors",
+              isLeft
+                ? "border-primary bg-primary/5 ring-2 ring-primary"
+                : isRight
+                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500"
+                  : "hover:bg-accent",
+            )}
+          >
+            <div className="flex items-start gap-2">
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-secondary text-xs font-bold">
+                {leadInitials(l.contact_person, l.company_name ?? "?")}
               </div>
-              <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>{isLeft ? "Primary" : isRight ? "Compare" : "Click to view"}</span>
-                {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{l.contact_person || l.contact_email || "—"}</div>
+                {l.job_title && (
+                  <div className="truncate text-[11px] text-muted-foreground">{l.job_title}</div>
+                )}
               </div>
-            </button>
-          );
-        })}
-      </div>
-      <div className="pointer-events-none absolute right-0 top-0 hidden h-full w-12 bg-gradient-to-l from-background sm:block" />
+              <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase", LEAD_STATUS_STYLES[l.status])}>
+                {l.status}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>{isLeft ? "Primary" : isRight ? "Compare" : "Click to view"}</span>
+              {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

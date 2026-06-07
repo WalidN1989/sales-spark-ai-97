@@ -96,12 +96,12 @@ function MeetingsPage() {
 
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex flex-wrap items-end gap-3">
-            <Button onClick={useGps} variant="default">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <Button onClick={useGps} variant="default" className="w-full sm:w-auto">
               <Locate className="mr-2 h-4 w-4" /> Use my location
             </Button>
             <form
-              className="flex flex-1 min-w-[260px] gap-2"
+              className="flex flex-1 min-w-0 gap-2 sm:min-w-[260px]"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (address.trim()) geocode.mutate(address.trim());
@@ -111,6 +111,7 @@ function MeetingsPage() {
                 placeholder="…or search an address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                className="min-w-0 flex-1"
               />
               <Button type="submit" variant="secondary" disabled={geocode.isPending}>
                 <Search className="mr-2 h-4 w-4" /> Set
@@ -118,8 +119,8 @@ function MeetingsPage() {
             </form>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[240px]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Radius</span>
                 <span className="font-medium text-foreground">{radiusKm} km</span>
@@ -132,13 +133,17 @@ function MeetingsPage() {
                 onValueChange={(v) => setRadiusKm(v[0] ?? 5)}
               />
             </div>
-            <Button onClick={rescan} disabled={!origin || scan.isPending}>
+            <Button
+              onClick={rescan}
+              disabled={!origin || scan.isPending}
+              className="w-full sm:w-auto"
+            >
               {scan.isPending ? "Scanning…" : "Scan"}
             </Button>
           </div>
 
           {origin && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
               <span>{originLabel}</span>
               <span>·</span>
@@ -151,7 +156,7 @@ function MeetingsPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="order-2 lg:order-1">
           <CardContent className="pt-6">
             <NearbyMap
               origin={origin}
@@ -172,7 +177,7 @@ function MeetingsPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-3">
+        <div className="order-1 space-y-3 lg:order-2">
           {selected && (
             <Card>
               <CardContent className="space-y-3 pt-6">

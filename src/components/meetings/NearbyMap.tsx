@@ -155,5 +155,5 @@ export function NearbyMap({ origin, radiusKm, matches, selectedId, onSelect }: P
     });
   }, [matches, selectedId]);
 
-  return <div ref={ref} className="h-[500px] w-full rounded-md border" />;
+  return <div ref={ref} className="h-[320px] md:h-[500px] w-full rounded-md border" />;
 }
