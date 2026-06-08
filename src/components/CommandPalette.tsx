@@ -80,9 +80,17 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, [navigate]);
 
-  const go = (path: string) => {
+  const goProspect = (id: string) => {
     setOpen(false);
-    navigate({ to: path });
+    navigate({ to: "/app/prospects/$id", params: { id } });
+  };
+  const goLead = (id: string) => {
+    setOpen(false);
+    navigate({ to: "/app/leads/$id", params: { id } });
+  };
+  const goNewProspect = () => {
+    setOpen(false);
+    navigate({ to: "/app/prospects/new" });
   };
 
   return (
