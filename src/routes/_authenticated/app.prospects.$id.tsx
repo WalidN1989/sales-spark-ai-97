@@ -50,6 +50,7 @@ function CompanyProfile() {
   const [scanning, setScanning] = useState(false);
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
