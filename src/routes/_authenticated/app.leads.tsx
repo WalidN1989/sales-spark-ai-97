@@ -8,7 +8,7 @@ import {
   Target,
   Mail,
   MessageCircle,
-  Plus,
+  
 
   Upload,
   Sparkles,
