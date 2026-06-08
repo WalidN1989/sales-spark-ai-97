@@ -142,6 +142,9 @@ function CompanyProfile() {
             <Search className="mr-1 h-4 w-4" />
             {qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Edit
+          </Button>
           {can("prospects", "delete") && (
             <Button variant="ghost" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-1 h-4 w-4" /> Delete
@@ -150,6 +153,8 @@ function CompanyProfile() {
         </div>
       </div>
       <FindContactsDialog open={findOpen} onOpenChange={setFindOpen} companyId={id} />
+      <EditCompanyDialog open={editOpen} onOpenChange={setEditOpen} company={c as Parameters<typeof EditCompanyDialog>[0]["company"]} />
+
 
       <Card>
         <CardHeader>
