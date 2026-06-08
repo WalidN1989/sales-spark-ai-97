@@ -1,14 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Search, Flame } from "lucide-react";
-import { useState } from "react";
+import { Flame } from "lucide-react";
 import { listCompanies } from "@/lib/companies.functions";
 import { listLeads, promoteToLead } from "@/lib/leads.functions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useAccess } from "@/hooks/use-access";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
