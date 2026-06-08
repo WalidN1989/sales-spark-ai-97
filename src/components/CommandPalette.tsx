@@ -99,7 +99,7 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
         <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => go("/app/prospects/new")}>
+          <CommandItem onSelect={goNewProspect}>
             <Plus className="mr-2 h-4 w-4" /> Add company
             <span className="ml-auto text-xs text-muted-foreground">Ctrl+I</span>
           </CommandItem>
