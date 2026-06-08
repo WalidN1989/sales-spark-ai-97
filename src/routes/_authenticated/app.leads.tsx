@@ -462,18 +462,18 @@ function GroupCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {visible.map((l) => (
               <div
                 key={l.id}
                 title={`${l.contact_person ?? "—"}${l.job_title ? ` · ${l.job_title}` : ""}`}
-                className="flex items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+                className="flex min-w-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
               >
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-[9px] font-bold">
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-background text-[9px] font-bold">
                   {leadInitials(l.contact_person, l.company_name ?? "?")}
                 </span>
-                <span className="max-w-[100px] truncate">{l.contact_person || l.contact_email || "—"}</span>
-                {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+                <span className="max-w-[110px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+                {l.linkedin_url && <Linkedin className="h-3 w-3 shrink-0 text-[#0A66C2]" />}
               </div>
             ))}
             {overflow > 0 && (
