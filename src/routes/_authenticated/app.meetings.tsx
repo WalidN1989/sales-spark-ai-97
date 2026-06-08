@@ -45,7 +45,7 @@ function MeetingsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const useGps = (silent = false) => {
+  const triggerGps = (silent = false) => {
     if (!navigator.geolocation) {
       const msg = "Geolocation not supported.";
       setGeoError(msg);
@@ -73,13 +73,13 @@ function MeetingsPage() {
   useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
-    useGps(true);
+    triggerGps(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function rescan() {
     if (!origin) {
-      useGps();
+      triggerGps();
       return;
     }
     scan.mutate({ ...origin, radiusKm });
@@ -100,7 +100,7 @@ function MeetingsPage() {
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button onClick={() => useGps()} variant="default" className="w-full sm:w-auto">
+            <Button onClick={() => triggerGps()} variant="default" className="w-full sm:w-auto">
               <Locate className="mr-2 h-4 w-4" /> Use my location
             </Button>
             <div className="min-w-0 flex-1">
