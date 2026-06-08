@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
@@ -7,5 +8,10 @@ export const Route = createFileRoute("/_authenticated")({
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/login" });
   },
-  component: () => <Outlet />,
+  component: () => (
+    <>
+      <Outlet />
+      <CommandPalette />
+    </>
+  ),
 });
