@@ -1,37 +1,62 @@
-## Mobile + Layout Fixes
+# Plan
 
-### 1. Meetings — Nearby Scan (mobile)
+## 1. Prospect address editing + geocoding verification
 
-Issues observed in the screenshots:
-- Radius slider row overflows the card on mobile (the "5" km label is clipped off-screen).
-- After Scan, the side-by-side `lg:grid-cols-[1fr_360px]` map+results layout still overflows on narrow widths and the map/list ordering feels wrong on mobile.
-- User wants the **Results list above the map** on mobile.
+**Prospect detail page (`app.prospects.$id.tsx`)**
+- Add an "Edit" button in the header next to Find Contacts / Delete.
+- Opens a dialog (reusing the same field set as `app.prospects.new.tsx`) with all editable fields: name, domain, country, industry, contact, email, phone, product_service, **address**, and (new) manual **lat/lng override**.
+- Address row gets a "Verify on map" action that calls the existing `geocodeAddress` server fn and shows:
+  - resolved formatted address
+  - a small inline Google Map preview pin (reuse Maps JS loader from `NearbyMap`)
+  - "Confidence" footnote = distance between geocoded point and any previously stored lat/lng (or just shows "Approximate — confirm pin") so the user can judge accuracy
+  - "Use this location" button → writes lat/lng into the form
+- Optional manual override: drag the pin or paste coordinates to force exact lat/lng (covers cases like AUS where the postal address geocodes to the PO Box, not the campus).
 
-Changes in `src/routes/_authenticated/app.meetings.tsx`:
-- Stack the controls vertically on mobile: GPS button full-width, address search on its own row, radius slider on its own row, Scan button full-width. Keep current horizontal layout on `sm:`/`md:` and up.
-- Make the radius row a flex column on mobile so the "X km" label sits cleanly above the slider; ensure no horizontal overflow (`min-w-0`, `w-full` on slider container).
-- Reorder the map + results on mobile using `flex flex-col` with `order-*` utilities: Results card first, map card second on mobile; revert to current map-left / results-right two-column grid at `lg:`.
-- Reduce map height on mobile (e.g. `h-[320px] md:h-[500px]`) in `NearbyMap.tsx` to avoid pushing list way down.
-- Keep desktop layout exactly as-is.
+**Create flow (`app.prospects.new.tsx`)**
+- Same "Verify on map" affordance below the Address textarea — pre-flight the geocode before save so prospects start with accurate coordinates.
 
-### 2. Grouped Lead view — desktop grid (no horizontal scroll)
+**Server (`companies.functions.ts`)**
+- Add `updateCompany` serverFn (auth-protected, zod-validated, same shape as create) that accepts `lat`/`lng` overrides and skips auto-geocode when they are provided.
 
-Issue: the carousel in `src/routes/_authenticated/app.leads.group.$companyId.tsx` uses `flex gap-2 overflow-x-auto` with fixed `w-56` cards, producing the right-edge scroll bar shown in the annotated screenshot.
+## 2. Global keyboard shortcuts
 
-Changes:
-- Replace the horizontal-scroll `Carousel` container with a responsive **CSS grid** on `sm:` and up (`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2`), so all lead mini-cards wrap onto multiple rows.
-- Drop the fixed `w-56`/`shrink-0`/`snap-*` classes from each card; let them fill the grid cell (`w-full`).
-- Keep a horizontal scroll fallback **only on mobile** (`flex overflow-x-auto sm:grid ...`) since horizontal swipe is acceptable on phones; or just use the grid everywhere — simpler and consistent.
-- Remove the right-edge gradient overlay (`absolute right-0 ... bg-gradient-to-l`) since there is no longer horizontal overflow.
-- Selection/compare behavior and ring styling stay identical.
+New `src/hooks/use-global-shortcuts.tsx` mounted once in `_authenticated` layout. Bindings (ignored when typing in inputs/textareas/contenteditable):
+- **Space** → open a global Command palette (cmdk) searching prospects + leads + inquiries by name/domain/industry/contact. Enter navigates to the record. Esc closes.
+- **Ctrl/Cmd + C** → navigate to `/app/prospects/new` (Add Company).  
+  ⚠️ Note: Ctrl+C is the OS copy shortcut. I will only hijack it when no text is selected and focus is not in an input; otherwise copy works normally. If you'd prefer a non-conflicting key (e.g. `Ctrl+Shift+C` or just `C`), say the word.
+- **Ctrl/Cmd + L** → navigate to `/app/leads` then open Add Lead dialog (same caveat — browsers use Ctrl+L for address bar; we can intercept but it's flaky. Recommend `Ctrl+Shift+L` or `L`. Will use `Ctrl+L` as requested and add a fallback bare `L`.)
 
-### 3. Out of scope
+**Remove from UI**
+- Prospects page: remove top search Input (search now lives in the Space palette) and remove the "Add company" button.
+- Leads page: remove the "Add Lead" button.
+- Add a tiny "Shortcuts" hint (kbd chips) under each page header so the keys are discoverable.
 
-- No changes to server functions, data, or the underlying Maps integration.
-- Other modules ("breaking on some other modules") — not specific enough to act on; if you can point me to which other pages are broken on mobile, I'll fix those in a follow-up.
+## 3. Meetings — auto-scan, drop address search
 
-### Files touched
+`app.meetings.tsx` / `NearbyMap.tsx`:
+- Remove the address search input + Set button entirely (scope is Prospects+Leads only, as you noted).
+- On mount: auto-call `navigator.geolocation.getCurrentPosition` → set origin → auto-trigger `listNearbyCompanies` with default 5 km. Show a loading state; if permission denied, show a single "Enable location" CTA.
+- Keep the radius slider and a manual "Rescan" button.
 
-- `src/routes/_authenticated/app.meetings.tsx` — responsive stacking + reorder.
-- `src/components/meetings/NearbyMap.tsx` — responsive map height.
-- `src/routes/_authenticated/app.leads.group.$companyId.tsx` — replace carousel with responsive grid, remove gradient overlay.
+## 4. Leads grouped card overflow
+
+`app.leads.tsx` (lead group cards on the index — the "+8 more" / right-edge clipping in your screenshot):
+- The contact chip row currently uses a horizontal flex that overflows on narrow widths.
+- Switch to `flex-wrap` with a max of 2 rows and an "+N more" pill that opens the group page. No horizontal scroll on the card, no clipped chips.
+
+## Out of scope
+- Drag-to-position pin polish beyond basic Google Maps marker dragging.
+- Changing Lovable-managed Maps key / billing.
+
+## Files touched
+- `src/routes/_authenticated/app.prospects.$id.tsx` (edit dialog + verify)
+- `src/routes/_authenticated/app.prospects.new.tsx` (verify on create)
+- `src/routes/_authenticated/app.prospects.index.tsx` (remove search + add button)
+- `src/routes/_authenticated/app.leads.tsx` (remove add button, wrap chips)
+- `src/routes/_authenticated/app.meetings.tsx` (auto-scan, remove search)
+- `src/components/meetings/NearbyMap.tsx` (small reusable export for mini-map)
+- `src/lib/companies.functions.ts` (updateCompany)
+- `src/hooks/use-global-shortcuts.tsx` (new)
+- `src/routes/_authenticated.tsx` (mount shortcuts + palette)
+
+**One decision needed before I build:** confirm the Ctrl+C / Ctrl+L bindings (they fight browser/OS shortcuts) — or switch to `Ctrl+Shift+C` / `Ctrl+Shift+L`?
