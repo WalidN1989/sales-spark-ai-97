@@ -147,7 +147,7 @@ export function CommandPalette() {
                 <CommandItem
                   key={`l-${l.id}`}
                   value={`lead ${l.contact_person ?? ""} ${l.contact_email ?? ""} ${l.company_name ?? ""} ${l.companies?.name ?? ""}`}
-                  onSelect={() => go(`/app/leads/${l.id}`)}
+                  onSelect={() => goLead(l.id)}
                 >
                   <Flame className="mr-2 h-4 w-4 text-orange-500" />
                   <span className="truncate">
