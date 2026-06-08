@@ -92,6 +92,12 @@ function LeadsPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
 
+  useEffect(() => {
+    const handler = () => setQuickOpen(true);
+    window.addEventListener("shortcut:add-lead", handler);
+    return () => window.removeEventListener("shortcut:add-lead", handler);
+  }, []);
+
   // ---------- Group by visible company first, even when some rows have company_id ----------
   type Item =
     | { kind: "single"; lead: Lead }
