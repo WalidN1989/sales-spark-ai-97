@@ -1,15 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Locate, Search, MapPin, Flame, ExternalLink, Navigation } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Locate, MapPin, Flame, ExternalLink, Navigation } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { listNearbyCompanies, geocodeAddress } from "@/lib/meetings.functions";
+import { listNearbyCompanies } from "@/lib/meetings.functions";
 import { NearbyMap } from "@/components/meetings/NearbyMap";
 import { LEAD_STATUS_STYLES, type LeadStatus } from "@/lib/leads-ui";
 import { cn } from "@/lib/utils";
@@ -33,13 +32,12 @@ type Match = {
 
 function MeetingsPage() {
   const scanFn = useServerFn(listNearbyCompanies);
-  const geoFn = useServerFn(geocodeAddress);
 
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [originLabel, setOriginLabel] = useState<string>("");
   const [radiusKm, setRadiusKm] = useState(5);
-  const [address, setAddress] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const scan = useMutation({
     mutationFn: (vars: { lat: number; lng: number; radiusKm: number }) =>
@@ -47,19 +45,11 @@ function MeetingsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const geocode = useMutation({
-    mutationFn: (addr: string) => geoFn({ data: { address: addr } }),
-    onSuccess: (res) => {
-      setOrigin({ lat: res.lat, lng: res.lng });
-      setOriginLabel(res.formatted_address);
-      scan.mutate({ lat: res.lat, lng: res.lng, radiusKm });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  function useGps() {
+  const triggerGps = (silent = false) => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation not supported. Use address search instead.");
+      const msg = "Geolocation not supported.";
+      setGeoError(msg);
+      if (!silent) toast.error(msg);
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -67,16 +57,29 @@ function MeetingsPage() {
         const o = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setOrigin(o);
         setOriginLabel("My current location");
+        setGeoError(null);
         scan.mutate({ ...o, radiusKm });
       },
-      (err) => toast.error(`Location denied: ${err.message}`),
+      (err) => {
+        setGeoError(err.message);
+        if (!silent) toast.error(`Location denied: ${err.message}`);
+      },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }
+  };
+
+  // Auto-trigger geolocation + scan when the module opens
+  const bootstrapped = useRef(false);
+  useEffect(() => {
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    triggerGps(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function rescan() {
     if (!origin) {
-      toast.error("Set an origin first.");
+      triggerGps();
       return;
     }
     scan.mutate({ ...origin, radiusKm });
@@ -96,30 +99,10 @@ function MeetingsPage() {
 
       <Card>
         <CardContent className="space-y-4 pt-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <Button onClick={useGps} variant="default" className="w-full sm:w-auto">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button onClick={() => triggerGps()} variant="default" className="w-full sm:w-auto">
               <Locate className="mr-2 h-4 w-4" /> Use my location
             </Button>
-            <form
-              className="flex flex-1 min-w-0 gap-2 sm:min-w-[260px]"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (address.trim()) geocode.mutate(address.trim());
-              }}
-            >
-              <Input
-                placeholder="…or search an address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="min-w-0 flex-1"
-              />
-              <Button type="submit" variant="secondary" disabled={geocode.isPending}>
-                <Search className="mr-2 h-4 w-4" /> Set
-              </Button>
-            </form>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Radius</span>
@@ -135,12 +118,18 @@ function MeetingsPage() {
             </div>
             <Button
               onClick={rescan}
-              disabled={!origin || scan.isPending}
+              disabled={scan.isPending}
               className="w-full sm:w-auto"
             >
-              {scan.isPending ? "Scanning…" : "Scan"}
+              {scan.isPending ? "Scanning…" : origin ? "Rescan" : "Scan"}
             </Button>
           </div>
+
+          {geoError && !origin && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+              {geoError} — click "Use my location" to allow access.
+            </div>
+          )}
 
           {origin && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -154,6 +143,7 @@ function MeetingsPage() {
           )}
         </CardContent>
       </Card>
+
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <Card className="order-2 lg:order-1">

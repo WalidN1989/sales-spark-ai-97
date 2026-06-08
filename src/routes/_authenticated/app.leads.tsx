@@ -8,7 +8,9 @@ import {
   Target,
   Mail,
   MessageCircle,
-  Plus,
+
+  
+
   Upload,
   Sparkles,
   X,
@@ -91,6 +93,12 @@ function LeadsPage() {
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("status");
+
+  useEffect(() => {
+    const handler = () => setQuickOpen(true);
+    window.addEventListener("shortcut:add-lead", handler);
+    return () => window.removeEventListener("shortcut:add-lead", handler);
+  }, []);
 
   // ---------- Group by visible company first, even when some rows have company_id ----------
   type Item =
@@ -208,11 +216,13 @@ function LeadsPage() {
               <SelectItem value="created">Sort: Newest</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => setQuickOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Add Lead
-          </Button>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Space</kbd> search ·{" "}
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+L</kbd> add lead ·{" "}
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd> add company
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4 flex items-center gap-3">
@@ -454,18 +464,18 @@ function GroupCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {visible.map((l) => (
               <div
                 key={l.id}
                 title={`${l.contact_person ?? "—"}${l.job_title ? ` · ${l.job_title}` : ""}`}
-                className="flex items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+                className="flex min-w-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
               >
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-background text-[9px] font-bold">
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-background text-[9px] font-bold">
                   {leadInitials(l.contact_person, l.company_name ?? "?")}
                 </span>
-                <span className="max-w-[100px] truncate">{l.contact_person || l.contact_email || "—"}</span>
-                {l.linkedin_url && <Linkedin className="h-3 w-3 text-[#0A66C2]" />}
+                <span className="max-w-[110px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+                {l.linkedin_url && <Linkedin className="h-3 w-3 shrink-0 text-[#0A66C2]" />}
               </div>
             ))}
             {overflow > 0 && (

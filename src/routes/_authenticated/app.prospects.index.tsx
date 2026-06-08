@@ -1,14 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Search, Flame } from "lucide-react";
-import { useState } from "react";
+import { Flame } from "lucide-react";
 import { listCompanies } from "@/lib/companies.functions";
 import { listLeads, promoteToLead } from "@/lib/leads.functions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useAccess } from "@/hooks/use-access";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -37,44 +33,34 @@ function ProspectsList() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const [q, setQ] = useState("");
-  const { can } = useAccess();
-
-  const filtered = (data ?? []).filter((c) => {
-    const s = q.toLowerCase();
-    return (
-      !s ||
-      c.name?.toLowerCase().includes(s) ||
-      c.domain?.toLowerCase().includes(s) ||
-      c.industry?.toLowerCase().includes(s) ||
-      c.contact_person?.toLowerCase().includes(s)
-    );
-  });
+  const filtered = data ?? [];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Prospects</h1>
-          <p className="text-sm text-muted-foreground">Your private list of target companies.</p>
+          <p className="text-sm text-muted-foreground">
+            Your private list of target companies.{" "}
+            <span className="ml-1 inline-flex items-center gap-1 text-xs">
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Space</kbd>
+              <span>search</span>
+              <span className="mx-1">·</span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd>
+              <span>add company</span>
+              <span className="mx-1">·</span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+L</kbd>
+              <span>add lead</span>
+            </span>
+          </p>
         </div>
-        {can("prospects", "add") && (
-          <Button asChild>
-            <Link to="/app/prospects/new"><Plus className="mr-1 h-4 w-4" /> Add company</Link>
-          </Button>
-        )}
-      </div>
-
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, domain, industry…" className="pl-9" />
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">
-          {q ? "No matches." : "No companies yet. Add your first prospect to get started."}
+          No companies yet. Press <kbd className="mx-1 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd> to add your first prospect.
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

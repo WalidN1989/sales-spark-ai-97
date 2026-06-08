@@ -12,6 +12,8 @@ const companySchema = z.object({
   phone: z.string().max(50).optional().nullable(),
   product_service: z.string().max(500).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  lng: z.number().min(-180).max(180).optional().nullable(),
 });
 
 export const listCompanies = createServerFn({ method: "GET" })

@@ -2,8 +2,9 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
+import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
@@ -49,6 +50,7 @@ function CompanyProfile() {
   const [scanning, setScanning] = useState(false);
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -140,6 +142,9 @@ function CompanyProfile() {
             <Search className="mr-1 h-4 w-4" />
             {qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Edit
+          </Button>
           {can("prospects", "delete") && (
             <Button variant="ghost" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-1 h-4 w-4" /> Delete
@@ -148,6 +153,8 @@ function CompanyProfile() {
         </div>
       </div>
       <FindContactsDialog open={findOpen} onOpenChange={setFindOpen} companyId={id} />
+      <EditCompanyDialog open={editOpen} onOpenChange={setEditOpen} company={c as Parameters<typeof EditCompanyDialog>[0]["company"]} />
+
 
       <Card>
         <CardHeader>
