@@ -2,8 +2,9 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
+import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
