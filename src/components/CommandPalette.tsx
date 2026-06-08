@@ -125,7 +125,7 @@ export function CommandPalette() {
                 <CommandItem
                   key={`c-${c.id}`}
                   value={`prospect ${c.name} ${c.domain ?? ""} ${c.industry ?? ""} ${c.contact_person ?? ""}`}
-                  onSelect={() => go(`/app/prospects/${c.id}`)}
+                  onSelect={() => goProspect(c.id)}
                 >
                   <Building2 className="mr-2 h-4 w-4" />
                   <span className="truncate">{c.name}</span>
