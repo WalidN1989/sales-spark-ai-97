@@ -208,11 +208,13 @@ function LeadsPage() {
               <SelectItem value="created">Sort: Newest</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => setQuickOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Add Lead
-          </Button>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Space</kbd> search ·{" "}
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+L</kbd> add lead ·{" "}
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd> add company
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card className="p-4 flex items-center gap-3">
