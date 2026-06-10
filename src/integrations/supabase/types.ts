@@ -585,6 +585,98 @@ export type Database = {
         }
         Relationships: []
       }
+      note_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          note_id: string
+          size_bytes: number | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          note_id: string
+          size_bytes?: number | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          note_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_attachments_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes: {
+        Row: {
+          ai_summary: string | null
+          ai_summary_at: string | null
+          body: Json
+          body_text: string
+          created_at: string
+          entity_id: string | null
+          entity_type: Database["public"]["Enums"]["note_entity_type"]
+          id: string
+          pinned: boolean
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+          visibility: Database["public"]["Enums"]["note_visibility"]
+        }
+        Insert: {
+          ai_summary?: string | null
+          ai_summary_at?: string | null
+          body?: Json
+          body_text?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: Database["public"]["Enums"]["note_entity_type"]
+          id?: string
+          pinned?: boolean
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id: string
+          visibility?: Database["public"]["Enums"]["note_visibility"]
+        }
+        Update: {
+          ai_summary?: string | null
+          ai_summary_at?: string | null
+          body?: Json
+          body_text?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: Database["public"]["Enums"]["note_entity_type"]
+          id?: string
+          pinned?: boolean
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: Database["public"]["Enums"]["note_visibility"]
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string | null
@@ -861,6 +953,8 @@ export type Database = {
         | "business_rule"
         | "objection"
         | "negotiation"
+      note_entity_type: "prospect" | "lead" | "sale" | "meeting" | "standalone"
+      note_visibility: "private" | "shared"
       user_status: "active" | "inactive"
     }
     CompositeTypes: {
@@ -997,6 +1091,8 @@ export const Constants = {
         "objection",
         "negotiation",
       ],
+      note_entity_type: ["prospect", "lead", "sale", "meeting", "standalone"],
+      note_visibility: ["private", "shared"],
       user_status: ["active", "inactive"],
     },
   },
