@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Package,
   Layers,
+  StickyNote,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ function AppShell() {
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
+    { to: "/app/notes", label: "Notes", icon: StickyNote, show: true },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },
   ].filter((n) => n.show);
 

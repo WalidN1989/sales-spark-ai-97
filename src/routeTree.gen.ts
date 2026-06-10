@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
+import { Route as AuthenticatedAppNotesRouteImport } from './routes/_authenticated/app.notes'
 import { Route as AuthenticatedAppMeetingsRouteImport } from './routes/_authenticated/app.meetings'
 import { Route as AuthenticatedAppLeadsRouteImport } from './routes/_authenticated/app.leads'
 import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authenticated/app.inquiries'
@@ -75,6 +76,11 @@ const AuthenticatedAppSettingsRoute =
 const AuthenticatedAppSalesRoute = AuthenticatedAppSalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppNotesRoute = AuthenticatedAppNotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
 const AuthenticatedAppMeetingsRoute =
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
+  '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
+  '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
@@ -255,6 +263,7 @@ export interface FileRoutesById {
   '/_authenticated/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/_authenticated/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/_authenticated/app/meetings': typeof AuthenticatedAppMeetingsRoute
+  '/_authenticated/app/notes': typeof AuthenticatedAppNotesRoute
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -285,6 +294,7 @@ export interface FileRouteTypes {
     | '/app/inquiries'
     | '/app/leads'
     | '/app/meetings'
+    | '/app/notes'
     | '/app/sales'
     | '/app/settings'
     | '/app/'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/app/inquiries'
     | '/app/leads'
     | '/app/meetings'
+    | '/app/notes'
     | '/app/sales'
     | '/app/settings'
     | '/app'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/inquiries'
     | '/_authenticated/app/leads'
     | '/_authenticated/app/meetings'
+    | '/_authenticated/app/notes'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
@@ -425,6 +437,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/app/sales'
       preLoaderRoute: typeof AuthenticatedAppSalesRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/notes': {
+      id: '/_authenticated/app/notes'
+      path: '/notes'
+      fullPath: '/app/notes'
+      preLoaderRoute: typeof AuthenticatedAppNotesRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/meetings': {
@@ -631,6 +650,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppInquiriesRoute: typeof AuthenticatedAppInquiriesRouteWithChildren
   AuthenticatedAppLeadsRoute: typeof AuthenticatedAppLeadsRouteWithChildren
   AuthenticatedAppMeetingsRoute: typeof AuthenticatedAppMeetingsRoute
+  AuthenticatedAppNotesRoute: typeof AuthenticatedAppNotesRoute
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -649,6 +669,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppInquiriesRoute: AuthenticatedAppInquiriesRouteWithChildren,
   AuthenticatedAppLeadsRoute: AuthenticatedAppLeadsRouteWithChildren,
   AuthenticatedAppMeetingsRoute: AuthenticatedAppMeetingsRoute,
+  AuthenticatedAppNotesRoute: AuthenticatedAppNotesRoute,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
