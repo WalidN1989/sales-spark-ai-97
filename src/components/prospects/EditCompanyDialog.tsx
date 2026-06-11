@@ -177,7 +177,7 @@ export function EditCompanyDialog({
           <Label>Search venue or address</Label>
           <PlaceAutocomplete
             bias={lat != null && lng != null ? { lat, lng } : null}
-            onPick={(p) => {
+            onPick={(p: PlacePick) => {
               setLat(p.lat);
               setLng(p.lng);
               setForm((f) => ({ ...f, address: p.address }));
