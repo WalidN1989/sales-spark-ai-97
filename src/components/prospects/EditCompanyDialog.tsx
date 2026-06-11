@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateCompany } from "@/lib/companies.functions";
 import { geocodeAddress } from "@/lib/meetings.functions";
+import { PlaceAutocomplete, type PlacePick } from "@/components/location/PlaceAutocomplete";
 import { toast } from "sonner";
 
 type CompanyLike = {
