@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { updateCompany } from "@/lib/companies.functions";
+import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { toast } from "sonner";
 
 const SCRIPT_ID = "google-maps-js";
