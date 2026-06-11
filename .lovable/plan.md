@@ -1,62 +1,46 @@
-# Plan
+## Goal
 
-## 1. Prospect address editing + geocoding verification
+When a rep is physically at a client site, they should be able to attach the exact GPS coordinates to that company in one tap from either the Lead or the Prospect screen. Once saved, the Meetings → Nearby Scan picks them up automatically (it already filters by lat/lng + radius).
 
-**Prospect detail page (`app.prospects.$id.tsx`)**
-- Add an "Edit" button in the header next to Find Contacts / Delete.
-- Opens a dialog (reusing the same field set as `app.prospects.new.tsx`) with all editable fields: name, domain, country, industry, contact, email, phone, product_service, **address**, and (new) manual **lat/lng override**.
-- Address row gets a "Verify on map" action that calls the existing `geocodeAddress` server fn and shows:
-  - resolved formatted address
-  - a small inline Google Map preview pin (reuse Maps JS loader from `NearbyMap`)
-  - "Confidence" footnote = distance between geocoded point and any previously stored lat/lng (or just shows "Approximate — confirm pin") so the user can judge accuracy
-  - "Use this location" button → writes lat/lng into the form
-- Optional manual override: drag the pin or paste coordinates to force exact lat/lng (covers cases like AUS where the postal address geocodes to the PO Box, not the campus).
+Today the geocoding/edit-on-map flow exists only inside the desktop "Edit company" dialog on the Prospect page. The Lead page has no way to update the company's location at all — so leads like *Elaj MC Ajm* never show up in the nearby scan even when the rep is standing in front of them.
 
-**Create flow (`app.prospects.new.tsx`)**
-- Same "Verify on map" affordance below the Address textarea — pre-flight the geocode before save so prospects start with accurate coordinates.
+## What we'll build
 
-**Server (`companies.functions.ts`)**
-- Add `updateCompany` serverFn (auth-protected, zod-validated, same shape as create) that accepts `lat`/`lng` overrides and skips auto-geocode when they are provided.
+### 1. New shared component — `PinLocationButton`
+A small button + sheet/dialog usable from any card.
 
-## 2. Global keyboard shortcuts
+- Tap → request `navigator.geolocation.getCurrentPosition` (with accuracy).
+- Show a mini Google Map with a draggable pin centred on the GPS fix.
+- Show the accuracy radius ("±18 m") as a footnote so the rep knows how trustworthy the fix is.
+- "Save this as the company location" → calls `updateCompany({ id, patch: { lat, lng } })`.
+- Optional secondary action: "Use address instead" → falls back to the existing `geocodeAddress` flow (re-uses logic from `EditCompanyDialog`).
+- Toast confirms: *"Location pinned — Elaj Medical Centre LLC will now appear in Nearby Scan."*
 
-New `src/hooks/use-global-shortcuts.tsx` mounted once in `_authenticated` layout. Bindings (ignored when typing in inputs/textareas/contenteditable):
-- **Space** → open a global Command palette (cmdk) searching prospects + leads + inquiries by name/domain/industry/contact. Enter navigates to the record. Esc closes.
-- **Ctrl/Cmd + C** → navigate to `/app/prospects/new` (Add Company).  
-  ⚠️ Note: Ctrl+C is the OS copy shortcut. I will only hijack it when no text is selected and focus is not in an input; otherwise copy works normally. If you'd prefer a non-conflicting key (e.g. `Ctrl+Shift+C` or just `C`), say the word.
-- **Ctrl/Cmd + L** → navigate to `/app/leads` then open Add Lead dialog (same caveat — browsers use Ctrl+L for address bar; we can intercept but it's flaky. Recommend `Ctrl+Shift+L` or `L`. Will use `Ctrl+L` as requested and add a fallback bare `L`.)
+### 2. Lead detail page (`app.leads.$id.tsx`)
+- Add a **"Pin location"** action in the header row next to the company name / WhatsApp / Email buttons (and a compact icon-only variant for mobile).
+- Resolves the lead's `company_id` and saves lat/lng on that company (so prospect + lead share one source of truth).
+- Show a tiny status line under the company name: `📍 Location set` or `📍 No location — pin it`.
 
-**Remove from UI**
-- Prospects page: remove top search Input (search now lives in the Space palette) and remove the "Add company" button.
-- Leads page: remove the "Add Lead" button.
-- Add a tiny "Shortcuts" hint (kbd chips) under each page header so the keys are discoverable.
+### 3. Prospect detail page (`app.prospects.$id.tsx`)
+- Add the same **"Pin location"** quick-action next to the existing "Edit" button (mobile-friendly).
+- Keeps the full `EditCompanyDialog` for in-office edits; this is the one-tap field version.
+- Show the same status line under the address.
 
-## 3. Meetings — auto-scan, drop address search
+### 4. Meetings — small UX polish
+- After a successful pin save, invalidate the meetings query so a rep who immediately switches to Meetings sees their just-pinned client appear in results.
+- No change to scan logic itself — it already finds any company with lat/lng inside the radius.
 
-`app.meetings.tsx` / `NearbyMap.tsx`:
-- Remove the address search input + Set button entirely (scope is Prospects+Leads only, as you noted).
-- On mount: auto-call `navigator.geolocation.getCurrentPosition` → set origin → auto-trigger `listNearbyCompanies` with default 5 km. Show a loading state; if permission denied, show a single "Enable location" CTA.
-- Keep the radius slider and a manual "Rescan" button.
+## Files to touch
 
-## 4. Leads grouped card overflow
+- **new** `src/components/location/PinLocationButton.tsx` — button + sheet, GPS + draggable map, save handler.
+- `src/routes/_authenticated/app.leads.$id.tsx` — mount `PinLocationButton` in header; pass `companyId` and current `lat/lng`.
+- `src/routes/_authenticated/app.prospects.$id.tsx` — mount `PinLocationButton` next to Edit.
+- `src/components/prospects/EditCompanyDialog.tsx` — extract the existing `MiniMapPicker` so `PinLocationButton` can reuse it (no behaviour change to the dialog).
+- No DB / server-fn changes — `updateCompany` already accepts `lat`/`lng`.
 
-`app.leads.tsx` (lead group cards on the index — the "+8 more" / right-edge clipping in your screenshot):
-- The contact chip row currently uses a horizontal flex that overflows on narrow widths.
-- Switch to `flex-wrap` with a max of 2 rows and an "+N more" pill that opens the group page. No horizontal scroll on the card, no clipped chips.
+## Out of scope (confirm if you want these too)
 
-## Out of scope
-- Drag-to-position pin polish beyond basic Google Maps marker dragging.
-- Changing Lovable-managed Maps key / billing.
+- Auto-pinning on lead creation from the mobile "Add lead" flow.
+- Showing distance-from-me on each lead card in the list views.
 
-## Files touched
-- `src/routes/_authenticated/app.prospects.$id.tsx` (edit dialog + verify)
-- `src/routes/_authenticated/app.prospects.new.tsx` (verify on create)
-- `src/routes/_authenticated/app.prospects.index.tsx` (remove search + add button)
-- `src/routes/_authenticated/app.leads.tsx` (remove add button, wrap chips)
-- `src/routes/_authenticated/app.meetings.tsx` (auto-scan, remove search)
-- `src/components/meetings/NearbyMap.tsx` (small reusable export for mini-map)
-- `src/lib/companies.functions.ts` (updateCompany)
-- `src/hooks/use-global-shortcuts.tsx` (new)
-- `src/routes/_authenticated.tsx` (mount shortcuts + palette)
-
-**One decision needed before I build:** confirm the Ctrl+C / Ctrl+L bindings (they fight browser/OS shortcuts) — or switch to `Ctrl+Shift+C` / `Ctrl+Shift+L`?
+If both of those would help, I'll fold them into the same pass.
