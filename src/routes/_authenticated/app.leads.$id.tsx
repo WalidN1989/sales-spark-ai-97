@@ -74,6 +74,7 @@ import {
 } from "@/lib/leads-ui";
 import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
+import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -240,20 +241,30 @@ function LeadDetail() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/leads">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
           </Link>
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDelete}
-          className="text-destructive"
-        >
-          <Trash2 className="mr-1 h-4 w-4" /> Delete
-        </Button>
+        <div className="flex items-center gap-1">
+          {l.company_id && (
+            <PinLocationButton
+              companyId={l.company_id}
+              companyName={l.company_name ?? l.companies?.name ?? null}
+              currentLat={(l.companies as { lat?: number | null } | null)?.lat ?? null}
+              currentLng={(l.companies as { lng?: number | null } | null)?.lng ?? null}
+            />
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDelete}
+            className="text-destructive"
+          >
+            <Trash2 className="mr-1 h-4 w-4" /> Delete
+          </Button>
+        </div>
       </div>
 
       {/* Header */}
