@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateCompany } from "@/lib/companies.functions";
 import { geocodeAddress } from "@/lib/meetings.functions";
+import { PlaceAutocomplete, type PlacePick } from "@/components/location/PlaceAutocomplete";
 import { toast } from "sonner";
 
 type CompanyLike = {
@@ -173,7 +174,16 @@ export function EditCompanyDialog({
         </div>
 
         <div className="space-y-2">
-          <Label>Address</Label>
+          <Label>Search venue or address</Label>
+          <PlaceAutocomplete
+            bias={lat != null && lng != null ? { lat, lng } : null}
+            onPick={(p: PlacePick) => {
+              setLat(p.lat);
+              setLng(p.lng);
+              setForm((f) => ({ ...f, address: p.address }));
+            }}
+          />
+          <Label className="pt-2">Address</Label>
           <Textarea value={form.address} onChange={set("address")} rows={2} />
           <div className="flex flex-wrap items-center gap-2">
             <Button

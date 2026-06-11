@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { updateCompany } from "@/lib/companies.functions";
+import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { toast } from "sonner";
 
 const SCRIPT_ID = "google-maps-js";
@@ -143,6 +144,16 @@ export function PinLocationButton({
         </DialogHeader>
 
         <div className="space-y-3">
+          <PlaceAutocomplete
+            bias={lat != null && lng != null ? { lat, lng } : null}
+            onPick={(p) => {
+              setLat(p.lat);
+              setLng(p.lng);
+              setAccuracy(null);
+              toast.success(`Selected: ${p.name ?? p.address}`);
+            }}
+          />
+
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
