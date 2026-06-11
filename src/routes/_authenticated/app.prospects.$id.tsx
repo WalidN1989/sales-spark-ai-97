@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
+import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
@@ -137,7 +138,13 @@ function CompanyProfile() {
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
         </Button>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <PinLocationButton
+            companyId={id}
+            companyName={c.name}
+            currentLat={c.lat}
+            currentLng={c.lng}
+          />
           <Button variant="outline" size="sm" onClick={() => setFindOpen(true)}>
             <Search className="mr-1 h-4 w-4" />
             {qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}
