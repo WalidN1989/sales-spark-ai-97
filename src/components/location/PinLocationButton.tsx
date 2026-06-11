@@ -144,6 +144,16 @@ export function PinLocationButton({
         </DialogHeader>
 
         <div className="space-y-3">
+          <PlaceAutocomplete
+            bias={lat != null && lng != null ? { lat, lng } : null}
+            onPick={(p) => {
+              setLat(p.lat);
+              setLng(p.lng);
+              setAccuracy(null);
+              toast.success(`Selected: ${p.name ?? p.address}`);
+            }}
+          />
+
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
