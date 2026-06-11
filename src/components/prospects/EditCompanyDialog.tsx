@@ -173,7 +173,16 @@ export function EditCompanyDialog({
         </div>
 
         <div className="space-y-2">
-          <Label>Address</Label>
+          <Label>Search venue or address</Label>
+          <PlaceAutocomplete
+            bias={lat != null && lng != null ? { lat, lng } : null}
+            onPick={(p) => {
+              setLat(p.lat);
+              setLng(p.lng);
+              setForm((f) => ({ ...f, address: p.address }));
+            }}
+          />
+          <Label className="pt-2">Address</Label>
           <Textarea value={form.address} onChange={set("address")} rows={2} />
           <div className="flex flex-wrap items-center gap-2">
             <Button
