@@ -240,14 +240,14 @@ function LeadDetail() {
   const wa_link = waHref(l.whatsapp);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center justify-between gap-2">
+    <div className="mx-auto max-w-6xl space-y-4 min-w-0">
+      <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/leads">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
           </Link>
         </Button>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {l.company_id && (
             <PinLocationButton
               companyId={l.company_id}
@@ -260,9 +260,9 @@ function LeadDetail() {
             variant="ghost"
             size="sm"
             onClick={handleDelete}
-            className="text-destructive"
+            className="shrink-0 text-destructive"
           >
-            <Trash2 className="mr-1 h-4 w-4" /> Delete
+            <Trash2 className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
           </Button>
         </div>
       </div>

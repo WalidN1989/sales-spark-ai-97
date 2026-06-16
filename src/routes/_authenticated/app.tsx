@@ -144,7 +144,7 @@ function AppShell() {
       </aside>
 
       {/* Mobile header */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:hidden">
           <div className="flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-primary" />
@@ -165,7 +165,7 @@ function AppShell() {
           </Sheet>
         </header>
 
-        <main className="flex-1 p-4 md:p-6">
+        <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">
           <Outlet />
         </main>
       </div>

@@ -133,28 +133,29 @@ function CompanyProfile() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-4xl space-y-4 min-w-0">
+      <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
         </Button>
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           <PinLocationButton
             companyId={id}
             companyName={c.name}
             currentLat={c.lat}
             currentLng={c.lng}
           />
-          <Button variant="outline" size="sm" onClick={() => setFindOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setFindOpen(true)} className="shrink-0">
             <Search className="mr-1 h-4 w-4" />
-            {qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}
+            <span className="hidden sm:inline">{qc.getQueryData(["hunter-find", id]) ? "Show Contacts" : "Find Contacts"}</span>
+            <span className="sm:hidden">Contacts</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="shrink-0">
             <Pencil className="mr-1 h-4 w-4" /> Edit
           </Button>
           {can("prospects", "delete") && (
-            <Button variant="ghost" size="sm" onClick={handleDelete}>
-              <Trash2 className="mr-1 h-4 w-4" /> Delete
+            <Button variant="ghost" size="sm" onClick={handleDelete} className="shrink-0 text-destructive">
+              <Trash2 className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
             </Button>
           )}
         </div>
@@ -165,9 +166,9 @@ function CompanyProfile() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <CardTitle className="text-2xl">{c.name}</CardTitle>
+          <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-xl break-words sm:text-2xl">{c.name}</CardTitle>
               <div className="mt-1 flex flex-wrap gap-1 text-xs">
                 {c.industry && <span className="rounded bg-secondary px-2 py-0.5">{c.industry}</span>}
                 {c.country && <span className="rounded bg-secondary px-2 py-0.5">{c.country}</span>}
@@ -186,7 +187,7 @@ function CompanyProfile() {
       </Card>
 
       <Tabs defaultValue="activity">
-        <TabsList>
+        <TabsList className="w-full overflow-x-auto justify-start">
           <TabsTrigger value="activity">Activity log</TabsTrigger>
           {can("prospects", "research") && <TabsTrigger value="research">AI research</TabsTrigger>}
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}

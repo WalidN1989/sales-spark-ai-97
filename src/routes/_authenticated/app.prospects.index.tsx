@@ -5,6 +5,7 @@ import { Flame } from "lucide-react";
 import { listCompanies } from "@/lib/companies.functions";
 import { listLeads, promoteToLead } from "@/lib/leads.functions";
 import { Card } from "@/components/ui/card";
+import { StaleBadge } from "@/components/StaleBadge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -69,15 +70,18 @@ function ProspectsList() {
             return (
               <div key={c.id} className="relative">
                 <Link to="/app/prospects/$id" params={{ id: c.id }}>
-                  <Card className="p-4 pr-12 transition-colors hover:bg-accent">
-                    <div className="font-semibold">{c.name}</div>
-                    {c.domain && <div className="text-xs text-muted-foreground">{c.domain}</div>}
+                  <Card className="p-4 pr-12 transition-colors hover:bg-accent min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 break-words font-semibold">{c.name}</div>
+                      <StaleBadge since={(c as { updated_at?: string | null }).updated_at ?? c.created_at} className="mt-0.5 mr-8 shrink-0" />
+                    </div>
+                    {c.domain && <div className="truncate text-xs text-muted-foreground">{c.domain}</div>}
                     <div className="mt-2 flex flex-wrap gap-1 text-xs">
                       {c.industry && <span className="rounded bg-secondary px-2 py-0.5">{c.industry}</span>}
                       {c.country && <span className="rounded bg-secondary px-2 py-0.5">{c.country}</span>}
                     </div>
                     {c.contact_person && (
-                      <div className="mt-2 text-xs text-muted-foreground">Contact: {c.contact_person}</div>
+                      <div className="mt-2 truncate text-xs text-muted-foreground">Contact: {c.contact_person}</div>
                     )}
                   </Card>
                 </Link>

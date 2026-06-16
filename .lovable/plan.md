@@ -1,46 +1,108 @@
-## Goal
 
-When a rep is physically at a client site, they should be able to attach the exact GPS coordinates to that company in one tap from either the Lead or the Prospect screen. Once saved, the Meetings → Nearby Scan picks them up automatically (it already filters by lat/lng + radius).
+## Scope
 
-Today the geocoding/edit-on-map flow exists only inside the desktop "Edit company" dialog on the Prospect page. The Lead page has no way to update the company's location at all — so leads like *Elaj MC Ajm* never show up in the nearby scan even when the rep is standing in front of them.
+A pass over Prospects, Leads, Notes and the lead/prospect detail screens. Each item below maps to your numbered points.
 
-## What we'll build
+---
 
-### 1. New shared component — `PinLocationButton`
-A small button + sheet/dialog usable from any card.
+### A. Mobile — kill all horizontal scrolling
 
-- Tap → request `navigator.geolocation.getCurrentPosition` (with accuracy).
-- Show a mini Google Map with a draggable pin centred on the GPS fix.
-- Show the accuracy radius ("±18 m") as a footnote so the rep knows how trustworthy the fix is.
-- "Save this as the company location" → calls `updateCompany({ id, patch: { lat, lng } })`.
-- Optional secondary action: "Use address instead" → falls back to the existing `geocodeAddress` flow (re-uses logic from `EditCompanyDialog`).
-- Toast confirms: *"Location pinned — Elaj Medical Centre LLC will now appear in Nearby Scan."*
+Symptom: Leads list & sidebar plus the Prospect/Lead detail header scroll sideways on mobile. Prospects list is fine until you open one.
 
-### 2. Lead detail page (`app.leads.$id.tsx`)
-- Add a **"Pin location"** action in the header row next to the company name / WhatsApp / Email buttons (and a compact icon-only variant for mobile).
-- Resolves the lead's `company_id` and saves lat/lng on that company (so prospect + lead share one source of truth).
-- Show a tiny status line under the company name: `📍 Location set` or `📍 No location — pin it`.
+- Wrap the main app shell content in `min-w-0 overflow-x-hidden` so no descendant can force the viewport wider.
+- `app.leads.tsx`:
+  - Hot/Pipeline/Hot-ratio stat row: switch to single column on mobile, 3-up from `sm:` upward.
+  - Group cards: chip row of avatars uses `flex-wrap` + `min-w-0` + `truncate` on names so the row no longer overflows.
+  - Header sort row: stack vertically on mobile.
+- `app.prospects.$id.tsx` & `app.leads.$id.tsx` headers (the "Back / Pin location / Find Contacts / Edit / Delete" row):
+  - Promote to `grid grid-cols-[auto_1fr] sm:flex` with the action cluster as `flex flex-wrap gap-1 justify-end`, all buttons `shrink-0`.
+  - Company name `<CardTitle>`: add `truncate` + `break-words` and reduce to `text-xl sm:text-2xl`.
+- Tabs row (`Activity log / AI research / …`): wrap in a `overflow-x-auto` scroller (intentional, scoped) instead of letting it push the page.
 
-### 3. Prospect detail page (`app.prospects.$id.tsx`)
-- Add the same **"Pin location"** quick-action next to the existing "Edit" button (mobile-friendly).
-- Keeps the full `EditCompanyDialog` for in-office edits; this is the one-tap field version.
-- Show the same status line under the address.
+### B. Prospects detail — "Edit" button on mobile
 
-### 4. Meetings — small UX polish
-- After a successful pin save, invalidate the meetings query so a rep who immediately switches to Meetings sees their just-pinned client appear in results.
-- No change to scan logic itself — it already finds any company with lat/lng inside the radius.
+The Edit button already exists on desktop; ensure it stays visible on mobile (icon-only fallback) so addresses can be corrected after creation. Same for Pin location.
 
-## Files to touch
+### C. Recency bubble — recently-interacted cards float to top
 
-- **new** `src/components/location/PinLocationButton.tsx` — button + sheet, GPS + draggable map, save handler.
-- `src/routes/_authenticated/app.leads.$id.tsx` — mount `PinLocationButton` in header; pass `companyId` and current `lat/lng`.
-- `src/routes/_authenticated/app.prospects.$id.tsx` — mount `PinLocationButton` next to Edit.
-- `src/components/prospects/EditCompanyDialog.tsx` — extract the existing `MiniMapPicker` so `PinLocationButton` can reuse it (no behaviour change to the dialog).
-- No DB / server-fn changes — `updateCompany` already accepts `lat`/`lng`.
+In `app.prospects.index.tsx` and `app.leads.tsx`:
+- Default Prospects sort = `updated_at DESC` (newest activity / edit first). Add a small "Recent" pill on cards updated < 24 h.
+- Leads: change default `sortKey` to `"updated"` so any new activity bubbles the card up. Status sort stays as an option.
 
-## Out of scope (confirm if you want these too)
+### D. Notes module — side detail with sticky metrics panel
 
-- Auto-pinning on lead creation from the mobile "Add lead" flow.
-- Showing distance-from-me on each lead card in the list views.
+Rework `NotesWorkspace` layout:
 
-If both of those would help, I'll fold them into the same pass.
+```
+┌──────────────┬────────────────────────────────┬──────────────┐
+│ List rail    │ Note detail (title + body)     │ Metrics /    │
+│ (search +    │                                │ chat / AI    │
+│  cards)      │                                │ panel        │
+└──────────────┴────────────────────────────────┴──────────────┘
+```
+
+- On `lg:` and up: 3-column flex (list 280 px / detail flex-1 / metrics 320 or 480 px).
+- Metrics panel becomes a sticky right column instead of bottom; toggle button switches between **Medium (320 px)** and **Large (480 px)**; remember in `localStorage`.
+- On mobile: metrics opens as a `Sheet` from the right.
+- Keep the existing AI summary content; just relocate.
+
+### E. Activity countdown badge
+
+Add a "time since last activity" pill on every Prospect and Lead card (and on the detail header):
+- Format: `2d 4h`, `3w`, `2mo`, etc. Color graduates green → amber → red as it ages.
+- Resets only when a new activity is logged (driven by `last_activity_at` / `updated_at`).
+- Component `<StaleBadge since={iso} />` placed top-right inside each card.
+
+### F. Lead/Prospect detail clean-up + comments/activity sync
+
+- Tighten the header card (one row identity, second row contact links).
+- Activity composer:
+  - Allow **paste (Ctrl+V) of images** directly into the textarea.
+  - Drop-zone for **PDF / Excel / CSV / images** (re-uses existing `lead-documents` bucket; add a parallel `company-documents` flow for prospects — same shape).
+  - Attached files render as chips above the "Log entry" button.
+- **Cross-sync activity**: when a Lead is linked to a Company (prospect), both views read from the same merged feed:
+  - New server fn `listMergedActivities({ companyId })` that unions `activity_log` (prospects) + `lead_activities` for any lead with that `company_id`, ordered by timestamp.
+  - Posting from either side writes to its native table and tags `company_id`, so both lists pick it up.
+
+### G. WhatsApp `@mention` hyperlink in notes
+
+In the Note / activity textarea on the **Lead** page:
+- Typing `@` opens a tiny popover listing matching WhatsApp numbers for that lead (and grouped leads under the same company).
+- Pick one → inserts `@+9715xxxxxxx` token.
+- On render, the activity body parses `@+digits` and renders a green WhatsApp chip linking to `https://wa.me/<digits>`.
+
+### H. Copy-all emails (Outlook-friendly)
+
+On the Lead group view (`app.leads.group.$companyId.tsx`) and the Find-Contacts dialog:
+- Add a **"Copy all emails"** button + per-row checkboxes (default = all checked).
+- Output format = `email1, email2, email3` (comma + single space, no trailing comma). Toast: "Copied N emails".
+
+### I. Prospect → Lead promotion carries `phone` / WhatsApp
+
+In `promoteToLead`:
+- Select `phone` (and `whatsapp` if column exists on `companies`) along with the other fields.
+- Insert into `leads`: `whatsapp = company.phone ?? company.whatsapp`.
+- Backfill: for existing leads where `whatsapp` is null but the linked company has a phone, expose a one-shot "Sync from company" button on the Lead edit form. (No automatic mass update.)
+
+### J. Remove that broken countdown sticker on Prospect cards
+
+The yellow "This time running out 00:04:59:02" card in your screenshot is not intentional UI in our codebase — it appears to be a browser-extension overlay (Honey/coupon style) on your machine, not something the app renders. Plan ignores it; if you actually want a countdown, the **StaleBadge** in step E covers the use case.
+
+---
+
+## Out of scope (will not touch unless you say so)
+
+- Re-skinning the global Sales Insights navbar.
+- Changing the data model of `lead_activities` / `activity_log` (we add a merged read, not a unification).
+- Realtime push (cross-sync is on refetch + on action invalidation).
+
+## Order of execution
+
+1. Mobile fixes (A, B) — fastest perceived improvement.
+2. Promote-to-lead carry-forward (I) — small but high impact.
+3. Copy-all emails (H).
+4. Recency sort + StaleBadge (C, E).
+5. Activity composer + cross-sync + WhatsApp @mention (F, G).
+6. Notes layout rework (D).
+
+Confirm and I'll start with step 1.
