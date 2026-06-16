@@ -19,6 +19,7 @@ import {
   Users as UsersIcon,
 } from "lucide-react";
 import { listLeads, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
+import { StaleBadge } from "@/components/StaleBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -300,11 +301,11 @@ function NewBadge() {
 function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) => void }) {
   const isNew = isNewLead(l);
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {isNew && <NewBadge />}
       <Link to="/app/leads/$id" params={{ id: l.id }} className="block">
-        <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3">
-          <div className="flex items-start gap-3">
+        <Card className="p-4 pr-3 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 min-w-0">
+          <div className="flex items-start gap-3 min-w-0">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-secondary text-sm font-semibold">
               {leadInitials(l.contact_person, l.companies?.name ?? "?")}
             </div>
@@ -317,7 +318,7 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
                 {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
               </div>
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}>
                 {l.status}
               </span>
@@ -326,6 +327,7 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
                   {l.lead_score}
                 </span>
               )}
+              <StaleBadge since={l.last_activity_at ?? l.updated_at} />
             </div>
           </div>
 
@@ -438,18 +440,18 @@ function GroupCard({
   const industry = leads[0].companies?.industry ?? null;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {groupHasNew && <NewBadge />}
       <Link to="/app/leads/group/$companyId" params={{ companyId: encodeURIComponent(groupKey) }} className="block">
-        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30">
-          <div className="flex items-start gap-3">
+        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-primary/30 min-w-0">
+          <div className="flex items-start gap-3 min-w-0">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
               <UsersIcon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold flex items-center gap-2">
-                {companyName}
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="truncate font-semibold">{companyName}</span>
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                   {leads.length} leads
                 </span>
               </div>
@@ -457,24 +459,25 @@ function GroupCard({
                 {[industry, country, domain].filter(Boolean).join(" · ") || "Group"}
               </div>
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
                 {topStatus}
               </span>
+              <StaleBadge since={lastActivity || null} />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             {visible.map((l) => (
               <div
                 key={l.id}
                 title={`${l.contact_person ?? "—"}${l.job_title ? ` · ${l.job_title}` : ""}`}
-                className="flex min-w-0 items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+                className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
               >
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-background text-[9px] font-bold">
                   {leadInitials(l.contact_person, l.company_name ?? "?")}
                 </span>
-                <span className="max-w-[110px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+                <span className="max-w-[90px] truncate">{l.contact_person || l.contact_email || "—"}</span>
                 {l.linkedin_url && <Linkedin className="h-3 w-3 shrink-0 text-[#0A66C2]" />}
               </div>
             ))}
