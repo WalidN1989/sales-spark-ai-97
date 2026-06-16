@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Linkedin, Search, ExternalLink, CheckSquare, Square } from "lucide-react";
+import { Linkedin, Search, ExternalLink, CheckSquare, Square, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -155,7 +155,24 @@ export function FindContactsDialog({
                   {f.label}
                 </button>
               ))}
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const emails = filtered.filter((c) => selected.has(c.email)).map((c) => c.email);
+                    if (emails.length === 0) {
+                      toast.warning("No emails selected");
+                      return;
+                    }
+                    await navigator.clipboard.writeText(emails.join(", "));
+                    toast.success(`Copied ${emails.length} email${emails.length === 1 ? "" : "s"}`);
+                  }}
+                  className="h-7 text-xs"
+                  title="Copy selected emails (comma + space, Outlook-ready)"
+                >
+                  <Copy className="mr-1 h-3 w-3" /> Copy emails
+                </Button>
                 <Button variant="outline" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
                   {allInFilterSelected ? (
                     <><Square className="mr-1 h-3 w-3" /> Deselect all</>

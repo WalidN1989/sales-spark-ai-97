@@ -11,7 +11,9 @@ import {
   Minimize2,
   SplitSquareHorizontal,
   ExternalLink,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { listLeadsByCompany } from "@/lib/leads.functions";
 import { Button } from "@/components/ui/button";
@@ -138,7 +140,23 @@ function GroupView() {
             {leads.length} leads
           </span>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const emails = leads.map((l) => l.contact_email).filter((e): e is string => !!e);
+              if (emails.length === 0) {
+                toast.warning("No emails to copy");
+                return;
+              }
+              await navigator.clipboard.writeText(emails.join(", "));
+              toast.success(`Copied ${emails.length} email${emails.length === 1 ? "" : "s"}`);
+            }}
+            title="Copy all emails (comma + space, Outlook-ready)"
+          >
+            <Copy className="mr-1 h-4 w-4" /> Copy emails
+          </Button>
           <Button variant="outline" size="sm" onClick={toggleCompare} disabled={leads.length < 2}>
             <SplitSquareHorizontal className="mr-1 h-4 w-4" />
             {right ? "Single view" : "Compare"}
