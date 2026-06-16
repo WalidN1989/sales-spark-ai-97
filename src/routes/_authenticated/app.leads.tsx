@@ -92,7 +92,7 @@ function LeadsPage() {
   const leads = (data ?? []) as unknown as Lead[];
 
   const [quickOpen, setQuickOpen] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortKey, setSortKey] = useState<SortKey>("updated");
 
   useEffect(() => {
     const handler = () => setQuickOpen(true);
@@ -198,9 +198,9 @@ function LeadsPage() {
   const quotaPct = leads.length === 0 ? 0 : Math.round((hotCount / leads.length) * 100);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+    <div className="space-y-5 min-w-0">
+      <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">Prospects you're actively pursuing.</p>
         </div>
@@ -210,9 +210,9 @@ function LeadsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="updated">Sort: Recent</SelectItem>
               <SelectItem value="status">Sort: Status</SelectItem>
               <SelectItem value="score">Sort: Score</SelectItem>
-              <SelectItem value="updated">Sort: Recent</SelectItem>
               <SelectItem value="created">Sort: Newest</SelectItem>
             </SelectContent>
           </Select>
@@ -224,30 +224,30 @@ function LeadsPage() {
         <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl+I</kbd> add company
       </p>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="p-4 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-orange-100 text-orange-500">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+        <Card className="p-4 flex items-center gap-3 min-w-0">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-100 text-orange-500">
             <Flame className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs uppercase text-muted-foreground">Hot Leads</div>
             <div className="text-2xl font-bold">{hotCount}</div>
           </div>
         </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-100 text-sky-600">
+        <Card className="p-4 flex items-center gap-3 min-w-0">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-600">
             <TrendingUp className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs uppercase text-muted-foreground">Pipeline Value</div>
-            <div className="text-2xl font-bold">{fmtMoneyCents(pipelineCents)}</div>
+            <div className="truncate text-2xl font-bold">{fmtMoneyCents(pipelineCents)}</div>
           </div>
         </Card>
-        <Card className="p-4 bg-slate-900 text-white flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-white/10">
+        <Card className="p-4 bg-slate-900 text-white flex items-center gap-3 min-w-0">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10">
             <Target className="h-5 w-5" />
           </div>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="text-xs uppercase text-white/60">Hot Ratio</div>
             <div className="text-2xl font-bold">{quotaPct}%</div>
             <div className="mt-1 h-1.5 w-full rounded bg-white/10">
