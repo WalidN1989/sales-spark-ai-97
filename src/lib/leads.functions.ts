@@ -109,10 +109,13 @@ export const promoteToLead = createServerFn({ method: "POST" })
 
     const { data: company, error: cErr } = await context.supabase
       .from("companies")
-      .select("contact_person, email, name, domain")
+      .select("contact_person, email, name, domain, phone")
       .eq("id", data.companyId)
       .single();
     if (cErr) throw new Error(cErr.message);
+
+    // Sanitize phone to satisfy leads.whatsapp validation (digits and + - ( ) only)
+    const cleanPhone = (company.phone ?? "").toString().replace(/[^0-9+\-\s()]/g, "").trim() || null;
 
     const { data: row, error } = await context.supabase
       .from("leads")
@@ -121,6 +124,8 @@ export const promoteToLead = createServerFn({ method: "POST" })
         company_id: data.companyId,
         contact_person: company.contact_person,
         contact_email: company.email,
+        whatsapp: cleanPhone,
+        phone: cleanPhone,
         company_name: company.name,
         website: company.domain,
         status: "warm",
