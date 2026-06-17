@@ -408,10 +408,57 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
         </div>
       </div>
 
+      {!isMobile && (
+        <div
+          className={cn(
+            "hidden shrink-0 border-l border-border/60 lg:block",
+            metricsSize === "md" ? "w-80" : "w-[480px]",
+          )}
+        >
+          <div className="sticky top-0 h-[calc(100vh-6rem)] overflow-hidden">
+            <NoteMetricsPanel
+              note={note}
+              editing={editing}
+              tags={tags}
+              visibility={visibility}
+              onTagsChange={setTags}
+              onVisibilityChange={setVisibility}
+              onTogglePin={handlePin}
+              onDelete={handleDelete}
+              onSummarize={handleSummarize}
+              summarizing={summarizing}
+              summary={summary}
+              onClearSummary={() => setSummary(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      <Sheet open={mobileMetricsOpen} onOpenChange={setMobileMetricsOpen}>
+        <SheetContent side="right" className="w-[90vw] max-w-sm p-0">
+          <SheetTitle className="sr-only">Note details</SheetTitle>
+          <NoteMetricsPanel
+            note={note}
+            editing={editing}
+            tags={tags}
+            visibility={visibility}
+            onTagsChange={setTags}
+            onVisibilityChange={setVisibility}
+            onTogglePin={handlePin}
+            onDelete={handleDelete}
+            onSummarize={handleSummarize}
+            summarizing={summarizing}
+            summary={summary}
+            onClearSummary={() => setSummary(null)}
+          />
+        </SheetContent>
+      </Sheet>
+
       <NoteAttachmentLightbox attachment={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }
+
 
 function Meta({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
