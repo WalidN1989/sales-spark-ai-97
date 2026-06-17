@@ -35,7 +35,7 @@ export function NoteMetricsPanel({
   const readMin = Math.max(1, Math.round(words / 220));
 
   return (
-    <aside className="w-80 shrink-0 space-y-10 overflow-y-auto border-l border-border/60 bg-muted/20 p-8">
+    <aside className="h-full w-full space-y-10 overflow-y-auto bg-muted/20 p-8">
       <div>
         <h5 className="mb-5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           Note Metrics
