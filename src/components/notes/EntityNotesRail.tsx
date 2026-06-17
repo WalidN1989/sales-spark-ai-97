@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Plus, Pin, PinOff, Trash2, Save, X, StickyNote, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
+
 import { listNotes, upsertNote, deleteNote, togglePinNote } from "@/lib/notes.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
