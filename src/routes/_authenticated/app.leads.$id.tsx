@@ -576,9 +576,20 @@ function LeadDetail() {
         <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
         <RespondTab leadId={id} />
       </div>
+      </div>
+      <aside className="hidden lg:block">
+        <div className="sticky top-4 h-[calc(100vh-2rem)]">
+          <EntityNotesRail
+            entityType={l.company_id ? "prospect" : "lead"}
+            entityId={l.company_id ?? id}
+            title="Notes"
+          />
+        </div>
+      </aside>
     </div>
   );
 }
+
 
 // ---------------- Activity log ----------------
 
