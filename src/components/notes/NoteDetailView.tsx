@@ -15,12 +15,17 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  PanelRightOpen,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { TagInput } from "@/components/leads/TagInput";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import {
   upsertNote,
@@ -35,6 +40,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { NoteRow } from "./NotesWorkspace";
 import { NoteAttachmentLightbox, type Attachment } from "./NoteAttachmentLightbox";
+import { NoteMetricsPanel } from "./NoteMetricsPanel";
+
 
 export function NoteDetailView({ note }: { note: NoteRow }) {
   const qc = useQueryClient();
