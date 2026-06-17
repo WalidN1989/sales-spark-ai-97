@@ -75,6 +75,8 @@ import {
 import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
+import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -240,8 +242,11 @@ function LeadDetail() {
   const wa_link = waHref(l.whatsapp);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 min-w-0">
+
+    <div className="mx-auto grid max-w-[1500px] gap-6 min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="space-y-4 min-w-0">
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
+
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/leads">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
@@ -571,9 +576,20 @@ function LeadDetail() {
         <h2 className="mb-2 text-base font-semibold">AI Respond</h2>
         <RespondTab leadId={id} />
       </div>
+      </div>
+      <aside className="hidden lg:block">
+        <div className="sticky top-4 h-[calc(100vh-2rem)]">
+          <EntityNotesRail
+            entityType={l.company_id ? "prospect" : "lead"}
+            entityId={l.company_id ?? id}
+            title="Notes"
+          />
+        </div>
+      </aside>
     </div>
   );
 }
+
 
 // ---------------- Activity log ----------------
 

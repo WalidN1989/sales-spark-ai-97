@@ -6,6 +6,8 @@ import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy,
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
+import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
@@ -133,7 +135,9 @@ function CompanyProfile() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 min-w-0">
+    <div className="mx-auto grid max-w-[1400px] gap-6 min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="space-y-4 min-w-0">
+
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
         <Button asChild variant="ghost" size="sm">
           <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
@@ -522,9 +526,16 @@ function CompanyProfile() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
+      <aside className="hidden lg:block">
+        <div className="sticky top-4 h-[calc(100vh-2rem)]">
+          <EntityNotesRail entityType="prospect" entityId={id} title="Notes" />
+        </div>
+      </aside>
     </div>
   );
 }
+
 
 function Row({ icon: Icon, label }: { icon: typeof Mail; label: string }) {
   return (
