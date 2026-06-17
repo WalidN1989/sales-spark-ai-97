@@ -75,6 +75,8 @@ import {
 import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
+import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
