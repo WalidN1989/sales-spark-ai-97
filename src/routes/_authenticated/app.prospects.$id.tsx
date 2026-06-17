@@ -524,9 +524,16 @@ function CompanyProfile() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
+      <aside className="hidden lg:block">
+        <div className="sticky top-4 h-[calc(100vh-2rem)]">
+          <EntityNotesRail entityType="prospect" entityId={id} title="Notes" />
+        </div>
+      </aside>
     </div>
   );
 }
+
 
 function Row({ icon: Icon, label }: { icon: typeof Mail; label: string }) {
   return (
