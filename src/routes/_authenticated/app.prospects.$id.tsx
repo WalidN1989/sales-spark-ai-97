@@ -6,6 +6,8 @@ import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy,
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
+import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
