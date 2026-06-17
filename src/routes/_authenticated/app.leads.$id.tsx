@@ -242,7 +242,7 @@ function LeadDetail() {
   const wa_link = waHref(l.whatsapp);
 
   return (
-  return (
+
     <div className="mx-auto grid max-w-[1500px] gap-6 min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4 min-w-0">
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
