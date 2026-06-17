@@ -15,12 +15,17 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  PanelRightOpen,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { TagInput } from "@/components/leads/TagInput";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import {
   upsertNote,
@@ -35,6 +40,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { NoteRow } from "./NotesWorkspace";
 import { NoteAttachmentLightbox, type Attachment } from "./NoteAttachmentLightbox";
+import { NoteMetricsPanel } from "./NoteMetricsPanel";
+
 
 export function NoteDetailView({ note }: { note: NoteRow }) {
   const qc = useQueryClient();
@@ -56,6 +63,19 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
+  const [metricsSize, setMetricsSize] = useState<"md" | "lg">(() => {
+    if (typeof window === "undefined") return "md";
+    return (localStorage.getItem("notes:metricsSize") as "md" | "lg") || "md";
+  });
+  const [mobileMetricsOpen, setMobileMetricsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("notes:metricsSize", metricsSize);
+    }
+  }, [metricsSize]);
+
 
   useEffect(() => {
     setTitle(note.title);
@@ -172,6 +192,31 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
+            {isMobile ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setMobileMetricsOpen(true)}
+                title="Note info"
+              >
+                <PanelRightOpen className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setMetricsSize(metricsSize === "md" ? "lg" : "md")}
+                title={metricsSize === "md" ? "Expand metrics panel" : "Shrink metrics panel"}
+              >
+                {metricsSize === "md" ? (
+                  <Maximize2 className="h-4 w-4" />
+                ) : (
+                  <Minimize2 className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
             <Button
               size="sm"
               variant="ghost"
@@ -363,10 +408,57 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
         </div>
       </div>
 
+      {!isMobile && (
+        <div
+          className={cn(
+            "hidden shrink-0 border-l border-border/60 lg:block",
+            metricsSize === "md" ? "w-80" : "w-[480px]",
+          )}
+        >
+          <div className="sticky top-0 h-[calc(100vh-6rem)] overflow-hidden">
+            <NoteMetricsPanel
+              note={note}
+              editing={editing}
+              tags={tags}
+              visibility={visibility}
+              onTagsChange={setTags}
+              onVisibilityChange={setVisibility}
+              onTogglePin={handlePin}
+              onDelete={handleDelete}
+              onSummarize={handleSummarize}
+              summarizing={summarizing}
+              summary={summary}
+              onClearSummary={() => setSummary(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      <Sheet open={mobileMetricsOpen} onOpenChange={setMobileMetricsOpen}>
+        <SheetContent side="right" className="w-[90vw] max-w-sm p-0">
+          <SheetTitle className="sr-only">Note details</SheetTitle>
+          <NoteMetricsPanel
+            note={note}
+            editing={editing}
+            tags={tags}
+            visibility={visibility}
+            onTagsChange={setTags}
+            onVisibilityChange={setVisibility}
+            onTogglePin={handlePin}
+            onDelete={handleDelete}
+            onSummarize={handleSummarize}
+            summarizing={summarizing}
+            summary={summary}
+            onClearSummary={() => setSummary(null)}
+          />
+        </SheetContent>
+      </Sheet>
+
       <NoteAttachmentLightbox attachment={lightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }
+
 
 function Meta({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
