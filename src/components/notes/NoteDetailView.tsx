@@ -63,6 +63,19 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
+  const [metricsSize, setMetricsSize] = useState<"md" | "lg">(() => {
+    if (typeof window === "undefined") return "md";
+    return (localStorage.getItem("notes:metricsSize") as "md" | "lg") || "md";
+  });
+  const [mobileMetricsOpen, setMobileMetricsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("notes:metricsSize", metricsSize);
+    }
+  }, [metricsSize]);
+
 
   useEffect(() => {
     setTitle(note.title);
