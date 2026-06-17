@@ -192,6 +192,31 @@ export function NoteDetailView({ note }: { note: NoteRow }) {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
+            {isMobile ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setMobileMetricsOpen(true)}
+                title="Note info"
+              >
+                <PanelRightOpen className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setMetricsSize(metricsSize === "md" ? "lg" : "md")}
+                title={metricsSize === "md" ? "Expand metrics panel" : "Shrink metrics panel"}
+              >
+                {metricsSize === "md" ? (
+                  <Maximize2 className="h-4 w-4" />
+                ) : (
+                  <Minimize2 className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
             <Button
               size="sm"
               variant="ghost"
