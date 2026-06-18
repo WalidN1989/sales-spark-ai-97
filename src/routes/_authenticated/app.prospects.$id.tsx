@@ -190,9 +190,8 @@ function CompanyProfile() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="activity">
+      <Tabs defaultValue={can("prospects", "research") ? "research" : "respond"}>
         <TabsList className="w-full overflow-x-auto justify-start">
-          <TabsTrigger value="activity">Activity log</TabsTrigger>
           {can("prospects", "research") && <TabsTrigger value="research">AI research</TabsTrigger>}
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}
           <TabsTrigger value="respond">Respond</TabsTrigger>
@@ -200,44 +199,6 @@ function CompanyProfile() {
           <TabsTrigger value="sales">Sales</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="activity" className="space-y-3">
-          <Card>
-            <CardContent className="space-y-3 pt-6">
-              <div className="flex flex-wrap gap-2">
-                <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="note">Note</SelectItem>
-                    <SelectItem value="call">Call</SelectItem>
-                    <SelectItem value="visit">Visit</SelectItem>
-                    <SelectItem value="email">Email</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What happened?" rows={3} />
-              <div className="flex justify-end">
-                <Button onClick={handleLog} disabled={!note.trim()}>Log entry</Button>
-              </div>
-            </CardContent>
-          </Card>
-          <div className="space-y-2">
-            {data.activities.length === 0 ? (
-              <p className="px-2 text-sm text-muted-foreground">No activity yet.</p>
-            ) : (
-              data.activities.map((a) => (
-                <Card key={a.id}>
-                  <CardContent className="pt-4">
-                    <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="rounded bg-secondary px-2 py-0.5 uppercase">{a.type}</span>
-                      <span>{new Date(a.logged_at).toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm">{a.content}</p>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
 
         <TabsContent value="research">
           <Card>
