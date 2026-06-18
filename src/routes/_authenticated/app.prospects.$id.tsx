@@ -65,13 +65,6 @@ function CompanyProfile() {
     navigate({ to: "/app/prospects" });
   };
 
-  const handleLog = async () => {
-    if (!note.trim()) return;
-    await log({ data: { company_id: id, type, content: note } });
-    setNote("");
-    qc.invalidateQueries({ queryKey: ["company", id] });
-    toast.success("Activity logged");
-  };
 
   const handleResearch = async () => {
     setResearching(true);
