@@ -45,8 +45,6 @@ function CompanyProfile() {
   const { can } = useAccess();
 
   const { data, isLoading } = useQuery({ queryKey: ["company", id], queryFn: () => fn({ data: { id } }) });
-  const [note, setNote] = useState("");
-  const [type, setType] = useState<"note" | "call" | "visit" | "email">("note");
   const [researching, setResearching] = useState(false);
   const [pitching, setPitching] = useState(false);
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
