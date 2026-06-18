@@ -9,7 +9,7 @@ import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 
 import { RespondTab } from "@/components/respond/RespondTab";
-import { getCompany, deleteCompany, addActivity } from "@/lib/companies.functions";
+import { getCompany, deleteCompany } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
