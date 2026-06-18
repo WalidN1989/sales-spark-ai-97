@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Search, Pencil } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
