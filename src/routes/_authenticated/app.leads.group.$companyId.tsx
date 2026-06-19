@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listLeadsByCompany } from "@/lib/leads.functions";
+import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
