@@ -92,6 +92,58 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
     return all.filter((l) => normalizeName(l.company_name ?? l.companies?.name) === name);
   });
 
+export const resolveCompanyIdByGroupKey = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ key: z.string().min(1).max(300) }).parse(d),
+  )
+  .handler(async ({ context, data }): Promise<{ companyId: string | null }> => {
+    const raw = decodeURIComponent(data.key);
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRe.test(raw)) return { companyId: raw };
+    if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) return { companyId: raw.slice(3) };
+
+    const normalizeName = (n: string | null | undefined) =>
+      (n ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const normalizeDomain = (d: string | null | undefined) =>
+      (d ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        .trim();
+
+    if (raw.startsWith("domain:")) {
+      const domain = normalizeDomain(raw.slice(7));
+      if (!domain) return { companyId: null };
+      const { data: rows } = await context.supabase
+        .from("companies")
+        .select("id, domain")
+        .ilike("domain", `%${domain}%`)
+        .limit(20);
+      const match = (rows ?? []).find((r) => normalizeDomain(r.domain) === domain);
+      return { companyId: match?.id ?? null };
+    }
+
+    const name = normalizeName(raw.startsWith("name:") ? raw.slice(5) : raw);
+    if (!name) return { companyId: null };
+    const { data: rows } = await context.supabase
+      .from("companies")
+      .select("id, name")
+      .limit(1000);
+    const match = (rows ?? []).find((r) => normalizeName(r.name) === name);
+    return { companyId: match?.id ?? null };
+  });
+
+
+
 
 export const promoteToLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

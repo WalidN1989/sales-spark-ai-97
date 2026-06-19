@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listLeadsByCompany } from "@/lib/leads.functions";
+import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -73,11 +73,17 @@ function GroupView() {
   const { left, right, focus } = Route.useSearch();
   const navigate = useNavigate();
   const listFn = useServerFn(listLeadsByCompany);
+  const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
 
   const { data, isLoading } = useQuery({
     queryKey: ["leads-group", companyId],
     queryFn: () => listFn({ data: { companyId } }),
   });
+  const { data: resolved } = useQuery({
+    queryKey: ["leads-group-company", companyId],
+    queryFn: () => resolveFn({ data: { key: companyId } }),
+  });
+  const resolvedCompanyId = resolved?.companyId ?? null;
   const leads = (data ?? []) as unknown as Lead[];
 
   // Default selection: first lead in left pane
@@ -195,7 +201,7 @@ function GroupView() {
         <div className="sticky top-4 max-h-[calc(100vh-2rem)]">
           <EntityNotesRail
             entityType="prospect"
-            entityId={leads.find((l) => l.company_id)?.company_id ?? null}
+            entityId={resolvedCompanyId ?? leads.find((l) => l.company_id)?.company_id ?? null}
             title="Company notes"
           />
         </div>
