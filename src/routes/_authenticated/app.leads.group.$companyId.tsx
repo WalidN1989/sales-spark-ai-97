@@ -201,7 +201,7 @@ function GroupView() {
         <div className="sticky top-4 max-h-[calc(100vh-2rem)]">
           <EntityNotesRail
             entityType="prospect"
-            entityId={leads.find((l) => l.company_id)?.company_id ?? null}
+            entityId={resolvedCompanyId ?? leads.find((l) => l.company_id)?.company_id ?? null}
             title="Company notes"
           />
         </div>
