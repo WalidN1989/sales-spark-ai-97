@@ -17,9 +17,13 @@ export const listNotes = createServerFn({ method: "POST" })
     tag?: string;
   }) => d)
   .handler(async ({ data, context }) => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let q = context.supabase.from("notes").select(NOTE_SELECT);
     if (data.entityType) q = q.eq("entity_type", data.entityType);
-    if (data.entityId) q = q.eq("entity_id", data.entityId);
+    if (data.entityId) {
+      if (!uuidRe.test(data.entityId)) return [];
+      q = q.eq("entity_id", data.entityId);
+    }
     if (data.tag) q = q.contains("tags", [data.tag]);
     if (data.search && data.search.trim()) {
       const s = data.search.trim().replace(/[%_]/g, "");
