@@ -193,7 +193,11 @@ function GroupView() {
 
       <aside className="hidden lg:block">
         <div className="sticky top-4 max-h-[calc(100vh-2rem)]">
-          <EntityNotesRail entityType="prospect" entityId={companyId} title="Company notes" />
+          <EntityNotesRail
+            entityType="prospect"
+            entityId={leads.find((l) => l.company_id)?.company_id ?? null}
+            title="Company notes"
+          />
         </div>
       </aside>
     </div>
