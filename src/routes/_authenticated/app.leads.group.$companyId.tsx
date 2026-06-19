@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 import { listLeadsByCompany } from "@/lib/leads.functions";
+import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
