@@ -139,9 +139,22 @@ function CompanyProfile() {
       <div className="space-y-4 min-w-0">
 
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-primary"
+            title="Open leads for this company"
+          >
+            <Link to="/app/leads/group/$companyId" params={{ companyId: id }}>
+              <Users className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
           <PinLocationButton
             companyId={id}
@@ -173,9 +186,22 @@ function CompanyProfile() {
           <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1">
               <CardTitle className="text-xl break-words sm:text-2xl">{c.name}</CardTitle>
-              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
                 {c.industry && <span className="rounded bg-secondary px-2 py-0.5">{c.industry}</span>}
                 {c.country && <span className="rounded bg-secondary px-2 py-0.5">{c.country}</span>}
+                <CompanyStatusPill
+                  status={((c as { status?: CompanyStatus }).status ?? "warm") as CompanyStatus}
+                  onChange={async (s) => {
+                    try {
+                      await setStatus({ data: { id, status: s } });
+                      qc.invalidateQueries({ queryKey: ["company", id] });
+                      qc.invalidateQueries({ queryKey: ["leads-group", id] });
+                      toast.success(`Status: ${s}`);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed");
+                    }
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -183,7 +209,34 @@ function CompanyProfile() {
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           {c.domain && <Row icon={Globe} label={c.domain} />}
           {c.email && <Row icon={Mail} label={c.email} />}
-          {c.phone && <Row icon={Phone} label={c.phone} />}
+          {c.phone && (
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>
+              <span className="text-[10px] text-muted-foreground">landline</span>
+            </div>
+          )}
+          {(c as { mobile?: string | null }).mobile && (() => {
+            const mobile = (c as { mobile?: string | null }).mobile!;
+            const wa = waHref(mobile);
+            return (
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <a href={`tel:${mobile}`} className="hover:underline">{mobile}</a>
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="WhatsApp"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#25D366] text-white hover:bg-[#1ebc59]"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            );
+          })()}
           {c.address && <Row icon={MapPin} label={c.address} />}
           {c.contact_person && <div><span className="text-muted-foreground">Contact: </span>{c.contact_person}</div>}
           {c.product_service && <div><span className="text-muted-foreground">Product: </span>{c.product_service}</div>}
