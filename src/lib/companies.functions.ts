@@ -10,11 +10,28 @@ const companySchema = z.object({
   contact_person: z.string().max(200).optional().nullable(),
   email: z.string().max(200).optional().nullable(),
   phone: z.string().max(50).optional().nullable(),
+  mobile: z.string().max(50).optional().nullable(),
   product_service: z.string().max(500).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   lat: z.number().min(-90).max(90).optional().nullable(),
   lng: z.number().min(-180).max(180).optional().nullable(),
 });
+
+const companyStatusEnum = z.enum(["hot", "warm", "cold", "won", "lost"]);
+
+export const setCompanyStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), status: companyStatusEnum }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("companies")
+      .update({ status: data.status, status_updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
 
 export const listCompanies = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

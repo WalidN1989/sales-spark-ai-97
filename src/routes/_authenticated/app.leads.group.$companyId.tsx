@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo } from "react";
 import {
@@ -12,15 +12,17 @@ import {
   SplitSquareHorizontal,
   ExternalLink,
   Copy,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
+import { setCompanyStatus, getCompany } from "@/lib/companies.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CompanyStatusPill } from "@/routes/_authenticated/app.prospects.$id";
 import {
-  LEAD_STATUS_STYLES,
   type LeadStatus,
   leadInitials,
   waHref,
@@ -28,7 +30,7 @@ import {
   scoreBucket,
   timeAgo,
 } from "@/lib/leads-ui";
-import { cn } from "@/lib/utils";
+import { cn, type CompanyStatus } from "@/lib/utils";
 
 type Search = {
   left?: string;
@@ -72,8 +74,11 @@ function GroupView() {
   const { companyId } = Route.useParams();
   const { left, right, focus } = Route.useSearch();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const listFn = useServerFn(listLeadsByCompany);
   const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
+  const getCompanyFn = useServerFn(getCompany);
+  const setStatusFn = useServerFn(setCompanyStatus);
 
   const { data, isLoading } = useQuery({
     queryKey: ["leads-group", companyId],
@@ -85,6 +90,14 @@ function GroupView() {
   });
   const resolvedCompanyId = resolved?.companyId ?? null;
   const leads = (data ?? []) as unknown as Lead[];
+
+  const { data: companyData } = useQuery({
+    queryKey: ["company", resolvedCompanyId],
+    queryFn: () => getCompanyFn({ data: { id: resolvedCompanyId! } }),
+    enabled: !!resolvedCompanyId,
+  });
+  const companyStatus = ((companyData?.company as { status?: CompanyStatus } | undefined)?.status ??
+    "warm") as CompanyStatus;
 
   // Default selection: first lead in left pane
   useEffect(() => {
@@ -137,16 +150,42 @@ function GroupView() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4 min-w-0">
         {/* Breadcrumb */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <nav className="flex items-center gap-1 text-sm text-muted-foreground">
             <Link to="/app/leads" className="hover:text-foreground">
               Leads
             </Link>
             <span>/</span>
             <span className="font-medium text-foreground">{companyName}</span>
+            {resolvedCompanyId && (
+              <Link
+                to="/app/prospects/$id"
+                params={{ id: resolvedCompanyId }}
+                className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-primary"
+                title="Open prospect card"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+              </Link>
+            )}
             <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
               {leads.length} leads
             </span>
+            {resolvedCompanyId && (
+              <span className="ml-2">
+                <CompanyStatusPill
+                  status={companyStatus}
+                  onChange={async (s) => {
+                    try {
+                      await setStatusFn({ data: { id: resolvedCompanyId, status: s } });
+                      qc.invalidateQueries({ queryKey: ["company", resolvedCompanyId] });
+                      toast.success(`Status: ${s}`);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed");
+                    }
+                  }}
+                />
+              </span>
+            )}
           </nav>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -264,9 +303,6 @@ function Carousel({
                   <div className="truncate text-[11px] text-muted-foreground">{l.job_title}</div>
                 )}
               </div>
-              <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase", LEAD_STATUS_STYLES[l.status])}>
-                {l.status}
-              </span>
             </div>
             <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{isLeft ? "Primary" : isRight ? "Compare" : "Click to view"}</span>
@@ -305,9 +341,6 @@ function LeadPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-lg font-bold">{lead.contact_person || lead.contact_email || "—"}</h2>
-            <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold uppercase", LEAD_STATUS_STYLES[lead.status])}>
-              {lead.status}
-            </span>
           </div>
           {lead.job_title && (
             <div className="text-sm font-medium text-muted-foreground">{lead.job_title}</div>

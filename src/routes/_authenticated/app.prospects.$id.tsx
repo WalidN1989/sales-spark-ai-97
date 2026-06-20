@@ -2,14 +2,14 @@ import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@ta
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Smartphone, Globe, MapPin, Trash2, Sparkles, Loader2, Copy, ScanSearch, Plus, Search, Pencil, MessageCircle, Users } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 
 import { RespondTab } from "@/components/respond/RespondTab";
-import { getCompany, deleteCompany } from "@/lib/companies.functions";
+import { getCompany, deleteCompany, setCompanyStatus } from "@/lib/companies.functions";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
@@ -21,6 +21,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { COMPANY_STATUSES, COMPANY_STATUS_STYLES, type CompanyStatus, cn } from "@/lib/utils";
+import { waHref } from "@/lib/leads-ui";
 
 import { useAccess } from "@/hooks/use-access";
 import { toast } from "sonner";
@@ -37,7 +45,8 @@ function CompanyProfile() {
   const qc = useQueryClient();
   const fn = useServerFn(getCompany);
   const del = useServerFn(deleteCompany);
-  
+  const setStatus = useServerFn(setCompanyStatus);
+
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
   const scan = useServerFn(scanMarketInsight);
@@ -130,9 +139,22 @@ function CompanyProfile() {
       <div className="space-y-4 min-w-0">
 
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:flex-wrap sm:justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/app/prospects"><ArrowLeft className="mr-1 h-4 w-4" /> Back</Link>
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-primary"
+            title="Open leads for this company"
+          >
+            <Link to="/app/leads/group/$companyId" params={{ companyId: id }}>
+              <Users className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-1">
           <PinLocationButton
             companyId={id}
@@ -164,9 +186,22 @@ function CompanyProfile() {
           <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
             <div className="min-w-0 flex-1">
               <CardTitle className="text-xl break-words sm:text-2xl">{c.name}</CardTitle>
-              <div className="mt-1 flex flex-wrap gap-1 text-xs">
+              <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
                 {c.industry && <span className="rounded bg-secondary px-2 py-0.5">{c.industry}</span>}
                 {c.country && <span className="rounded bg-secondary px-2 py-0.5">{c.country}</span>}
+                <CompanyStatusPill
+                  status={((c as { status?: CompanyStatus }).status ?? "warm") as CompanyStatus}
+                  onChange={async (s) => {
+                    try {
+                      await setStatus({ data: { id, status: s } });
+                      qc.invalidateQueries({ queryKey: ["company", id] });
+                      qc.invalidateQueries({ queryKey: ["leads-group", id] });
+                      toast.success(`Status: ${s}`);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed");
+                    }
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -174,7 +209,34 @@ function CompanyProfile() {
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           {c.domain && <Row icon={Globe} label={c.domain} />}
           {c.email && <Row icon={Mail} label={c.email} />}
-          {c.phone && <Row icon={Phone} label={c.phone} />}
+          {c.phone && (
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <a href={`tel:${c.phone}`} className="hover:underline">{c.phone}</a>
+              <span className="text-[10px] text-muted-foreground">landline</span>
+            </div>
+          )}
+          {(c as { mobile?: string | null }).mobile && (() => {
+            const mobile = (c as { mobile?: string | null }).mobile!;
+            const wa = waHref(mobile);
+            return (
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <a href={`tel:${mobile}`} className="hover:underline">{mobile}</a>
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="WhatsApp"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#25D366] text-white hover:bg-[#1ebc59]"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            );
+          })()}
           {c.address && <Row icon={MapPin} label={c.address} />}
           {c.contact_person && <div><span className="text-muted-foreground">Contact: </span>{c.contact_person}</div>}
           {c.product_service && <div><span className="text-muted-foreground">Product: </span>{c.product_service}</div>}
@@ -344,54 +406,6 @@ function CompanyProfile() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Textarea
-                      rows={4}
-                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
-                      value={seedsValue}
-                      onChange={(e) => setSeedDraft(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      One URL per line. Saved with the next scan. Up to 5 are scraped.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Suggested industries</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {insight?.industries?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {insight.industries.map((ind) => (
-                          <button
-                            key={ind.name}
-                            type="button"
-                            onClick={() => handleApplyIndustry(ind.name)}
-                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
-                            title={`Apply "${ind.name}" as the company industry`}
-                          >
-                            <span>{ind.name}</span>
-                            <Badge variant="outline" className="text-[10px]">
-                              {Math.round(ind.confidence * 100)}%
-                            </Badge>
-                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Run a scan to see suggested industries.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
                     <CardTitle className="text-base">Competitors</CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -461,9 +475,57 @@ function CompanyProfile() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No competitors yet. Add seed URLs above and run a scan.
+                        No competitors yet. Add seed URLs below and run a scan.
                       </p>
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Suggested industries</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.industries?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {insight.industries.map((ind) => (
+                          <button
+                            key={ind.name}
+                            type="button"
+                            onClick={() => handleApplyIndustry(ind.name)}
+                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
+                            title={`Apply "${ind.name}" as the company industry`}
+                          >
+                            <span>{ind.name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {Math.round(ind.confidence * 100)}%
+                            </Badge>
+                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Run a scan to see suggested industries.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Textarea
+                      rows={4}
+                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
+                      value={seedsValue}
+                      onChange={(e) => setSeedDraft(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      One URL per line. Saved with the next scan. Up to 5 are scraped.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -495,5 +557,42 @@ function Row({ icon: Icon, label }: { icon: typeof Mail; label: string }) {
       <Icon className="h-4 w-4 text-muted-foreground" />
       <span>{label}</span>
     </div>
+  );
+}
+
+export function CompanyStatusPill({
+  status,
+  onChange,
+}: {
+  status: CompanyStatus;
+  onChange: (s: CompanyStatus) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80",
+            COMPANY_STATUS_STYLES[status],
+          )}
+          title="Change company status"
+        >
+          {status}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[120px]">
+        {COMPANY_STATUSES.map((s) => (
+          <DropdownMenuItem
+            key={s}
+            onClick={() => onChange(s)}
+            className="flex items-center gap-2 capitalize"
+          >
+            <span className={cn("h-2.5 w-2.5 rounded-full", COMPANY_STATUS_STYLES[s])} />
+            {s}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
