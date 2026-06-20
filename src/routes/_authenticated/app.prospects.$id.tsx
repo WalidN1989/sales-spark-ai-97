@@ -27,7 +27,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { COMPANY_STATUSES, COMPANY_STATUS_STYLES, type CompanyStatus, cn, waHref } from "@/lib/utils";
+import { COMPANY_STATUSES, COMPANY_STATUS_STYLES, type CompanyStatus, cn } from "@/lib/utils";
+import { waHref } from "@/lib/leads-ui";
 
 import { useAccess } from "@/hooks/use-access";
 import { toast } from "sonner";
