@@ -151,16 +151,42 @@ function GroupView() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4 min-w-0">
         {/* Breadcrumb */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <nav className="flex items-center gap-1 text-sm text-muted-foreground">
             <Link to="/app/leads" className="hover:text-foreground">
               Leads
             </Link>
             <span>/</span>
             <span className="font-medium text-foreground">{companyName}</span>
+            {resolvedCompanyId && (
+              <Link
+                to="/app/prospects/$id"
+                params={{ id: resolvedCompanyId }}
+                className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-primary"
+                title="Open prospect card"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+              </Link>
+            )}
             <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
               {leads.length} leads
             </span>
+            {resolvedCompanyId && (
+              <span className="ml-2">
+                <CompanyStatusPill
+                  status={companyStatus}
+                  onChange={async (s) => {
+                    try {
+                      await setStatusFn({ data: { id: resolvedCompanyId, status: s } });
+                      qc.invalidateQueries({ queryKey: ["company", resolvedCompanyId] });
+                      toast.success(`Status: ${s}`);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed");
+                    }
+                  }}
+                />
+              </span>
+            )}
           </nav>
           <div className="flex flex-wrap items-center gap-2">
             <Button
