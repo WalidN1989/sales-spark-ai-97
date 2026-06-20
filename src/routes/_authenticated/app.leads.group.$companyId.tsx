@@ -75,8 +75,11 @@ function GroupView() {
   const { companyId } = Route.useParams();
   const { left, right, focus } = Route.useSearch();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const listFn = useServerFn(listLeadsByCompany);
   const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
+  const getCompanyFn = useServerFn(getCompany);
+  const setStatusFn = useServerFn(setCompanyStatus);
 
   const { data, isLoading } = useQuery({
     queryKey: ["leads-group", companyId],
@@ -88,6 +91,14 @@ function GroupView() {
   });
   const resolvedCompanyId = resolved?.companyId ?? null;
   const leads = (data ?? []) as unknown as Lead[];
+
+  const { data: companyData } = useQuery({
+    queryKey: ["company", resolvedCompanyId],
+    queryFn: () => getCompanyFn({ data: { id: resolvedCompanyId! } }),
+    enabled: !!resolvedCompanyId,
+  });
+  const companyStatus = ((companyData?.company as { status?: CompanyStatus } | undefined)?.status ??
+    "warm") as CompanyStatus;
 
   // Default selection: first lead in left pane
   useEffect(() => {
