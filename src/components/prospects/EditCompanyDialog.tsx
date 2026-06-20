@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateCompany } from "@/lib/companies.functions";
 import { geocodeAddress } from "@/lib/meetings.functions";
 import { PlaceAutocomplete, type PlacePick } from "@/components/location/PlaceAutocomplete";
+import { classifyPhone } from "@/lib/utils";
 import { toast } from "sonner";
 
 type CompanyLike = {
@@ -28,6 +29,7 @@ type CompanyLike = {
   contact_person: string | null;
   email: string | null;
   phone: string | null;
+  mobile: string | null;
   product_service: string | null;
   address: string | null;
   lat: number | null;
