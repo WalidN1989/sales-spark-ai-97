@@ -84,6 +84,7 @@ export function EditCompanyDialog({
     contact_person: company.contact_person ?? "",
     email: company.email ?? "",
     phone: company.phone ?? "",
+    mobile: company.mobile ?? "",
     product_service: company.product_service ?? "",
     address: company.address ?? "",
   });
@@ -100,16 +101,36 @@ export function EditCompanyDialog({
       contact_person: company.contact_person ?? "",
       email: company.email ?? "",
       phone: company.phone ?? "",
+      mobile: company.mobile ?? "",
       product_service: company.product_service ?? "",
       address: company.address ?? "",
     });
     setLat(company.lat);
     setLng(company.lng);
-  }, [company.id, company.name, company.domain, company.country, company.industry, company.contact_person, company.email, company.phone, company.product_service, company.address, company.lat, company.lng]);
+  }, [company.id, company.name, company.domain, company.country, company.industry, company.contact_person, company.email, company.phone, company.mobile, company.product_service, company.address, company.lat, company.lng]);
 
   const set = (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Auto-classify on blur: if the user typed a mobile-shaped number in the
+  // landline field (or vice versa), move it into the correct slot.
+  const classifyFromPhone = () => {
+    setForm((f) => {
+      if (!f.phone.trim() || f.mobile.trim()) return f;
+      const { phone, mobile } = classifyPhone(f.phone);
+      if (mobile) return { ...f, phone: phone ?? "", mobile };
+      return f;
+    });
+  };
+  const classifyFromMobile = () => {
+    setForm((f) => {
+      if (!f.mobile.trim() || f.phone.trim()) return f;
+      const { phone, mobile } = classifyPhone(f.mobile);
+      if (phone) return { ...f, phone, mobile: mobile ?? "" };
+      return f;
+    });
+  };
 
   const geocode = useMutation({
     mutationFn: (addr: string) => geoFn({ data: { address: addr } }),
