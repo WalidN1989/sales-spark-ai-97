@@ -342,8 +342,6 @@ function LeadPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-lg font-bold">{lead.contact_person || lead.contact_email || "—"}</h2>
-              {lead.status}
-            </span>
           </div>
           {lead.job_title && (
             <div className="text-sm font-medium text-muted-foreground">{lead.job_title}</div>
