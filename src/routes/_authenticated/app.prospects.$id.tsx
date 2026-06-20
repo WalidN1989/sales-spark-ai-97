@@ -45,7 +45,8 @@ function CompanyProfile() {
   const qc = useQueryClient();
   const fn = useServerFn(getCompany);
   const del = useServerFn(deleteCompany);
-  
+  const setStatus = useServerFn(setCompanyStatus);
+
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
   const scan = useServerFn(scanMarketInsight);
