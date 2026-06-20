@@ -406,54 +406,6 @@ function CompanyProfile() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Textarea
-                      rows={4}
-                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
-                      value={seedsValue}
-                      onChange={(e) => setSeedDraft(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      One URL per line. Saved with the next scan. Up to 5 are scraped.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Suggested industries</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {insight?.industries?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {insight.industries.map((ind) => (
-                          <button
-                            key={ind.name}
-                            type="button"
-                            onClick={() => handleApplyIndustry(ind.name)}
-                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
-                            title={`Apply "${ind.name}" as the company industry`}
-                          >
-                            <span>{ind.name}</span>
-                            <Badge variant="outline" className="text-[10px]">
-                              {Math.round(ind.confidence * 100)}%
-                            </Badge>
-                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Run a scan to see suggested industries.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
                     <CardTitle className="text-base">Competitors</CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -523,9 +475,57 @@ function CompanyProfile() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No competitors yet. Add seed URLs above and run a scan.
+                        No competitors yet. Add seed URLs below and run a scan.
                       </p>
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Suggested industries</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {insight?.industries?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {insight.industries.map((ind) => (
+                          <button
+                            key={ind.name}
+                            type="button"
+                            onClick={() => handleApplyIndustry(ind.name)}
+                            className="group inline-flex items-center gap-2 rounded-full border bg-secondary px-3 py-1 text-sm hover:bg-secondary/70"
+                            title={`Apply "${ind.name}" as the company industry`}
+                          >
+                            <span>{ind.name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {Math.round(ind.confidence * 100)}%
+                            </Badge>
+                            <Plus className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Run a scan to see suggested industries.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Seed competitor URLs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Textarea
+                      rows={4}
+                      placeholder={"https://competitor-1.com\nhttps://competitor-2.com"}
+                      value={seedsValue}
+                      onChange={(e) => setSeedDraft(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      One URL per line. Saved with the next scan. Up to 5 are scraped.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
