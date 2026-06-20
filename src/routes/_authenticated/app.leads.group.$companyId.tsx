@@ -304,9 +304,6 @@ function Carousel({
                   <div className="truncate text-[11px] text-muted-foreground">{l.job_title}</div>
                 )}
               </div>
-              <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase", LEAD_STATUS_STYLES[l.status])}>
-                {l.status}
-              </span>
             </div>
             <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
               <span>{isLeft ? "Primary" : isRight ? "Compare" : "Click to view"}</span>
