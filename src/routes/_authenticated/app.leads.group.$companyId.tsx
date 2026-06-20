@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CompanyStatusPill } from "@/routes/_authenticated/app.prospects.$id";
 import {
-  LEAD_STATUS_STYLES,
   type LeadStatus,
   leadInitials,
   waHref,
