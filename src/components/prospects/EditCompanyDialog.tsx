@@ -359,17 +359,19 @@ function Field({
   label,
   v,
   on,
+  onBlur,
   type = "text",
 }: {
   label: string;
   v: string;
   on: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
   type?: string;
 }) {
   return (
     <div>
       <Label>{label}</Label>
-      <Input value={v} onChange={on} type={type} />
+      <Input value={v} onChange={on} onBlur={onBlur} type={type} />
     </div>
   );
 }
