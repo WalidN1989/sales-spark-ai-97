@@ -342,7 +342,6 @@ function LeadPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-lg font-bold">{lead.contact_person || lead.contact_email || "—"}</h2>
-            <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold uppercase", LEAD_STATUS_STYLES[lead.status])}>
               {lead.status}
             </span>
           </div>
