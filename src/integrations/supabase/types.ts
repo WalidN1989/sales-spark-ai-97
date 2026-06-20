@@ -69,10 +69,13 @@ export type Database = {
           market_insight: Json | null
           market_insight_at: string | null
           market_seed_urls: string[]
+          mobile: string | null
           name: string
           phone: string | null
           product_service: string | null
           research_data: Json | null
+          status: string
+          status_updated_at: string | null
           updated_at: string
           user_id: string
         }
@@ -95,10 +98,13 @@ export type Database = {
           market_insight?: Json | null
           market_insight_at?: string | null
           market_seed_urls?: string[]
+          mobile?: string | null
           name: string
           phone?: string | null
           product_service?: string | null
           research_data?: Json | null
+          status?: string
+          status_updated_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -121,10 +127,13 @@ export type Database = {
           market_insight?: Json | null
           market_insight_at?: string | null
           market_seed_urls?: string[]
+          mobile?: string | null
           name?: string
           phone?: string | null
           product_service?: string | null
           research_data?: Json | null
+          status?: string
+          status_updated_at?: string | null
           updated_at?: string
           user_id?: string
         }
