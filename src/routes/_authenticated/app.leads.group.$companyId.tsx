@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo } from "react";
 import {
@@ -12,13 +12,16 @@ import {
   SplitSquareHorizontal,
   ExternalLink,
   Copy,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
+import { setCompanyStatus, getCompany } from "@/lib/companies.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CompanyStatusPill } from "@/routes/_authenticated/app.prospects.$id";
 import {
   LEAD_STATUS_STYLES,
   type LeadStatus,
@@ -28,7 +31,7 @@ import {
   scoreBucket,
   timeAgo,
 } from "@/lib/leads-ui";
-import { cn } from "@/lib/utils";
+import { cn, type CompanyStatus } from "@/lib/utils";
 
 type Search = {
   left?: string;
