@@ -193,7 +193,18 @@ export function EditCompanyDialog({
           <Field label="Country" v={form.country} on={set("country")} />
           <Field label="Contact" v={form.contact_person} on={set("contact_person")} />
           <Field label="Email" v={form.email} on={set("email")} type="email" />
-          <Field label="Phone" v={form.phone} on={set("phone")} />
+          <Field
+            label="Phone (landline)"
+            v={form.phone}
+            on={set("phone")}
+            onBlur={classifyFromPhone}
+          />
+          <Field
+            label="Mobile / WhatsApp"
+            v={form.mobile}
+            on={set("mobile")}
+            onBlur={classifyFromMobile}
+          />
           <Field label="Product/service" v={form.product_service} on={set("product_service")} />
         </div>
 
