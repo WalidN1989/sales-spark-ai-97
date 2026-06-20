@@ -156,6 +156,7 @@ export function EditCompanyDialog({
             contact_person: form.contact_person || null,
             email: form.email || null,
             phone: form.phone || null,
+            mobile: form.mobile || null,
             product_service: form.product_service || null,
             address: form.address || null,
             lat,
