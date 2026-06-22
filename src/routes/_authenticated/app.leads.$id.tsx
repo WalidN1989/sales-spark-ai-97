@@ -252,6 +252,9 @@ function LeadDetail() {
       brands,
       products_services: products,
       notes: notes || null,
+      lead_type: isReseller ? "reseller" : "direct",
+      reseller_company_id: isReseller && resellerChoice ? resellerChoice : null,
+      end_user_project: isReseller ? (endUserProject || null) : null,
     });
     toast.success("Saved");
   };
