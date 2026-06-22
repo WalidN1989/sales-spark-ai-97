@@ -661,7 +661,14 @@ function QuickAddLeadDialog({
 }) {
   const extractFn = useServerFn(extractLeadFromImage);
   const createFn = useServerFn(createQuickLead);
+  const listResellersFn = useServerFn(listResellerCompanies);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { data: resellers = [] } = useQuery({
+    queryKey: ["reseller-companies"],
+    queryFn: () => listResellersFn(),
+    enabled: open,
+  });
 
   const [images, setImages] = useState<string[]>([]);
   const [contact, setContact] = useState("");
@@ -672,6 +679,11 @@ function QuickAddLeadDialog({
   const [product, setProduct] = useState("");
   const [note, setNote] = useState("");
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
+  const [isReseller, setIsReseller] = useState(false);
+  const [resellerChoice, setResellerChoice] = useState<string>(""); // existing id or "__new__"
+  const [newResellerName, setNewResellerName] = useState("");
+  const [endUserProject, setEndUserProject] = useState("");
+  const [pipelineValue, setPipelineValue] = useState("");
 
   const reset = () => {
     setImages([]);
@@ -683,13 +695,17 @@ function QuickAddLeadDialog({
     setProduct("");
     setNote("");
     setExtracted(new Set());
+    setIsReseller(false);
+    setResellerChoice("");
+    setNewResellerName("");
+    setEndUserProject("");
+    setPipelineValue("");
   };
 
   const extract = useMutation({
     mutationFn: (url: string) => extractFn({ data: { imageDataUrl: url } }),
     onSuccess: (r) => {
       const tags = new Set<string>(extracted);
-      // Merge: only fill empty fields so multiple images stack info
       if (r.contact_person && !contact) { setContact(r.contact_person); tags.add("contact"); }
       if (r.whatsapp && !whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
       if (r.contact_email && !email) { setEmail(r.contact_email); tags.add("email"); }
@@ -706,8 +722,13 @@ function QuickAddLeadDialog({
   });
 
   const create = useMutation({
-    mutationFn: () =>
-      createFn({
+    mutationFn: () => {
+      const reseller_company_id =
+        isReseller && resellerChoice && resellerChoice !== "__new__" ? resellerChoice : null;
+      const reseller_company_name =
+        isReseller && resellerChoice === "__new__" ? newResellerName.trim() : null;
+      const pipeline_value_cents = Math.max(0, Math.round(Number(pipelineValue || "0") * 100));
+      return createFn({
         data: {
           contact_person: contact || null,
           whatsapp,
@@ -716,8 +737,14 @@ function QuickAddLeadDialog({
           website: website || null,
           product: product || null,
           note: note || null,
+          is_reseller: isReseller,
+          reseller_company_id,
+          reseller_company_name,
+          end_user_project: isReseller ? endUserProject || null : null,
+          pipeline_value_cents,
         },
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("Lead added");
       reset();
