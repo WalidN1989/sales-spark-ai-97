@@ -485,6 +485,11 @@ const quickLeadSchema = z.object({
   website: z.string().trim().max(300).optional().nullable(),
   product: z.string().trim().max(500).optional().nullable(),
   note: z.string().trim().max(1000).optional().nullable(),
+  is_reseller: z.boolean().optional(),
+  reseller_company_id: z.string().uuid().optional().nullable(),
+  reseller_company_name: z.string().trim().max(200).optional().nullable(),
+  end_user_project: z.string().trim().max(1000).optional().nullable(),
+  pipeline_value_cents: z.number().int().min(0).max(1_000_000_000_00).optional(),
 });
 
 export const createQuickLead = createServerFn({ method: "POST" })
@@ -495,6 +500,35 @@ export const createQuickLead = createServerFn({ method: "POST" })
     if (data.product) parts.push(`Product: ${data.product}`);
     if (data.note) parts.push(data.note);
     const activityBody = parts.join("\n\n");
+
+    // Resolve reseller: either existing id or create new company with is_reseller=true
+    let resellerCompanyId: string | null = null;
+    if (data.is_reseller) {
+      if (data.reseller_company_id) {
+        resellerCompanyId = data.reseller_company_id;
+      } else if (data.reseller_company_name) {
+        const name = data.reseller_company_name.trim();
+        // Try existing first (case-insensitive)
+        const { data: existing } = await context.supabase
+          .from("companies")
+          .select("id")
+          .eq("user_id", context.userId)
+          .ilike("name", name)
+          .maybeSingle();
+        if (existing) {
+          resellerCompanyId = existing.id;
+          await context.supabase.from("companies").update({ is_reseller: true }).eq("id", existing.id);
+        } else {
+          const { data: created, error: cErr } = await context.supabase
+            .from("companies")
+            .insert({ user_id: context.userId, name, is_reseller: true })
+            .select("id")
+            .single();
+          if (cErr) throw new Error(cErr.message);
+          resellerCompanyId = created.id;
+        }
+      }
+    }
 
     const { data: row, error } = await context.supabase
       .from("leads")
@@ -507,6 +541,10 @@ export const createQuickLead = createServerFn({ method: "POST" })
         company_name: data.company_name || null,
         website: data.website || null,
         status: "warm",
+        lead_type: data.is_reseller ? "reseller" : "direct",
+        reseller_company_id: resellerCompanyId,
+        end_user_project: data.end_user_project || null,
+        pipeline_value_cents: data.pipeline_value_cents ?? 0,
       })
       .select("id")
       .single();
@@ -522,6 +560,21 @@ export const createQuickLead = createServerFn({ method: "POST" })
     }
     return { id: row.id };
   });
+
+// List leads grouped by reseller company
+export const listLeadsByReseller = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ resellerId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("leads")
+      .select(LEAD_SELECT)
+      .eq("reseller_company_id", data.resellerId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 
 const extractToolSchema = {
   type: "object",
