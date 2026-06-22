@@ -19,6 +19,8 @@ import {
   Users as UsersIcon,
 } from "lucide-react";
 import { listLeads, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
+import { listResellerCompanies } from "@/lib/companies.functions";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StaleBadge } from "@/components/StaleBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
