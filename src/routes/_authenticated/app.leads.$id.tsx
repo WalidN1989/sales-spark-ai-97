@@ -41,6 +41,8 @@ import {
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
 } from "@/lib/leads.functions";
+import { listResellerCompanies } from "@/lib/companies.functions";
+import { Checkbox } from "@/components/ui/checkbox";
 import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,9 +116,23 @@ function LeadDetail() {
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [isReseller, setIsReseller] = useState(false);
+  const [resellerChoice, setResellerChoice] = useState<string>("");
+  const [endUserProject, setEndUserProject] = useState("");
+
+  const listResellersFn = useServerFn(listResellerCompanies);
+  const { data: resellers = [] } = useQuery({
+    queryKey: ["reseller-companies"],
+    queryFn: () => listResellersFn(),
+  });
 
   useEffect(() => {
     if (lead) {
+      const l = lead as typeof lead & {
+        lead_type?: string | null;
+        reseller_company_id?: string | null;
+        end_user_project?: string | null;
+      };
       setContact(lead.contact_person ?? "");
       setEmail(lead.contact_email ?? "");
       setWa(lead.whatsapp ?? "");
@@ -127,6 +143,9 @@ function LeadDetail() {
       setBrands((lead.brands as string[] | null) ?? []);
       setProducts((lead.products_services as string[] | null) ?? []);
       setNotes(lead.notes ?? "");
+      setIsReseller(l.lead_type === "reseller");
+      setResellerChoice(l.reseller_company_id ?? "");
+      setEndUserProject(l.end_user_project ?? "");
     }
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -142,6 +161,9 @@ function LeadDetail() {
     products_services?: string[];
     notes?: string | null;
     job_title?: string | null;
+    lead_type?: "direct" | "reseller";
+    reseller_company_id?: string | null;
+    end_user_project?: string | null;
   };
 
   const update = useMutation({
@@ -230,6 +252,9 @@ function LeadDetail() {
       brands,
       products_services: products,
       notes: notes || null,
+      lead_type: isReseller ? "reseller" : "direct",
+      reseller_company_id: isReseller && resellerChoice ? resellerChoice : null,
+      end_user_project: isReseller ? (endUserProject || null) : null,
     });
     toast.success("Saved");
   };
@@ -507,6 +532,59 @@ function LeadDetail() {
                 type="number"
                 min="0"
               />
+            </div>
+
+            <div className="rounded-lg border bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={isReseller}
+                  onCheckedChange={(c) => setIsReseller(c === true)}
+                />
+                <span className="text-sm font-medium">This is a Reseller lead</span>
+              </label>
+              {isReseller && (
+                <>
+                  <div>
+                    <Label>Primary reseller</Label>
+                    <Select value={resellerChoice} onValueChange={setResellerChoice}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pick reseller company…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {resellers.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {resellers.length === 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        No reseller companies yet. Create one by adding a new reseller lead from the Leads list.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>End user / project details</Label>
+                    <Textarea
+                      value={endUserProject}
+                      onChange={(e) => setEndUserProject(e.target.value)}
+                      rows={2}
+                      maxLength={1000}
+                      placeholder="e.g. National Intelligence Agency – STU-430 rollout"
+                    />
+                  </div>
+                  {resellerChoice && (
+                    <Link
+                      to="/app/leads/reseller/$resellerId"
+                      params={{ resellerId: resellerChoice }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Open reseller card →
+                    </Link>
+                  )}
+                </>
+              )}
             </div>
             <div className="flex justify-end pt-1">
               <Button onClick={handleSave} disabled={update.isPending}>

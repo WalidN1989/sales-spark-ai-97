@@ -19,6 +19,8 @@ import {
   Users as UsersIcon,
 } from "lucide-react";
 import { listLeads, createQuickLead, extractLeadFromImage } from "@/lib/leads.functions";
+import { listResellerCompanies } from "@/lib/companies.functions";
+import { Checkbox } from "@/components/ui/checkbox";
 import { StaleBadge } from "@/components/StaleBadge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -75,6 +77,10 @@ type Lead = {
   website: string | null;
   created_at: string | null;
   updated_at: string | null;
+  lead_type: "direct" | "reseller" | null;
+  reseller_company_id: string | null;
+  end_user_project: string | null;
+  reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
 
@@ -94,6 +100,7 @@ function LeadsPage() {
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("updated");
+  const [tab, setTab] = useState<"all" | "resellers" | "direct">("all");
 
   useEffect(() => {
     const handler = () => setQuickOpen(true);
@@ -104,7 +111,8 @@ function LeadsPage() {
   // ---------- Group by visible company first, even when some rows have company_id ----------
   type Item =
     | { kind: "single"; lead: Lead }
-    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] };
+    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] }
+    | { kind: "reseller"; resellerId: string; resellerName: string; leads: Lead[] };
 
   const items = useMemo<Item[]>(() => {
     const normalizeName = (n: string | null | undefined) =>
@@ -132,58 +140,85 @@ function LeadsPage() {
       return name ? `name:${name}` : null;
     };
 
-    const groupsMap = new Map<string, Lead[]>();
-    const singles: Lead[] = [];
-    for (const l of leads) {
-      const k = groupKeyFor(l);
-      if (!k) {
-        singles.push(l);
-        continue;
-      }
-      const arr = groupsMap.get(k) ?? [];
-      arr.push(l);
-      groupsMap.set(k, arr);
-    }
+    // Filter by tab
+    const visible = leads.filter((l) => {
+      if (tab === "resellers") return l.lead_type === "reseller" && l.reseller_company_id;
+      if (tab === "direct") return l.lead_type !== "reseller";
+      return true;
+    });
+
     const out: Item[] = [];
-    for (const [groupKey, arr] of groupsMap) {
-      if (arr.length >= 2) {
+
+    // 1) Reseller groups (only when not on "direct" tab)
+    if (tab !== "direct") {
+      const resellerMap = new Map<string, Lead[]>();
+      for (const l of visible) {
+        if (l.lead_type === "reseller" && l.reseller_company_id) {
+          const arr = resellerMap.get(l.reseller_company_id) ?? [];
+          arr.push(l);
+          resellerMap.set(l.reseller_company_id, arr);
+        }
+      }
+      for (const [rid, arr] of resellerMap) {
         out.push({
-          kind: "group",
-          groupKey,
-          companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+          kind: "reseller",
+          resellerId: rid,
+          resellerName: arr[0].reseller?.name ?? "Reseller",
           leads: arr,
         });
-      } else {
-        singles.push(arr[0]);
       }
     }
-    for (const l of singles) out.push({ kind: "single", lead: l });
+
+    // 2) Direct leads — keep existing company-name grouping behaviour
+    if (tab !== "resellers") {
+      const directLeads = visible.filter((l) => l.lead_type !== "reseller");
+      const groupsMap = new Map<string, Lead[]>();
+      const singles: Lead[] = [];
+      for (const l of directLeads) {
+        const k = groupKeyFor(l);
+        if (!k) {
+          singles.push(l);
+          continue;
+        }
+        const arr = groupsMap.get(k) ?? [];
+        arr.push(l);
+        groupsMap.set(k, arr);
+      }
+      for (const [groupKey, arr] of groupsMap) {
+        if (arr.length >= 2) {
+          out.push({
+            kind: "group",
+            groupKey,
+            companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+            leads: arr,
+          });
+        } else {
+          singles.push(arr[0]);
+        }
+      }
+      for (const l of singles) out.push({ kind: "single", lead: l });
+    }
     return out;
-  }, [leads]);
+  }, [leads, tab]);
 
   const sorted = useMemo(() => {
     const arr = [...items];
-    const itemScore = (i: Item) =>
-      i.kind === "single" ? i.lead.lead_score ?? 0 : Math.max(...i.leads.map((l) => l.lead_score ?? 0));
+    const leadsOf = (i: Item): Lead[] => (i.kind === "single" ? [i.lead] : i.leads);
+    const itemScore = (i: Item) => Math.max(0, ...leadsOf(i).map((l) => l.lead_score ?? 0));
     const itemUpdated = (i: Item) =>
-      i.kind === "single" ? i.lead.updated_at ?? "" : i.leads.map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
+      leadsOf(i).map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
     const itemCreated = (i: Item) =>
-      i.kind === "single" ? i.lead.created_at ?? "" : i.leads.map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
-    const itemStatus = (i: Item) =>
-      i.kind === "single"
-        ? LEAD_STATUS_ORDER[i.lead.status]
-        : Math.min(...i.leads.map((l) => LEAD_STATUS_ORDER[l.status]));
+      leadsOf(i).map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemStatus = (i: Item) => Math.min(...leadsOf(i).map((l) => LEAD_STATUS_ORDER[l.status]));
     const itemActivity = (i: Item) =>
-      i.kind === "single" ? i.lead.last_activity_at ?? "" : i.leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
-    const itemIsNew = (i: Item) =>
-      i.kind === "single" ? isNewLead(i.lead) : i.leads.some(isNewLead);
+      leadsOf(i).map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemIsNew = (i: Item) => leadsOf(i).some(isNewLead);
 
     if (sortKey === "score") arr.sort((a, b) => itemScore(b) - itemScore(a));
     else if (sortKey === "updated") arr.sort((a, b) => itemUpdated(b).localeCompare(itemUpdated(a)));
     else if (sortKey === "created") arr.sort((a, b) => itemCreated(b).localeCompare(itemCreated(a)));
     else
       arr.sort((a, b) => {
-        // bubble "new" leads to the top regardless of status
         const an = itemIsNew(a) ? 0 : 1;
         const bn = itemIsNew(b) ? 0 : 1;
         if (an !== bn) return an - bn;
@@ -258,6 +293,30 @@ function LeadsPage() {
         </Card>
       </div>
 
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 w-fit">
+        {(["all", "resellers", "direct"] as const).map((t) => {
+          const label = t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : "Direct";
+          const count =
+            t === "all"
+              ? leads.length
+              : t === "resellers"
+                ? leads.filter((l) => l.lead_type === "reseller").length
+                : leads.filter((l) => l.lead_type !== "reseller").length;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {label} <span className="ml-1 text-xs opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : sorted.length === 0 ? (
@@ -267,7 +326,9 @@ function LeadsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((item) =>
-            item.kind === "group" ? (
+            item.kind === "reseller" ? (
+              <ResellerCard key={`r-${item.resellerId}`} resellerId={item.resellerId} resellerName={item.resellerName} leads={item.leads} />
+            ) : item.kind === "group" ? (
               <GroupCard key={`g-${item.groupKey}`} groupKey={item.groupKey} companyName={item.companyName} leads={item.leads} />
             ) : (
               <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
@@ -503,7 +564,92 @@ function GroupCard({
   );
 }
 
+// ---------- Reseller Card (grouped by reseller_company_id) ----------
+
+function ResellerCard({
+  resellerId,
+  resellerName,
+  leads,
+}: {
+  resellerId: string;
+  resellerName: string;
+  leads: Lead[];
+}) {
+  const groupHasNew = leads.some(isNewLead);
+  const topStatus = [...leads].sort(
+    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
+  )[0].status;
+  const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
+  const lastActivity = leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0];
+  const visible = leads.slice(0, 3);
+  const overflow = leads.length - visible.length;
+
+  return (
+    <div className="relative min-w-0">
+      {groupHasNew && <NewBadge />}
+      <Link to="/app/leads/reseller/$resellerId" params={{ resellerId }} className="block">
+        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-amber-500/40 min-w-0">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-600">
+              <UsersIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="truncate font-semibold">{resellerName}</span>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  Reseller
+                </span>
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {leads.length} contact{leads.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
+                {topStatus}
+              </span>
+              <StaleBadge since={lastActivity || null} />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            {visible.map((l) => (
+              <div
+                key={l.id}
+                title={`${l.contact_person ?? "—"}${l.end_user_project ? ` · ${l.end_user_project}` : ""}`}
+                className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+              >
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-background text-[9px] font-bold">
+                  {leadInitials(l.contact_person, resellerName)}
+                </span>
+                <span className="max-w-[110px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+              </div>
+            ))}
+            {overflow > 0 && (
+              <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium">+{overflow} more</span>
+            )}
+          </div>
+
+          {sumValue > 0 && (
+            <div className="text-xs font-medium text-foreground">Total pipeline · {fmtMoneyCents(sumValue)}</div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[topStatus]}`} />
+              {timeAgo(lastActivity || null)}
+            </div>
+            <span className="text-primary font-medium">Open reseller →</span>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
 // ---------- Quick Add Lead (WhatsApp) ----------
+
+
 
 
 function QuickAddLeadDialog({
@@ -517,7 +663,14 @@ function QuickAddLeadDialog({
 }) {
   const extractFn = useServerFn(extractLeadFromImage);
   const createFn = useServerFn(createQuickLead);
+  const listResellersFn = useServerFn(listResellerCompanies);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { data: resellers = [] } = useQuery({
+    queryKey: ["reseller-companies"],
+    queryFn: () => listResellersFn(),
+    enabled: open,
+  });
 
   const [images, setImages] = useState<string[]>([]);
   const [contact, setContact] = useState("");
@@ -528,6 +681,11 @@ function QuickAddLeadDialog({
   const [product, setProduct] = useState("");
   const [note, setNote] = useState("");
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
+  const [isReseller, setIsReseller] = useState(false);
+  const [resellerChoice, setResellerChoice] = useState<string>(""); // existing id or "__new__"
+  const [newResellerName, setNewResellerName] = useState("");
+  const [endUserProject, setEndUserProject] = useState("");
+  const [pipelineValue, setPipelineValue] = useState("");
 
   const reset = () => {
     setImages([]);
@@ -539,13 +697,17 @@ function QuickAddLeadDialog({
     setProduct("");
     setNote("");
     setExtracted(new Set());
+    setIsReseller(false);
+    setResellerChoice("");
+    setNewResellerName("");
+    setEndUserProject("");
+    setPipelineValue("");
   };
 
   const extract = useMutation({
     mutationFn: (url: string) => extractFn({ data: { imageDataUrl: url } }),
     onSuccess: (r) => {
       const tags = new Set<string>(extracted);
-      // Merge: only fill empty fields so multiple images stack info
       if (r.contact_person && !contact) { setContact(r.contact_person); tags.add("contact"); }
       if (r.whatsapp && !whatsapp) { setWhatsapp(r.whatsapp.replace(/[^\d+\-\s()]/g, "")); tags.add("whatsapp"); }
       if (r.contact_email && !email) { setEmail(r.contact_email); tags.add("email"); }
@@ -562,8 +724,13 @@ function QuickAddLeadDialog({
   });
 
   const create = useMutation({
-    mutationFn: () =>
-      createFn({
+    mutationFn: () => {
+      const reseller_company_id =
+        isReseller && resellerChoice && resellerChoice !== "__new__" ? resellerChoice : null;
+      const reseller_company_name =
+        isReseller && resellerChoice === "__new__" ? newResellerName.trim() : null;
+      const pipeline_value_cents = Math.max(0, Math.round(Number(pipelineValue || "0") * 100));
+      return createFn({
         data: {
           contact_person: contact || null,
           whatsapp,
@@ -572,8 +739,14 @@ function QuickAddLeadDialog({
           website: website || null,
           product: product || null,
           note: note || null,
+          is_reseller: isReseller,
+          reseller_company_id,
+          reseller_company_name,
+          end_user_project: isReseller ? endUserProject || null : null,
+          pipeline_value_cents,
         },
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("Lead added");
       reset();
@@ -784,6 +957,73 @@ function QuickAddLeadDialog({
 
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Pipeline value (AED)
+            </Label>
+            <Input
+              value={pipelineValue}
+              onChange={(e) => setPipelineValue(e.target.value)}
+              type="number"
+              min="0"
+              inputMode="decimal"
+              placeholder="0"
+            />
+          </div>
+
+          <div className="rounded-lg border bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={isReseller}
+                onCheckedChange={(c) => setIsReseller(c === true)}
+              />
+              <span className="text-sm font-medium">This is a Reseller lead</span>
+            </label>
+            {isReseller && (
+              <>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Primary reseller *
+                  </Label>
+                  <Select value={resellerChoice} onValueChange={setResellerChoice}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick reseller company…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {resellers.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">+ Create new reseller…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {resellerChoice === "__new__" && (
+                    <Input
+                      value={newResellerName}
+                      onChange={(e) => setNewResellerName(e.target.value)}
+                      placeholder="New reseller company name"
+                      className="mt-2"
+                      maxLength={200}
+                    />
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    End user / project details
+                  </Label>
+                  <Textarea
+                    value={endUserProject}
+                    onChange={(e) => setEndUserProject(e.target.value)}
+                    rows={2}
+                    maxLength={1000}
+                    placeholder="e.g. National Intelligence Agency – STU-430 rollout"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
               Notes / comments {tag("note")}
             </Label>
             <Textarea
@@ -808,7 +1048,12 @@ function QuickAddLeadDialog({
           </Button>
           <Button
             onClick={() => create.mutate()}
-            disabled={!whatsapp.trim() || create.isPending}
+            disabled={
+              !whatsapp.trim() ||
+              create.isPending ||
+              (isReseller && !resellerChoice) ||
+              (isReseller && resellerChoice === "__new__" && !newResellerName.trim())
+            }
           >
             <Upload className="mr-1 h-4 w-4" />
             {create.isPending ? "Saving…" : "Add to Leads"}

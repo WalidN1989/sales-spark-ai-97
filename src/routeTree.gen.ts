@@ -35,6 +35,7 @@ import { Route as AuthenticatedAppLearningNewRouteImport } from './routes/_authe
 import { Route as AuthenticatedAppLearningIdRouteImport } from './routes/_authenticated/app.learning.$id'
 import { Route as AuthenticatedAppLeadsIdRouteImport } from './routes/_authenticated/app.leads.$id'
 import { Route as AuthenticatedAppInquiriesIdRouteImport } from './routes/_authenticated/app.inquiries.$id'
+import { Route as AuthenticatedAppLeadsResellerResellerIdRouteImport } from './routes/_authenticated/app.leads.reseller.$resellerId'
 import { Route as AuthenticatedAppLeadsGroupCompanyIdRouteImport } from './routes/_authenticated/app.leads.group.$companyId'
 import { Route as AuthenticatedAppProspectsIdCompetitorSlugRouteImport } from './routes/_authenticated/app.prospects.$id.competitor.$slug'
 
@@ -183,6 +184,12 @@ const AuthenticatedAppInquiriesIdRoute =
     path: '/$id',
     getParentRoute: () => AuthenticatedAppInquiriesRoute,
   } as any)
+const AuthenticatedAppLeadsResellerResellerIdRoute =
+  AuthenticatedAppLeadsResellerResellerIdRouteImport.update({
+    id: '/reseller/$resellerId',
+    path: '/reseller/$resellerId',
+    getParentRoute: () => AuthenticatedAppLeadsRoute,
+  } as any)
 const AuthenticatedAppLeadsGroupCompanyIdRoute =
   AuthenticatedAppLeadsGroupCompanyIdRouteImport.update({
     id: '/group/$companyId',
@@ -223,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
+  '/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
 }
 export interface FileRoutesByTo {
@@ -251,6 +259,7 @@ export interface FileRoutesByTo {
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
+  '/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
 }
 export interface FileRoutesById {
@@ -282,6 +291,7 @@ export interface FileRoutesById {
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
   '/_authenticated/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
+  '/_authenticated/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/_authenticated/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
 }
 export interface FileRouteTypes {
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/app/products/'
     | '/app/prospects/'
     | '/app/leads/group/$companyId'
+    | '/app/leads/reseller/$resellerId'
     | '/app/prospects/$id/competitor/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/app/products'
     | '/app/prospects'
     | '/app/leads/group/$companyId'
+    | '/app/leads/reseller/$resellerId'
     | '/app/prospects/$id/competitor/$slug'
   id:
     | '__root__'
@@ -371,6 +383,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/products/'
     | '/_authenticated/app/prospects/'
     | '/_authenticated/app/leads/group/$companyId'
+    | '/_authenticated/app/leads/reseller/$resellerId'
     | '/_authenticated/app/prospects/$id/competitor/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -565,6 +578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInquiriesIdRouteImport
       parentRoute: typeof AuthenticatedAppInquiriesRoute
     }
+    '/_authenticated/app/leads/reseller/$resellerId': {
+      id: '/_authenticated/app/leads/reseller/$resellerId'
+      path: '/reseller/$resellerId'
+      fullPath: '/app/leads/reseller/$resellerId'
+      preLoaderRoute: typeof AuthenticatedAppLeadsResellerResellerIdRouteImport
+      parentRoute: typeof AuthenticatedAppLeadsRoute
+    }
     '/_authenticated/app/leads/group/$companyId': {
       id: '/_authenticated/app/leads/group/$companyId'
       path: '/group/$companyId'
@@ -599,12 +619,15 @@ const AuthenticatedAppInquiriesRouteWithChildren =
 interface AuthenticatedAppLeadsRouteChildren {
   AuthenticatedAppLeadsIdRoute: typeof AuthenticatedAppLeadsIdRoute
   AuthenticatedAppLeadsGroupCompanyIdRoute: typeof AuthenticatedAppLeadsGroupCompanyIdRoute
+  AuthenticatedAppLeadsResellerResellerIdRoute: typeof AuthenticatedAppLeadsResellerResellerIdRoute
 }
 
 const AuthenticatedAppLeadsRouteChildren: AuthenticatedAppLeadsRouteChildren = {
   AuthenticatedAppLeadsIdRoute: AuthenticatedAppLeadsIdRoute,
   AuthenticatedAppLeadsGroupCompanyIdRoute:
     AuthenticatedAppLeadsGroupCompanyIdRoute,
+  AuthenticatedAppLeadsResellerResellerIdRoute:
+    AuthenticatedAppLeadsResellerResellerIdRoute,
 }
 
 const AuthenticatedAppLeadsRouteWithChildren =
@@ -709,13 +732,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
