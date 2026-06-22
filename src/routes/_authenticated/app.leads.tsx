@@ -1048,7 +1048,12 @@ function QuickAddLeadDialog({
           </Button>
           <Button
             onClick={() => create.mutate()}
-            disabled={!whatsapp.trim() || create.isPending}
+            disabled={
+              !whatsapp.trim() ||
+              create.isPending ||
+              (isReseller && !resellerChoice) ||
+              (isReseller && resellerChoice === "__new__" && !newResellerName.trim())
+            }
           >
             <Upload className="mr-1 h-4 w-4" />
             {create.isPending ? "Saving…" : "Add to Leads"}
