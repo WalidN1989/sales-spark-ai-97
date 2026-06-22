@@ -201,27 +201,22 @@ function LeadsPage() {
 
   const sorted = useMemo(() => {
     const arr = [...items];
-    const itemScore = (i: Item) =>
-      i.kind === "single" ? i.lead.lead_score ?? 0 : Math.max(...i.leads.map((l) => l.lead_score ?? 0));
+    const leadsOf = (i: Item): Lead[] => (i.kind === "single" ? [i.lead] : i.leads);
+    const itemScore = (i: Item) => Math.max(0, ...leadsOf(i).map((l) => l.lead_score ?? 0));
     const itemUpdated = (i: Item) =>
-      i.kind === "single" ? i.lead.updated_at ?? "" : i.leads.map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
+      leadsOf(i).map((l) => l.updated_at ?? "").sort().slice(-1)[0] ?? "";
     const itemCreated = (i: Item) =>
-      i.kind === "single" ? i.lead.created_at ?? "" : i.leads.map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
-    const itemStatus = (i: Item) =>
-      i.kind === "single"
-        ? LEAD_STATUS_ORDER[i.lead.status]
-        : Math.min(...i.leads.map((l) => LEAD_STATUS_ORDER[l.status]));
+      leadsOf(i).map((l) => l.created_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemStatus = (i: Item) => Math.min(...leadsOf(i).map((l) => LEAD_STATUS_ORDER[l.status]));
     const itemActivity = (i: Item) =>
-      i.kind === "single" ? i.lead.last_activity_at ?? "" : i.leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
-    const itemIsNew = (i: Item) =>
-      i.kind === "single" ? isNewLead(i.lead) : i.leads.some(isNewLead);
+      leadsOf(i).map((l) => l.last_activity_at ?? "").sort().slice(-1)[0] ?? "";
+    const itemIsNew = (i: Item) => leadsOf(i).some(isNewLead);
 
     if (sortKey === "score") arr.sort((a, b) => itemScore(b) - itemScore(a));
     else if (sortKey === "updated") arr.sort((a, b) => itemUpdated(b).localeCompare(itemUpdated(a)));
     else if (sortKey === "created") arr.sort((a, b) => itemCreated(b).localeCompare(itemCreated(a)));
     else
       arr.sort((a, b) => {
-        // bubble "new" leads to the top regardless of status
         const an = itemIsNew(a) ? 0 : 1;
         const bn = itemIsNew(b) ? 0 : 1;
         if (an !== bn) return an - bn;
