@@ -212,6 +212,9 @@ const patchSchema = z
     department: z.string().max(120).nullable().optional(),
     seniority: z.string().max(80).nullable().optional(),
     phone: z.string().max(40).nullable().optional(),
+    lead_type: z.enum(["direct", "reseller"]).optional(),
+    reseller_company_id: z.string().uuid().nullable().optional(),
+    end_user_project: z.string().max(1000).nullable().optional(),
   })
   .strict();
 
