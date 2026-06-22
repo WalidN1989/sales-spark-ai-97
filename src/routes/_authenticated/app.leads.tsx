@@ -75,6 +75,10 @@ type Lead = {
   website: string | null;
   created_at: string | null;
   updated_at: string | null;
+  lead_type: "direct" | "reseller" | null;
+  reseller_company_id: string | null;
+  end_user_project: string | null;
+  reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
 };
 
