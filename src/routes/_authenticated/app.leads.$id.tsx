@@ -116,9 +116,23 @@ function LeadDetail() {
   const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [isReseller, setIsReseller] = useState(false);
+  const [resellerChoice, setResellerChoice] = useState<string>("");
+  const [endUserProject, setEndUserProject] = useState("");
+
+  const listResellersFn = useServerFn(listResellerCompanies);
+  const { data: resellers = [] } = useQuery({
+    queryKey: ["reseller-companies"],
+    queryFn: () => listResellersFn(),
+  });
 
   useEffect(() => {
     if (lead) {
+      const l = lead as typeof lead & {
+        lead_type?: string | null;
+        reseller_company_id?: string | null;
+        end_user_project?: string | null;
+      };
       setContact(lead.contact_person ?? "");
       setEmail(lead.contact_email ?? "");
       setWa(lead.whatsapp ?? "");
@@ -129,6 +143,9 @@ function LeadDetail() {
       setBrands((lead.brands as string[] | null) ?? []);
       setProducts((lead.products_services as string[] | null) ?? []);
       setNotes(lead.notes ?? "");
+      setIsReseller(l.lead_type === "reseller");
+      setResellerChoice(l.reseller_company_id ?? "");
+      setEndUserProject(l.end_user_project ?? "");
     }
   }, [lead?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
