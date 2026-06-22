@@ -533,6 +533,59 @@ function LeadDetail() {
                 min="0"
               />
             </div>
+
+            <div className="rounded-lg border bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={isReseller}
+                  onCheckedChange={(c) => setIsReseller(c === true)}
+                />
+                <span className="text-sm font-medium">This is a Reseller lead</span>
+              </label>
+              {isReseller && (
+                <>
+                  <div>
+                    <Label>Primary reseller</Label>
+                    <Select value={resellerChoice} onValueChange={setResellerChoice}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pick reseller company…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {resellers.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {resellers.length === 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        No reseller companies yet. Create one by adding a new reseller lead from the Leads list.
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>End user / project details</Label>
+                    <Textarea
+                      value={endUserProject}
+                      onChange={(e) => setEndUserProject(e.target.value)}
+                      rows={2}
+                      maxLength={1000}
+                      placeholder="e.g. National Intelligence Agency – STU-430 rollout"
+                    />
+                  </div>
+                  {resellerChoice && (
+                    <Link
+                      to="/app/leads/reseller/$resellerId"
+                      params={{ resellerId: resellerChoice }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Open reseller card →
+                    </Link>
+                  )}
+                </>
+              )}
+            </div>
             <div className="flex justify-end pt-1">
               <Button onClick={handleSave} disabled={update.isPending}>
                 <Save className="mr-1 h-4 w-4" />
