@@ -41,6 +41,8 @@ import {
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
 } from "@/lib/leads.functions";
+import { listResellerCompanies } from "@/lib/companies.functions";
+import { Checkbox } from "@/components/ui/checkbox";
 import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
