@@ -15,7 +15,20 @@ const companySchema = z.object({
   address: z.string().max(500).optional().nullable(),
   lat: z.number().min(-90).max(90).optional().nullable(),
   lng: z.number().min(-180).max(180).optional().nullable(),
+  is_reseller: z.boolean().optional(),
 });
+
+export const listResellerCompanies = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("companies")
+      .select("id, name, domain, status")
+      .eq("is_reseller", true)
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
 
 const companyStatusEnum = z.enum(["hot", "warm", "cold", "won", "lost"]);
 
