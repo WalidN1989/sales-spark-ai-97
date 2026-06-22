@@ -62,6 +62,7 @@ export type Database = {
           hunter_last_sync: string | null
           id: string
           industry: string | null
+          is_reseller: boolean
           last_research_at: string | null
           lat: number | null
           linkedin_url: string | null
@@ -91,6 +92,7 @@ export type Database = {
           hunter_last_sync?: string | null
           id?: string
           industry?: string | null
+          is_reseller?: boolean
           last_research_at?: string | null
           lat?: number | null
           linkedin_url?: string | null
@@ -120,6 +122,7 @@ export type Database = {
           hunter_last_sync?: string | null
           id?: string
           industry?: string | null
+          is_reseller?: boolean
           last_research_at?: string | null
           lat?: number | null
           linkedin_url?: string | null
@@ -363,6 +366,7 @@ export type Database = {
           department: string | null
           email_score: number | null
           email_status: string | null
+          end_user_project: string | null
           hunter_confidence: number | null
           id: string
           job_title: string | null
@@ -372,12 +376,14 @@ export type Database = {
           last_verified_at: string | null
           lead_score: number
           lead_score_manual_override: boolean
+          lead_type: string
           linkedin_url: string | null
           notes: string | null
           phone: string | null
           pipeline_value_cents: number
           products_services: string[]
           prospect_id: string | null
+          reseller_company_id: string | null
           seniority: string | null
           source: string
           status: string
@@ -396,6 +402,7 @@ export type Database = {
           department?: string | null
           email_score?: number | null
           email_status?: string | null
+          end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
           job_title?: string | null
@@ -405,12 +412,14 @@ export type Database = {
           last_verified_at?: string | null
           lead_score?: number
           lead_score_manual_override?: boolean
+          lead_type?: string
           linkedin_url?: string | null
           notes?: string | null
           phone?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
           prospect_id?: string | null
+          reseller_company_id?: string | null
           seniority?: string | null
           source?: string
           status?: string
@@ -429,6 +438,7 @@ export type Database = {
           department?: string | null
           email_score?: number | null
           email_status?: string | null
+          end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
           job_title?: string | null
@@ -438,12 +448,14 @@ export type Database = {
           last_verified_at?: string | null
           lead_score?: number
           lead_score_manual_override?: boolean
+          lead_type?: string
           linkedin_url?: string | null
           notes?: string | null
           phone?: string | null
           pipeline_value_cents?: number
           products_services?: string[]
           prospect_id?: string | null
+          reseller_company_id?: string | null
           seniority?: string | null
           source?: string
           status?: string
@@ -463,6 +475,13 @@ export type Database = {
           {
             foreignKeyName: "leads_prospect_id_fkey"
             columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_reseller_company_id_fkey"
+            columns: ["reseller_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
