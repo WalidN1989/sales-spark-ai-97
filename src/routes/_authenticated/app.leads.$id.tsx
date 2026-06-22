@@ -161,6 +161,9 @@ function LeadDetail() {
     products_services?: string[];
     notes?: string | null;
     job_title?: string | null;
+    lead_type?: "direct" | "reseller";
+    reseller_company_id?: string | null;
+    end_user_project?: string | null;
   };
 
   const update = useMutation({
