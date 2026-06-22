@@ -957,6 +957,73 @@ function QuickAddLeadDialog({
 
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Pipeline value (AED)
+            </Label>
+            <Input
+              value={pipelineValue}
+              onChange={(e) => setPipelineValue(e.target.value)}
+              type="number"
+              min="0"
+              inputMode="decimal"
+              placeholder="0"
+            />
+          </div>
+
+          <div className="rounded-lg border bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={isReseller}
+                onCheckedChange={(c) => setIsReseller(c === true)}
+              />
+              <span className="text-sm font-medium">This is a Reseller lead</span>
+            </label>
+            {isReseller && (
+              <>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Primary reseller *
+                  </Label>
+                  <Select value={resellerChoice} onValueChange={setResellerChoice}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick reseller company…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {resellers.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">+ Create new reseller…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {resellerChoice === "__new__" && (
+                    <Input
+                      value={newResellerName}
+                      onChange={(e) => setNewResellerName(e.target.value)}
+                      placeholder="New reseller company name"
+                      className="mt-2"
+                      maxLength={200}
+                    />
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    End user / project details
+                  </Label>
+                  <Textarea
+                    value={endUserProject}
+                    onChange={(e) => setEndUserProject(e.target.value)}
+                    rows={2}
+                    maxLength={1000}
+                    placeholder="e.g. National Intelligence Agency – STU-430 rollout"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
               Notes / comments {tag("note")}
             </Label>
             <Textarea
