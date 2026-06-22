@@ -291,6 +291,30 @@ function LeadsPage() {
         </Card>
       </div>
 
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 w-fit">
+        {(["all", "resellers", "direct"] as const).map((t) => {
+          const label = t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : "Direct";
+          const count =
+            t === "all"
+              ? leads.length
+              : t === "resellers"
+                ? leads.filter((l) => l.lead_type === "reseller").length
+                : leads.filter((l) => l.lead_type !== "reseller").length;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {label} <span className="ml-1 text-xs opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : sorted.length === 0 ? (
@@ -300,7 +324,9 @@ function LeadsPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((item) =>
-            item.kind === "group" ? (
+            item.kind === "reseller" ? (
+              <ResellerCard key={`r-${item.resellerId}`} resellerId={item.resellerId} resellerName={item.resellerName} leads={item.leads} />
+            ) : item.kind === "group" ? (
               <GroupCard key={`g-${item.groupKey}`} groupKey={item.groupKey} companyName={item.companyName} leads={item.leads} />
             ) : (
               <SingleLeadCard key={item.lead.id} l={item.lead} onWhatsApp={(id) => navigate({ to: "/app/leads/$id", params: { id } })} />
