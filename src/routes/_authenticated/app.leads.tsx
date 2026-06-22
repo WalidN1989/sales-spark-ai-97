@@ -98,6 +98,7 @@ function LeadsPage() {
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("updated");
+  const [tab, setTab] = useState<"all" | "resellers" | "direct">("all");
 
   useEffect(() => {
     const handler = () => setQuickOpen(true);
