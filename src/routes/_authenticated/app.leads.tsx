@@ -562,7 +562,92 @@ function GroupCard({
   );
 }
 
+// ---------- Reseller Card (grouped by reseller_company_id) ----------
+
+function ResellerCard({
+  resellerId,
+  resellerName,
+  leads,
+}: {
+  resellerId: string;
+  resellerName: string;
+  leads: Lead[];
+}) {
+  const groupHasNew = leads.some(isNewLead);
+  const topStatus = [...leads].sort(
+    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
+  )[0].status;
+  const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
+  const lastActivity = leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0];
+  const visible = leads.slice(0, 3);
+  const overflow = leads.length - visible.length;
+
+  return (
+    <div className="relative min-w-0">
+      {groupHasNew && <NewBadge />}
+      <Link to="/app/leads/reseller/$resellerId" params={{ resellerId }} className="block">
+        <Card className="p-4 transition-colors hover:bg-accent min-h-[170px] flex flex-col gap-3 ring-1 ring-amber-500/40 min-w-0">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-600">
+              <UsersIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="truncate font-semibold">{resellerName}</span>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  Reseller
+                </span>
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {leads.length} contact{leads.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
+                {topStatus}
+              </span>
+              <StaleBadge since={lastActivity || null} />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            {visible.map((l) => (
+              <div
+                key={l.id}
+                title={`${l.contact_person ?? "—"}${l.end_user_project ? ` · ${l.end_user_project}` : ""}`}
+                className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-secondary px-2 py-1 text-[11px]"
+              >
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-background text-[9px] font-bold">
+                  {leadInitials(l.contact_person, resellerName)}
+                </span>
+                <span className="max-w-[110px] truncate">{l.contact_person || l.contact_email || "—"}</span>
+              </div>
+            ))}
+            {overflow > 0 && (
+              <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium">+{overflow} more</span>
+            )}
+          </div>
+
+          {sumValue > 0 && (
+            <div className="text-xs font-medium text-foreground">Total pipeline · {fmtMoneyCents(sumValue)}</div>
+          )}
+
+          <div className="mt-auto flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${LEAD_STATUS_DOT[topStatus]}`} />
+              {timeAgo(lastActivity || null)}
+            </div>
+            <span className="text-primary font-medium">Open reseller →</span>
+          </div>
+        </Card>
+      </Link>
+    </div>
+  );
+}
+
 // ---------- Quick Add Lead (WhatsApp) ----------
+
+
 
 
 function QuickAddLeadDialog({
