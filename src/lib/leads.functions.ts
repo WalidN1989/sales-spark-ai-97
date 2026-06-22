@@ -7,7 +7,7 @@ const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 const LEAD_SELECT =
-  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng)";
+  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, lead_type, reseller_company_id, end_user_project, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
