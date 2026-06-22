@@ -109,7 +109,8 @@ function LeadsPage() {
   // ---------- Group by visible company first, even when some rows have company_id ----------
   type Item =
     | { kind: "single"; lead: Lead }
-    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] };
+    | { kind: "group"; groupKey: string; companyName: string; leads: Lead[] }
+    | { kind: "reseller"; resellerId: string; resellerName: string; leads: Lead[] };
 
   const items = useMemo<Item[]>(() => {
     const normalizeName = (n: string | null | undefined) =>
@@ -137,34 +138,66 @@ function LeadsPage() {
       return name ? `name:${name}` : null;
     };
 
-    const groupsMap = new Map<string, Lead[]>();
-    const singles: Lead[] = [];
-    for (const l of leads) {
-      const k = groupKeyFor(l);
-      if (!k) {
-        singles.push(l);
-        continue;
-      }
-      const arr = groupsMap.get(k) ?? [];
-      arr.push(l);
-      groupsMap.set(k, arr);
-    }
+    // Filter by tab
+    const visible = leads.filter((l) => {
+      if (tab === "resellers") return l.lead_type === "reseller" && l.reseller_company_id;
+      if (tab === "direct") return l.lead_type !== "reseller";
+      return true;
+    });
+
     const out: Item[] = [];
-    for (const [groupKey, arr] of groupsMap) {
-      if (arr.length >= 2) {
+
+    // 1) Reseller groups (only when not on "direct" tab)
+    if (tab !== "direct") {
+      const resellerMap = new Map<string, Lead[]>();
+      for (const l of visible) {
+        if (l.lead_type === "reseller" && l.reseller_company_id) {
+          const arr = resellerMap.get(l.reseller_company_id) ?? [];
+          arr.push(l);
+          resellerMap.set(l.reseller_company_id, arr);
+        }
+      }
+      for (const [rid, arr] of resellerMap) {
         out.push({
-          kind: "group",
-          groupKey,
-          companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+          kind: "reseller",
+          resellerId: rid,
+          resellerName: arr[0].reseller?.name ?? "Reseller",
           leads: arr,
         });
-      } else {
-        singles.push(arr[0]);
       }
     }
-    for (const l of singles) out.push({ kind: "single", lead: l });
+
+    // 2) Direct leads — keep existing company-name grouping behaviour
+    if (tab !== "resellers") {
+      const directLeads = visible.filter((l) => l.lead_type !== "reseller");
+      const groupsMap = new Map<string, Lead[]>();
+      const singles: Lead[] = [];
+      for (const l of directLeads) {
+        const k = groupKeyFor(l);
+        if (!k) {
+          singles.push(l);
+          continue;
+        }
+        const arr = groupsMap.get(k) ?? [];
+        arr.push(l);
+        groupsMap.set(k, arr);
+      }
+      for (const [groupKey, arr] of groupsMap) {
+        if (arr.length >= 2) {
+          out.push({
+            kind: "group",
+            groupKey,
+            companyName: arr[0].company_name ?? arr[0].companies?.name ?? "Company",
+            leads: arr,
+          });
+        } else {
+          singles.push(arr[0]);
+        }
+      }
+      for (const l of singles) out.push({ kind: "single", lead: l });
+    }
     return out;
-  }, [leads]);
+  }, [leads, tab]);
 
   const sorted = useMemo(() => {
     const arr = [...items];
