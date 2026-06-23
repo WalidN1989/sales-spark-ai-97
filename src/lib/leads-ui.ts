@@ -1,6 +1,6 @@
-export type LeadStatus = "hot" | "warm" | "cold" | "frozen" | "dead";
+export type LeadStatus = "hot" | "warm" | "cold" | "frozen" | "dead" | "won";
 
-export const LEAD_STATUSES: LeadStatus[] = ["hot", "warm", "cold", "frozen", "dead"];
+export const LEAD_STATUSES: LeadStatus[] = ["hot", "warm", "cold", "frozen", "dead", "won"];
 
 export const LEAD_STATUS_ORDER: Record<LeadStatus, number> = {
   hot: 0,
@@ -8,6 +8,7 @@ export const LEAD_STATUS_ORDER: Record<LeadStatus, number> = {
   cold: 2,
   frozen: 3,
   dead: 4,
+  won: 5,
 };
 
 export const LEAD_STATUS_STYLES: Record<LeadStatus, string> = {
@@ -16,6 +17,7 @@ export const LEAD_STATUS_STYLES: Record<LeadStatus, string> = {
   cold: "bg-sky-300 text-sky-950",
   frozen: "bg-slate-200 text-slate-700",
   dead: "bg-zinc-400 text-white",
+  won: "bg-emerald-500 text-white",
 };
 
 export const LEAD_STATUS_DOT: Record<LeadStatus, string> = {
@@ -24,6 +26,7 @@ export const LEAD_STATUS_DOT: Record<LeadStatus, string> = {
   cold: "bg-sky-400",
   frozen: "bg-slate-300",
   dead: "bg-zinc-400",
+  won: "bg-emerald-500",
 };
 
 export function waHref(num: string | null | undefined): string | null {
