@@ -102,6 +102,7 @@ function LeadDetail() {
   const setStatusFn = useServerFn(setLeadStatusManual);
   const clearOverrideFn = useServerFn(clearLeadStatusOverride);
   const verifyFn = useServerFn(hunterVerifyEmail);
+  const createProspectFn = useServerFn(createProspectFromLead);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
