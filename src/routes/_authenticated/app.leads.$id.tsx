@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Target,
+  Building2,
 } from "lucide-react";
 import {
   listInquiriesForLead,
