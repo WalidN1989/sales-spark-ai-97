@@ -1,87 +1,39 @@
-## Reseller Centralization
+## Leads module — 5 fixes
 
-Group multiple salespeople from the same reseller (e.g. ID Vision) under one reseller card, while keeping direct end-user leads as today.
+### 1. Prospect → Leads navigation lands on empty page
+**Cause:** The Users icon on the Prospect page links to `/app/leads/group/$companyId` using the prospect's `companies.id`. The leads group page calls `listLeadsByCompany` which only matches leads where `leads.company_id` equals that UUID. When a prospect was created independently (e.g. via "Find contacts") and the original lead was added separately as a WhatsApp lead, the lead's `company_id` may be null or a different row → the page shows "No leads in this group."
 
-### 1. Data model (one migration)
+**Fix:** Broaden `resolveCompanyIdByGroupKey` (already handles the reverse direction) so the leads-group page, when given a prospect UUID with zero direct `company_id` matches, also looks up the company's `domain` / normalized `name` and finds leads whose `website` or `company_name` matches. Update `listLeadsByCompany` to fall back to this domain/name match when the UUID returns 0 rows. Net effect: clicking the Leads icon from any prospect lands on all leads tied to that company by id, domain, or name.
 
-Reuse `companies` as the reseller entity (no parallel table — simpler and lets existing notes/status/edit flows work automatically).
+### 2. Auvea Dental — add WON status + 1-click "Create Prospect"
+- **Add `won` to `LeadStatus`** in `src/lib/leads-ui.ts` (new green style + dot) and surface it in the status pill row on `app.leads.$id.tsx` between DEAD and the existing list as **WON** (emerald). No DB change needed (`status` column is free text).
+- **Tiny logo left of WhatsApp button** in the lead header: a small `Building2` icon-only button. Behaviour:
+  - If a prospect already exists for this company (lookup by `prospect_id` on the lead, else by company id/domain/name), navigate to `/app/prospects/$id`.
+  - Otherwise call a new `createProspectFromLead` server fn that inserts a `companies` row (name, domain, phone, mobile, email, contact_person, country from the lead), links `leads.prospect_id`, then routes to the new prospect page where the user can hit "AI research" / "Find contacts" as usual.
+- Button uses a small filled icon, not full text, to match the "tiny footprint" pattern used on Prospect page.
 
-Add to `public.companies`:
-- `is_reseller boolean not null default false`
+### 3. Lead detail form overflowing at 100% zoom
+On `app.leads.$id.tsx` the lead info card stacks two columns that overflow on a 1069px viewport (per screenshot, content only fits at 67%). Convert the inner grid to a responsive 4-column grid (`grid-cols-2 md:grid-cols-4`) with each field taking 2 cols on mobile / 1 col on desktop, and let the Activity log card move below at this breakpoint (see #5). Form fields will fit edge-to-edge with no horizontal scroll, no zoom needed.
 
-Add to `public.leads`:
-- `lead_type text not null default 'direct'` — check: `'direct' | 'reseller'`
-- `reseller_company_id uuid references companies(id) on delete set null` — the reseller this contact works for
-- `end_user_project text` — describes the end-user / project this reseller contact is working
+### 4. Reorder Leads tabs: Direct → Resellers → All Leads, default Direct
+In `app.leads.tsx`: reorder the Tabs to `direct | reseller | all`, change `defaultValue` from `all` to `direct`. Update the URL search param default accordingly so refresh keeps Direct.
 
-Drop the unique index `leads_user_company_unique` (or relax it) so multiple reseller salespeople can share one `reseller_company_id`. For reseller leads, `company_id` represents the end-user company (optional / can be null); `reseller_company_id` is required. For direct leads, behavior unchanged.
+### 5. Swap Activity log ↔ Expertise & Focus
+On `app.leads.$id.tsx`, the right column of the top viewport currently holds Activity log (large) while Expertise & Focus sits below. Swap them:
+- Top-right: **Expertise & Focus** (Brands distributed, Products & services, Notes, Save expertise) — fills the viewport gap next to Lead information.
+- Below the fold: **Activity log** (Note dropdown, What happened?, Log entry, entry list).
+No logic changes — only JSX order in the two-column grid.
 
-Index `leads(reseller_company_id)`.
+---
 
-### 2. Server functions
+### Files to touch
+- `src/lib/leads.functions.ts` — broaden `listLeadsByCompany` fallback; add `createProspectFromLead`.
+- `src/lib/leads-ui.ts` — add `won` status + styles.
+- `src/routes/_authenticated/app.leads.tsx` — tab order + default.
+- `src/routes/_authenticated/app.leads.$id.tsx` — WON pill, Create-Prospect icon button, form grid, swap widgets.
 
-`src/lib/leads.functions.ts`:
-- Extend `patchSchema` + quick/create paths with `lead_type`, `reseller_company_id`, `end_user_project`.
-- New `listResellerGroups`: returns `[{ company, contactCount, totalPipelineCents, hottestStatus, leads[] }]` aggregated by `reseller_company_id`.
-- New `listDirectLeads`: leads where `lead_type='direct'`.
-- Update `LEAD_SELECT` to include new columns + `reseller:companies!leads_reseller_company_id_fkey(id,name,status)`.
+No DB migration required.
 
-`src/lib/companies.functions.ts`:
-- New `listResellerCompanies({ search? })` — returns companies where `is_reseller=true` for the dropdown; also include auto-create on the fly via existing create path.
-- Allow toggling `is_reseller` from EditCompanyDialog.
-
-### 3. UI — Lead form (create + edit)
-
-In `app.leads.tsx` quick-add form and `app.leads.$id.tsx` edit:
-- Checkbox **"This is a reseller lead"**.
-- When checked:
-  - **Primary reseller** combobox: searches existing `is_reseller=true` companies; "Create new reseller …" creates a company with `is_reseller=true` and links it.
-  - **End user / project details** textarea.
-  - Pipeline value field stays.
-- When unchecked: form behaves as today (direct lead).
-
-### 4. UI — Leads list with tabs
-
-`app.leads.tsx` header tabs: **All Leads | Resellers | Direct**.
-
-- **All Leads** (default): current mixed list — but reseller leads collapse into one reseller card per `reseller_company_id` instead of per `company_name`. Direct leads stay individual.
-- **Resellers**: only reseller group cards.
-- **Direct**: only `lead_type='direct'` individual cards.
-
-Reseller group card shows:
-- Reseller company name + small "Reseller" pill
-- Contact count ("3 contacts")
-- Total combined pipeline value (sum)
-- Status badge = hottest among contained leads (hot > warm > cold > frozen > dead)
-- Click → `/app/leads/reseller/$resellerId`
-
-### 5. New route: reseller detail
-
-`src/routes/_authenticated/app.leads.reseller.$resellerId.tsx` (mirrors existing group page):
-- Header: reseller name, company status pill, edit company button, cross-nav icon to Prospect page.
-- Left/main: each contact as a sub-card showing contact name, job title, end-user/project, pipeline value, individual status, WhatsApp/email actions, link to full lead detail.
-- Right rail: `EntityNotesRail` bound to the reseller `companyId` → shared notes auto-sync (same mechanism already used for prospects/leads-group).
-- Each sub-card retains its own `lead_activities` timeline (existing per-lead activity log).
-
-### 6. Existing group page
-
-`app.leads.group.$companyId.tsx` continues to group direct leads by end-user company (unchanged behavior). Reseller leads route through the new reseller detail page instead.
-
-### 7. Notes sharing
-
-Notes already key on `entity_type='company' + entity_id`. Pointing `EntityNotesRail` at the reseller company id automatically gives shared notes across all contacts of that reseller. No notes-schema changes.
-
-### Files touched
-
-- New migration: `companies.is_reseller`; `leads.lead_type / reseller_company_id / end_user_project`; index; drop/relax unique.
-- `src/lib/leads.functions.ts` — schema + new list fns.
-- `src/lib/companies.functions.ts` — reseller listing/toggle.
-- `src/components/prospects/EditCompanyDialog.tsx` — "Is reseller" toggle.
-- `src/routes/_authenticated/app.leads.tsx` — tabs, reseller grouping, form fields.
-- `src/routes/_authenticated/app.leads.$id.tsx` — reseller fields on edit.
-- New `src/routes/_authenticated/app.leads.reseller.$resellerId.tsx`.
-
-### Open questions
-
-1. For a reseller lead, should `company_id` (end-user company) be auto-created as a lightweight company record from `end_user_project`, or kept purely as free-text on the lead? Free-text is simpler; auto-creating end-user companies enables linking them to prospects later. **Default: free-text only for v1.**
-2. Should we offer a "Convert existing lead → reseller" action on current cards so you can retro-tag Khadija/Noman? **Default: yes, via the edit form checkbox.**
+### Confirm before I build
+1. WON colour: emerald/green pill (matches WhatsApp green family) — OK?
+2. "Create Prospect" should copy company name, domain, phone, mobile, email, contact_person, country from the lead. Anything else (pipeline value, notes)?
