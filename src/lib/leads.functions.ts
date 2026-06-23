@@ -207,6 +207,68 @@ export const promoteToLead = createServerFn({ method: "POST" })
     return { id: row.id, created: true };
   });
 
+// Create a Prospect (companies row) from an existing Lead, copying contact details.
+// Returns the prospect company id. If a matching company already exists (by leads.company_id,
+// by domain, or by normalized name), returns it instead of creating a duplicate.
+export const createProspectFromLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }): Promise<{ companyId: string; created: boolean }> => {
+    const { data: lead, error: lErr } = await context.supabase
+      .from("leads")
+      .select(
+        "id, company_id, contact_person, contact_email, whatsapp, phone, company_name, website",
+      )
+      .eq("id", data.leadId)
+      .single();
+    if (lErr) throw new Error(lErr.message);
+    if (lead.company_id) return { companyId: lead.company_id, created: false };
+
+    const normalizeName = (n: string | null | undefined) =>
+      (n ?? "").trim().toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+    const normalizeDomain = (d: string | null | undefined) =>
+      (d ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].trim();
+
+    const targetDomain = normalizeDomain(lead.website);
+    const targetName = normalizeName(lead.company_name);
+
+    // Search for existing company by domain or name
+    if (targetDomain || targetName) {
+      const { data: existing } = await context.supabase
+        .from("companies")
+        .select("id, name, domain")
+        .limit(1000);
+      const match = (existing ?? []).find((c) => {
+        const cd = normalizeDomain(c.domain);
+        const cn = normalizeName(c.name);
+        return (targetDomain && cd === targetDomain) || (targetName && cn === targetName);
+      });
+      if (match) {
+        await context.supabase.from("leads").update({ company_id: match.id }).eq("id", data.leadId);
+        return { companyId: match.id, created: false };
+      }
+    }
+
+    const name = (lead.company_name ?? lead.contact_person ?? "Untitled Company").slice(0, 200);
+    const { data: row, error } = await context.supabase
+      .from("companies")
+      .insert({
+        user_id: context.userId,
+        name,
+        domain: targetDomain || null,
+        contact_person: lead.contact_person,
+        email: lead.contact_email,
+        phone: lead.phone ?? lead.whatsapp ?? null,
+        mobile: lead.whatsapp ?? null,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await context.supabase.from("leads").update({ company_id: row.id }).eq("id", data.leadId);
+    return { companyId: row.id, created: true };
+  });
+
 const stringTagArray = z.array(z.string().trim().min(1).max(80)).max(50);
 
 const patchSchema = z
