@@ -812,7 +812,7 @@ function QuickAddLeadDialog({
         }
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New WhatsApp Lead</DialogTitle>
         </DialogHeader>
