@@ -18,7 +18,7 @@ export type HunterContact = {
 };
 
 export type EmailStatus = "valid" | "risky" | "invalid" | "unknown";
-export type LeadStatus = "hot" | "warm" | "cold" | "frozen" | "dead";
+export type LeadStatus = "hot" | "warm" | "cold" | "frozen" | "dead" | "won";
 
 // ---------- Hunter API ----------
 

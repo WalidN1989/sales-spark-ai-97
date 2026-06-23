@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   Target,
+  Building2,
 } from "lucide-react";
 import {
   listInquiriesForLead,
@@ -40,6 +41,7 @@ import {
   registerLeadDocument,
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
+  createProspectFromLead,
 } from "@/lib/leads.functions";
 import { listResellerCompanies } from "@/lib/companies.functions";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,6 +102,7 @@ function LeadDetail() {
   const setStatusFn = useServerFn(setLeadStatusManual);
   const clearOverrideFn = useServerFn(clearLeadStatusOverride);
   const verifyFn = useServerFn(hunterVerifyEmail);
+  const createProspectFn = useServerFn(createProspectFromLead);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
@@ -210,6 +213,16 @@ function LeadDetail() {
       qc.invalidateQueries({ queryKey: ["lead-activities", id] });
       qc.invalidateQueries({ queryKey: ["leads"] });
       toast.success(`Email ${r.email_status}${r.email_score != null ? ` · ${r.email_score}` : ""}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const goToProspect = useMutation({
+    mutationFn: () => createProspectFn({ data: { leadId: id } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      toast.success(r.created ? "Prospect created" : "Opening existing prospect");
+      navigate({ to: "/app/prospects/$id", params: { id: r.companyId } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -377,6 +390,16 @@ function LeadDetail() {
                   </a>
                 </Button>
               )}
+              <button
+                type="button"
+                onClick={() => goToProspect.mutate()}
+                disabled={goToProspect.isPending}
+                title={l.company_id ? "Open prospect" : "Create prospect from this lead"}
+                aria-label={l.company_id ? "Open prospect" : "Create prospect from this lead"}
+                className="grid h-9 w-9 place-items-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+              >
+                <Building2 className="h-4 w-4" />
+              </button>
               {wa_link && (
                 <Button asChild className="bg-[#25D366] text-white hover:bg-[#1ebc59]">
                   <a href={wa_link} target="_blank" rel="noopener noreferrer">
@@ -595,12 +618,7 @@ function LeadDetail() {
           </CardContent>
         </Card>
 
-        {/* Activity log */}
-        <ActivityLogCard leadId={id} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Expertise */}
+        {/* Expertise & focus (top-right, fills viewport gap) */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -641,10 +659,16 @@ function LeadDetail() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Activity log (moved below the fold) */}
+        <ActivityLogCard leadId={id} />
 
         {/* Documents */}
         <DocumentsCard leadId={id} />
       </div>
+
 
       {/* Inquiries */}
       <InquiriesCard leadId={id} />
