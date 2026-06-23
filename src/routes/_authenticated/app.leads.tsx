@@ -294,7 +294,7 @@ function LeadsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 w-fit">
-        {(["all", "resellers", "direct"] as const).map((t) => {
+        {(["direct", "resellers", "all"] as const).map((t) => {
           const label = t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : "Direct";
           const count =
             t === "all"
