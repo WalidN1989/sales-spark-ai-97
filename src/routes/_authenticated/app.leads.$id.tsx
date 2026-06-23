@@ -682,8 +682,8 @@ function LeadDetail() {
       <aside className="hidden lg:block">
         <div className="sticky top-4 h-[calc(100vh-2rem)]">
           <EntityNotesRail
-            entityType={l.company_id ? "prospect" : "lead"}
-            entityId={l.company_id ?? id}
+            entityType="lead"
+            entityId={id}
             title="Notes"
           />
         </div>
