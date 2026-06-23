@@ -618,12 +618,7 @@ function LeadDetail() {
           </CardContent>
         </Card>
 
-        {/* Activity log */}
-        <ActivityLogCard leadId={id} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Expertise */}
+        {/* Expertise & focus (top-right, fills viewport gap) */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -664,10 +659,16 @@ function LeadDetail() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Activity log (moved below the fold) */}
+        <ActivityLogCard leadId={id} />
 
         {/* Documents */}
         <DocumentsCard leadId={id} />
       </div>
+
 
       {/* Inquiries */}
       <InquiriesCard leadId={id} />
