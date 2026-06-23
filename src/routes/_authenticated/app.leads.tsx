@@ -930,44 +930,48 @@ function QuickAddLeadDialog({
             </div>
           </div>
 
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Product requested {tag("product")}
-            </Label>
-            <Input
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-              maxLength={500}
-              placeholder="What is the customer asking about?"
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Product requested {tag("product")}
+              </Label>
+              <Input
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                maxLength={500}
+                placeholder="What is the customer asking about?"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Email (optional) {tag("email")}
+              </Label>
+              <Input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={200}
+                type="email"
+                placeholder="example@domain.com"
+              />
+            </div>
           </div>
 
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Email (optional) {tag("email")}
-            </Label>
-            <Input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              maxLength={200}
-              type="email"
-              placeholder="example@domain.com"
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Pipeline value (AED)
+              </Label>
+              <Input
+                value={pipelineValue}
+                onChange={(e) => setPipelineValue(e.target.value)}
+                type="number"
+                min="0"
+                inputMode="decimal"
+                placeholder="0"
+              />
+            </div>
           </div>
 
-          <div>
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Pipeline value (AED)
-            </Label>
-            <Input
-              value={pipelineValue}
-              onChange={(e) => setPipelineValue(e.target.value)}
-              type="number"
-              min="0"
-              inputMode="decimal"
-              placeholder="0"
-            />
-          </div>
 
           <div className="rounded-lg border bg-amber-50/40 dark:bg-amber-950/10 p-3 space-y-3">
             <label className="flex items-center gap-2 cursor-pointer">
