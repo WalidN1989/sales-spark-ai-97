@@ -390,6 +390,16 @@ function LeadDetail() {
                   </a>
                 </Button>
               )}
+              <button
+                type="button"
+                onClick={() => goToProspect.mutate()}
+                disabled={goToProspect.isPending}
+                title={l.company_id ? "Open prospect" : "Create prospect from this lead"}
+                aria-label={l.company_id ? "Open prospect" : "Create prospect from this lead"}
+                className="grid h-9 w-9 place-items-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+              >
+                <Building2 className="h-4 w-4" />
+              </button>
               {wa_link && (
                 <Button asChild className="bg-[#25D366] text-white hover:bg-[#1ebc59]">
                   <a href={wa_link} target="_blank" rel="noopener noreferrer">
