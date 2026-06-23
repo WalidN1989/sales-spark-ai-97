@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead"]);
+const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
 const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
