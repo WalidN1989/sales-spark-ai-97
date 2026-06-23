@@ -217,6 +217,16 @@ function LeadDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const goToProspect = useMutation({
+    mutationFn: () => createProspectFn({ data: { leadId: id } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      toast.success(r.created ? "Prospect created" : "Opening existing prospect");
+      navigate({ to: "/app/prospects/$id", params: { id: r.companyId } });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
   if (!lead) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
