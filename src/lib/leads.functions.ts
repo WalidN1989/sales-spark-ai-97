@@ -66,7 +66,26 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
         .eq("company_id", raw)
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
-      return rows ?? [];
+      if ((rows ?? []).length > 0) return rows ?? [];
+      // Fallback: prospect company exists but no leads linked by company_id.
+      // Find leads whose website/company_name matches the company's domain/name.
+      const { data: company } = await context.supabase
+        .from("companies")
+        .select("name, domain")
+        .eq("id", raw)
+        .maybeSingle();
+      if (!company) return [];
+      const { data: all } = await context.supabase
+        .from("leads")
+        .select(LEAD_SELECT)
+        .order("created_at", { ascending: false });
+      const targetDomain = normalizeDomain(company.domain);
+      const targetName = normalizeName(company.name);
+      return (all ?? []).filter((l) => {
+        const ld = normalizeDomain(l.website ?? l.companies?.domain);
+        const ln = normalizeName(l.company_name ?? l.companies?.name);
+        return (targetDomain && ld === targetDomain) || (targetName && ln === targetName);
+      });
     }
     if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) {
       const { data: rows, error } = await context.supabase
