@@ -41,6 +41,7 @@ import {
   registerLeadDocument,
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
+  createProspectFromLead,
 } from "@/lib/leads.functions";
 import { listResellerCompanies } from "@/lib/companies.functions";
 import { Checkbox } from "@/components/ui/checkbox";
