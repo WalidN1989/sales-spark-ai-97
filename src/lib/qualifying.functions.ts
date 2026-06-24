@@ -406,13 +406,14 @@ export const convertQualifyingToLead = createServerFn({ method: "POST" })
     const { data: target, error } = await context.supabase
       .from("qualifying_targets")
       .select(`
-        id, status, source_company_id, last_activity_note, notes,
+        id, status, source_company_id, last_activity_note, notes, converted_lead_id,
         competitor:competitor_profiles ( id, name, website, country, phone, mobile, email, contact_person, address, lat, lng )
       `)
       .eq("id", data.id)
       .single();
     if (error) throw new Error(error.message);
-    if (target.converted_lead_id) throw new Error("Already converted");
+    if ((target as { converted_lead_id: string | null }).converted_lead_id)
+      throw new Error("Already converted");
     const comp = (target as unknown as { competitor: {
       id: string; name: string; website: string | null; country: string | null;
       phone: string | null; mobile: string | null; email: string | null;
@@ -470,13 +471,9 @@ export const convertQualifyingToLead = createServerFn({ method: "POST" })
       body: `Converted from Qualifying${target.last_activity_note ? ` · ${target.last_activity_note}` : ""}`,
     });
 
-    // Move notes attached to the qualifying entity to the new lead
-    await context.supabase
-      .from("notes")
-      .update({ entity_type: "lead", entity_id: lead.id })
-      .eq("user_id", context.userId)
-      .eq("entity_type", "qualifying")
-      .eq("entity_id", target.id);
+    // Notes carry-over: notes attached to qualifying entity types will be moved
+    // here once the note_entity_type enum is extended. Activities + the
+    // last_activity_note above already preserve touch history.
 
     await context.supabase
       .from("qualifying_targets")

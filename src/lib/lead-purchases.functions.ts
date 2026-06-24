@@ -57,7 +57,9 @@ export const upsertLeadPurchase = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const payload = { ...data, user_id: context.userId };
     if (data.id) {
-      const { id, ...patch } = payload;
+      const id = data.id;
+      const { id: _omit, ...patch } = payload;
+      void _omit;
       const { data: row, error } = await context.supabase
         .from("lead_purchases")
         .update(patch)
