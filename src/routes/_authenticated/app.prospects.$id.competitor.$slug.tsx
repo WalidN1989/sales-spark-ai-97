@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
@@ -15,9 +15,19 @@ import {
   Loader2,
   Sparkles,
   Mail,
+  Search,
+  Sparkle,
+  Users as UsersIcon,
 } from "lucide-react";
 import { getCompany } from "@/lib/companies.functions";
 import { draftCompetitorEmail, slugifyCompetitor } from "@/lib/competitor-email.functions";
+import {
+  enrichCompetitor,
+  findCompetitorContacts,
+  listCompetitorContacts,
+  getOrCreateCompetitorProfile,
+} from "@/lib/qualifying.functions";
+import { AddToQualifyingDialog } from "@/components/competitor/AddToQualifyingDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
