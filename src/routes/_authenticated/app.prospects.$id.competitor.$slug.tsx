@@ -197,10 +197,44 @@ function CompetitorPanel() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/prospects/$id", params: { id } })}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => enrich.mutate()}
+            disabled={enrich.isPending || !competitor.website}
+            title={!competitor.website ? "No website to enrich" : "Scan website via Firecrawl"}
+          >
+            {enrich.isPending ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkle className="mr-1 h-4 w-4" />
+            )}
+            Enrich
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => findContacts.mutate()}
+            disabled={findContacts.isPending}
+          >
+            {findContacts.isPending ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-1 h-4 w-4" />
+            )}
+            Find Contacts
+          </Button>
+          <AddToQualifyingDialog
+            sourceCompanyId={id}
+            competitorSlug={slug}
+            competitorName={competitor.name}
+          />
+        </div>
       </div>
 
       <Card>
