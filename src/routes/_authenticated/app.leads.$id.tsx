@@ -80,6 +80,8 @@ import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -196,6 +198,25 @@ function LeadDetail() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Mandatory purchase capture when flipping to WON or HOT
+  const listPurchasesFn = useServerFn(listLeadPurchases);
+  const [purchaseDialog, setPurchaseDialog] = useState<null | {
+    trigger: "won" | "hot" | "manual";
+    pendingStatus?: LeadStatus;
+  }>(null);
+
+  const requestStatusChange = async (next: LeadStatus) => {
+    if (next === "won" || next === "hot") {
+      const existing = await listPurchasesFn({ data: { leadId: id } });
+      if (!existing || existing.length === 0) {
+        setPurchaseDialog({ trigger: next as "won" | "hot", pendingStatus: next });
+        return;
+      }
+    }
+    setStatusManual.mutate(next);
+  };
+
 
   const clearOverride = useMutation({
     mutationFn: () => clearOverrideFn({ data: { id } }),
@@ -427,7 +448,7 @@ function LeadDetail() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setStatusManual.mutate(s)}
+                  onClick={() => requestStatusChange(s)}
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
                     l.status === s
@@ -688,6 +709,23 @@ function LeadDetail() {
           />
         </div>
       </aside>
+
+      {purchaseDialog && (
+        <LeadPurchaseDialog
+          open={!!purchaseDialog}
+          onOpenChange={(v) => {
+            if (!v) setPurchaseDialog(null);
+          }}
+          leadId={id}
+          trigger={purchaseDialog.trigger}
+          onSaved={() => {
+            if (purchaseDialog.pendingStatus) {
+              setStatusManual.mutate(purchaseDialog.pendingStatus);
+            }
+            setPurchaseDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }

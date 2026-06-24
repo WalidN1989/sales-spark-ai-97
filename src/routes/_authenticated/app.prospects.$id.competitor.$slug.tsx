@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
@@ -15,9 +15,19 @@ import {
   Loader2,
   Sparkles,
   Mail,
+  Search,
+  Sparkle,
+  Users as UsersIcon,
 } from "lucide-react";
 import { getCompany } from "@/lib/companies.functions";
 import { draftCompetitorEmail, slugifyCompetitor } from "@/lib/competitor-email.functions";
+import {
+  enrichCompetitor,
+  findCompetitorContacts,
+  listCompetitorContacts,
+  getOrCreateCompetitorProfile,
+} from "@/lib/qualifying.functions";
+import { AddToQualifyingDialog } from "@/components/competitor/AddToQualifyingDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,12 +70,48 @@ function normalizeUrl(u: string) {
 function CompetitorPanel() {
   const { id, slug } = Route.useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const getCo = useServerFn(getCompany);
   const draft = useServerFn(draftCompetitorEmail);
+  const ensureProfileFn = useServerFn(getOrCreateCompetitorProfile);
+  const enrichFn = useServerFn(enrichCompetitor);
+  const findContactsFn = useServerFn(findCompetitorContacts);
+  const listContactsFn = useServerFn(listCompetitorContacts);
 
   const { data, isLoading } = useQuery({
     queryKey: ["company", id],
     queryFn: () => getCo({ data: { id } }),
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ["competitor-profile", id, slug],
+    queryFn: () => ensureProfileFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+  });
+
+  const { data: contacts = [] } = useQuery({
+    queryKey: ["competitor-contacts", id, profile?.id],
+    queryFn: () =>
+      listContactsFn({ data: { sourceCompanyId: id, competitorId: profile!.id } }),
+    enabled: !!profile?.id,
+  });
+
+  const enrich = useMutation({
+    mutationFn: () => enrichFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["competitor-profile", id, slug] });
+      toast.success("Enriched via Firecrawl");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const findContacts = useMutation({
+    mutationFn: () =>
+      findContactsFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["competitor-contacts", id, profile?.id] });
+      toast.success(`Found ${r.count} contact${r.count === 1 ? "" : "s"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
@@ -151,10 +197,44 @@ function CompetitorPanel() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/prospects/$id", params: { id } })}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => enrich.mutate()}
+            disabled={enrich.isPending || !competitor.website}
+            title={!competitor.website ? "No website to enrich" : "Scan website via Firecrawl"}
+          >
+            {enrich.isPending ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkle className="mr-1 h-4 w-4" />
+            )}
+            Enrich
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => findContacts.mutate()}
+            disabled={findContacts.isPending}
+          >
+            {findContacts.isPending ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-1 h-4 w-4" />
+            )}
+            Find Contacts
+          </Button>
+          <AddToQualifyingDialog
+            sourceCompanyId={id}
+            competitorSlug={slug}
+            competitorName={competitor.name}
+          />
+        </div>
       </div>
 
       <Card>
@@ -195,7 +275,57 @@ function CompetitorPanel() {
         </CardContent>
       </Card>
 
+      {contacts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <UsersIcon className="h-4 w-4" /> Contacts ({contacts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-y bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Title</th>
+                    <th className="p-2 text-left">Email</th>
+                    <th className="p-2 text-left">Conf.</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts.map((c) => (
+                    <tr key={c.id} className="border-t">
+                      <td className="p-2 font-medium">
+                        {[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}
+                      </td>
+                      <td className="p-2 text-xs">{c.position ?? "—"}</td>
+                      <td className="p-2 text-xs">{c.email ?? "—"}</td>
+                      <td className="p-2 text-xs">{c.confidence ?? "—"}</td>
+                      <td className="p-2">
+                        {c.linkedin_url && (
+                          <a
+                            href={c.linkedin_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Linkedin className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Profile</CardTitle>
