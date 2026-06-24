@@ -275,7 +275,57 @@ function CompetitorPanel() {
         </CardContent>
       </Card>
 
+      {contacts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <UsersIcon className="h-4 w-4" /> Contacts ({contacts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-y bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="p-2 text-left">Name</th>
+                    <th className="p-2 text-left">Title</th>
+                    <th className="p-2 text-left">Email</th>
+                    <th className="p-2 text-left">Conf.</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contacts.map((c) => (
+                    <tr key={c.id} className="border-t">
+                      <td className="p-2 font-medium">
+                        {[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}
+                      </td>
+                      <td className="p-2 text-xs">{c.position ?? "—"}</td>
+                      <td className="p-2 text-xs">{c.email ?? "—"}</td>
+                      <td className="p-2 text-xs">{c.confidence ?? "—"}</td>
+                      <td className="p-2">
+                        {c.linkedin_url && (
+                          <a
+                            href={c.linkedin_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Linkedin className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Profile</CardTitle>
