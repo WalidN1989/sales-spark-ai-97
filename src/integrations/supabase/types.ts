@@ -142,6 +142,132 @@ export type Database = {
         }
         Relationships: []
       }
+      competitor_contacts: {
+        Row: {
+          competitor_id: string
+          confidence: number | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          linkedin_url: string | null
+          phone: string | null
+          position: string | null
+          source_company_id: string | null
+          user_id: string
+        }
+        Insert: {
+          competitor_id: string
+          confidence?: number | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          phone?: string | null
+          position?: string | null
+          source_company_id?: string | null
+          user_id: string
+        }
+        Update: {
+          competitor_id?: string
+          confidence?: number | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          linkedin_url?: string | null
+          phone?: string | null
+          position?: string | null
+          source_company_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_contacts_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_contacts_source_company_id_fkey"
+            columns: ["source_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_profiles: {
+        Row: {
+          address: string | null
+          contact_person: string | null
+          country: string | null
+          created_at: string
+          description: string | null
+          domain_norm: string
+          email: string | null
+          id: string
+          last_enriched_at: string | null
+          lat: number | null
+          lng: number | null
+          mobile: string | null
+          name: string
+          phone: string | null
+          research_data: Json | null
+          socials: Json
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          domain_norm: string
+          email?: string | null
+          id?: string
+          last_enriched_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          mobile?: string | null
+          name: string
+          phone?: string | null
+          research_data?: Json | null
+          socials?: Json
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          domain_norm?: string
+          email?: string | null
+          id?: string
+          last_enriched_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          mobile?: string | null
+          name?: string
+          phone?: string | null
+          research_data?: Json | null
+          socials?: Json
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       inquiries: {
         Row: {
           created_at: string
@@ -351,6 +477,75 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_purchases: {
+        Row: {
+          brand: string | null
+          created_at: string
+          currency: string | null
+          datasheet_path: string | null
+          description: string | null
+          id: string
+          image_path: string | null
+          lead_id: string
+          model_name: string | null
+          model_no: string | null
+          price_cents: number | null
+          product_id: string | null
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          currency?: string | null
+          datasheet_path?: string | null
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          lead_id: string
+          model_name?: string | null
+          model_no?: string | null
+          price_cents?: number | null
+          product_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          currency?: string | null
+          datasheet_path?: string | null
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          lead_id?: string
+          model_name?: string | null
+          model_no?: string | null
+          price_cents?: number | null
+          product_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_purchases_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -788,6 +983,80 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
         }
         Relationships: []
+      }
+      qualifying_targets: {
+        Row: {
+          competitor_id: string
+          converted_lead_id: string | null
+          created_at: string
+          id: string
+          last_activity_at: string | null
+          last_activity_note: string | null
+          notes: string | null
+          source_company_id: string | null
+          source_lead_purchase_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competitor_id: string
+          converted_lead_id?: string | null
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_activity_note?: string | null
+          notes?: string | null
+          source_company_id?: string | null
+          source_lead_purchase_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competitor_id?: string
+          converted_lead_id?: string | null
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_activity_note?: string | null
+          notes?: string | null
+          source_company_id?: string | null
+          source_lead_purchase_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualifying_targets_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualifying_targets_converted_lead_id_fkey"
+            columns: ["converted_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualifying_targets_source_company_id_fkey"
+            columns: ["source_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualifying_targets_source_lead_purchase_id_fkey"
+            columns: ["source_lead_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "lead_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       responses: {
         Row: {
