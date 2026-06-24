@@ -709,6 +709,23 @@ function LeadDetail() {
           />
         </div>
       </aside>
+
+      {purchaseDialog && (
+        <LeadPurchaseDialog
+          open={!!purchaseDialog}
+          onOpenChange={(v) => {
+            if (!v) setPurchaseDialog(null);
+          }}
+          leadId={id}
+          trigger={purchaseDialog.trigger}
+          onSaved={() => {
+            if (purchaseDialog.pendingStatus) {
+              setStatusManual.mutate(purchaseDialog.pendingStatus);
+            }
+            setPurchaseDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }
