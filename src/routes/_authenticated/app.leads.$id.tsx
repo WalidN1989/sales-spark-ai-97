@@ -80,6 +80,8 @@ import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
+import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
