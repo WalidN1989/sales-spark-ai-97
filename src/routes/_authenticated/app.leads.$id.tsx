@@ -448,7 +448,7 @@ function LeadDetail() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setStatusManual.mutate(s)}
+                  onClick={() => requestStatusChange(s)}
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
                     l.status === s
