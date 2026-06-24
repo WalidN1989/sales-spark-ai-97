@@ -70,12 +70,48 @@ function normalizeUrl(u: string) {
 function CompetitorPanel() {
   const { id, slug } = Route.useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const getCo = useServerFn(getCompany);
   const draft = useServerFn(draftCompetitorEmail);
+  const ensureProfileFn = useServerFn(getOrCreateCompetitorProfile);
+  const enrichFn = useServerFn(enrichCompetitor);
+  const findContactsFn = useServerFn(findCompetitorContacts);
+  const listContactsFn = useServerFn(listCompetitorContacts);
 
   const { data, isLoading } = useQuery({
     queryKey: ["company", id],
     queryFn: () => getCo({ data: { id } }),
+  });
+
+  const { data: profile } = useQuery({
+    queryKey: ["competitor-profile", id, slug],
+    queryFn: () => ensureProfileFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+  });
+
+  const { data: contacts = [] } = useQuery({
+    queryKey: ["competitor-contacts", id, profile?.id],
+    queryFn: () =>
+      listContactsFn({ data: { sourceCompanyId: id, competitorId: profile!.id } }),
+    enabled: !!profile?.id,
+  });
+
+  const enrich = useMutation({
+    mutationFn: () => enrichFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["competitor-profile", id, slug] });
+      toast.success("Enriched via Firecrawl");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const findContacts = useMutation({
+    mutationFn: () =>
+      findContactsFn({ data: { sourceCompanyId: id, competitorSlug: slug } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["competitor-contacts", id, profile?.id] });
+      toast.success(`Found ${r.count} contact${r.count === 1 ? "" : "s"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
