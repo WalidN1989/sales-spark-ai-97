@@ -82,6 +82,7 @@ function GroupView() {
   const listFn = useServerFn(listLeadsByCompany);
   const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
   const getCompanyFn = useServerFn(getCompany);
+  const setStatusFn = useServerFn(setCompanyStatus);
   const addContactFn = useServerFn(addContactToCompany);
   const [addOpen, setAddOpen] = useState(false);
 
