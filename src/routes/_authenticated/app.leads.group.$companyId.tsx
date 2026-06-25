@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Mail,
@@ -13,15 +13,19 @@ import {
   ExternalLink,
   Copy,
   Building2,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
+import { listLeadsByCompany, resolveCompanyIdByGroupKey, addContactToCompany } from "@/lib/leads.functions";
 import { setCompanyStatus, getCompany } from "@/lib/companies.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CompanyStatusPill } from "@/routes/_authenticated/app.prospects.$id";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   type LeadStatus,
   leadInitials,
