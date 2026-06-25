@@ -199,7 +199,9 @@ function LeadDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Mandatory purchase capture when flipping to WON or HOT
+  // Purchase capture — fires automatically on WON/HOT transition, and
+  // can also be opened manually via the "Record purchase" button so the
+  // dialog is always reachable even after the first save.
   const listPurchasesFn = useServerFn(listLeadPurchases);
   const [purchaseDialog, setPurchaseDialog] = useState<null | {
     trigger: "won" | "hot" | "manual";
@@ -207,12 +209,15 @@ function LeadDetail() {
   }>(null);
 
   const requestStatusChange = async (next: LeadStatus) => {
-    if (next === "won" || next === "hot") {
+    const current = (lead as { status?: LeadStatus } | undefined)?.status;
+    // Always prompt on a transition INTO won/hot (even when prior purchases
+    // exist) so the user can confirm/edit what was bought this time.
+    if ((next === "won" || next === "hot") && current !== next) {
       const existing = await listPurchasesFn({ data: { leadId: id } });
-      if (!existing || existing.length === 0) {
-        setPurchaseDialog({ trigger: next as "won" | "hot", pendingStatus: next });
-        return;
-      }
+      // Open the dialog every time — with existing rows pre-filled if any.
+      setPurchaseDialog({ trigger: next as "won" | "hot", pendingStatus: next });
+      void existing;
+      return;
     }
     setStatusManual.mutate(next);
   };
@@ -465,6 +470,16 @@ function LeadDetail() {
                 Score {l.lead_score} · {sb.label}
               </span>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setPurchaseDialog({ trigger: "manual" })}
+              title="Record / edit what this customer bought"
+            >
+              <Target className="mr-1 h-3.5 w-3.5" /> Record purchase
+            </Button>
             {l.lead_score_manual_override ? (
               <button
                 type="button"

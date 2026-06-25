@@ -564,6 +564,7 @@ export type Database = {
           end_user_project: string | null
           hunter_confidence: number | null
           id: string
+          is_primary: boolean
           job_title: string | null
           last_activity_at: string | null
           last_activity_kind: string | null
@@ -600,6 +601,7 @@ export type Database = {
           end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
+          is_primary?: boolean
           job_title?: string | null
           last_activity_at?: string | null
           last_activity_kind?: string | null
@@ -636,6 +638,7 @@ export type Database = {
           end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
+          is_primary?: boolean
           job_title?: string | null
           last_activity_at?: string | null
           last_activity_kind?: string | null
@@ -986,6 +989,9 @@ export type Database = {
       }
       qualifying_targets: {
         Row: {
+          cached_email_at: string | null
+          cached_email_body: string | null
+          cached_email_subject: string | null
           competitor_id: string
           converted_lead_id: string | null
           created_at: string
@@ -1000,6 +1006,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cached_email_at?: string | null
+          cached_email_body?: string | null
+          cached_email_subject?: string | null
           competitor_id: string
           converted_lead_id?: string | null
           created_at?: string
@@ -1014,6 +1023,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cached_email_at?: string | null
+          cached_email_body?: string | null
+          cached_email_subject?: string | null
           competitor_id?: string
           converted_lead_id?: string | null
           created_at?: string

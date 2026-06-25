@@ -324,95 +324,103 @@ function CompetitorPanel() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {competitor.description ?? "No description available."}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Outreach</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-end">
-              <Button onClick={handleDraft} disabled={drafting} size="sm">
-                {drafting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
+      {(() => {
+        const research = (profile as { research_data?: { summary?: string | null; markdown?: string | null; links?: string[] } | null } | undefined)?.research_data ?? null;
+        const lastEnriched = (profile as { last_enriched_at?: string | null } | undefined)?.last_enriched_at ?? null;
+        return (
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Profile</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {research?.summary ?? competitor.description ?? "No description available. Click Enrich to fetch from the website."}
+                </p>
+                {lastEnriched && (
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Enriched · {new Date(lastEnriched).toLocaleString()}
+                  </p>
                 )}
-                {email ? "Regenerate" : "Draft email"}
-              </Button>
-            </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Products &amp; services</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {research?.markdown ? (
+                  <div className="max-h-64 overflow-y-auto rounded border bg-muted/30 p-2 text-xs whitespace-pre-wrap">
+                    {research.markdown.slice(0, 2000)}
+                    {research.markdown.length > 2000 ? "…" : ""}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Click <strong>Enrich</strong> above to scan {competitor.website ?? "the website"} and extract product/service signals here.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
             {email ? (
-              <div className="space-y-2">
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-muted-foreground">Subject</label>
-                    <Button variant="ghost" size="sm" onClick={() => copy(email.subject)}>
-                      <Copy className="mr-1 h-3 w-3" /> Copy
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-base">Draft cold-outreach email</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">Subject</label>
+                      <Button variant="ghost" size="sm" onClick={() => copy(email.subject)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copy
+                      </Button>
+                    </div>
+                    <Input
+                      value={email.subject}
+                      onChange={(e) => setEmail({ ...email, subject: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">Body</label>
+                      <Button variant="ghost" size="sm" onClick={() => copy(email.body)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copy
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={email.body}
+                      onChange={(e) => setEmail({ ...email, body: e.target.value })}
+                      rows={10}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={handleDraft} disabled={drafting}>
+                      {drafting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      Regenerate
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={openMail}>
+                      <Mail className="mr-2 h-4 w-4" /> Open in mail
                     </Button>
                   </div>
-                  <Input
-                    value={email.subject}
-                    onChange={(e) => setEmail({ ...email, subject: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-muted-foreground">Body</label>
-                    <Button variant="ghost" size="sm" onClick={() => copy(email.body)}>
-                      <Copy className="mr-1 h-3 w-3" /> Copy
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={email.body}
-                    onChange={(e) => setEmail({ ...email, body: e.target.value })}
-                    rows={10}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" onClick={openMail}>
-                    <Mail className="mr-2 h-4 w-4" /> Open in mail client
-                  </Button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Generate a draft cold-outreach email from your company to {competitor.name}.
-              </p>
+              <Card className="md:col-span-2">
+                <CardContent className="flex items-center justify-between gap-3 py-4">
+                  <p className="text-xs text-muted-foreground">
+                    Need a starter pitch? Generate a draft using your prospect&apos;s context.
+                  </p>
+                  <Button onClick={handleDraft} disabled={drafting} size="sm">
+                    {drafting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Draft email
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="opacity-70">
-          <CardHeader>
-            <CardTitle className="text-base">Products & services</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Coming soon.</p>
-          </CardContent>
-        </Card>
-
-        <Card className="opacity-70">
-          <CardHeader>
-            <CardTitle className="text-base">Brand keywords (SEMrush)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Search volume, related keywords and SERP analysis will land here.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

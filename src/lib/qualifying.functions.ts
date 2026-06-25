@@ -346,13 +346,42 @@ export const listQualifyingTargets = createServerFn({ method: "GET" })
       .select(`
         id, status, last_activity_at, last_activity_note, created_at,
         source_company_id, competitor_id, converted_lead_id, source_lead_purchase_id,
-        competitor:competitor_profiles ( id, name, website, country, phone, email ),
+        cached_email_subject, cached_email_body, cached_email_at,
+        competitor:competitor_profiles ( id, name, website, country, phone, email, domain_norm ),
         source:companies!qualifying_targets_source_company_id_fkey ( id, name ),
         purchase:lead_purchases ( id, brand, model_no, model_name )
       `)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    // Attach all known competitor_contacts emails for each target
+    const rows = data ?? [];
+    if (rows.length === 0) return rows;
+    const ids = rows.map((r: { id: string }) => r.id);
+    const { data: contacts } = await context.supabase
+      .from("competitor_contacts")
+      .select("source_company_id, competitor_id, email, first_name, last_name, position")
+      .in(
+        "competitor_id",
+        Array.from(new Set(rows.map((r: { competitor_id: string }) => r.competitor_id))),
+      );
+    const byKey = new Map<string, Array<{ email: string; name: string | null; position: string | null }>>();
+    for (const c of contacts ?? []) {
+      if (!c.email) continue;
+      const k = `${c.source_company_id}::${c.competitor_id}`;
+      const list = byKey.get(k) ?? [];
+      list.push({
+        email: c.email as string,
+        name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null,
+        position: c.position ?? null,
+      });
+      byKey.set(k, list);
+    }
+    void ids;
+    return rows.map((r) => ({
+      ...r,
+      contact_emails:
+        byKey.get(`${(r as { source_company_id: string }).source_company_id}::${(r as { competitor_id: string }).competitor_id}`) ?? [],
+    }));
   });
 
 export const updateQualifyingStatus = createServerFn({ method: "POST" })
@@ -487,8 +516,27 @@ export const convertQualifyingToLead = createServerFn({ method: "POST" })
 
 export const draftQualifyingEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), force: z.boolean().optional() }).parse(d),
+  )
   .handler(async ({ context, data }) => {
+    // 1) Return cached draft instantly unless caller forced a regenerate.
+    if (!data.force) {
+      const { data: cached } = await context.supabase
+        .from("qualifying_targets")
+        .select("cached_email_subject, cached_email_body, cached_email_at")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (cached?.cached_email_subject && cached?.cached_email_body) {
+        return {
+          subject: cached.cached_email_subject as string,
+          body: cached.cached_email_body as string,
+          cached: true,
+          cachedAt: cached.cached_email_at as string | null,
+        };
+      }
+    }
+
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -572,5 +620,18 @@ GOAL: Open a conversation; position the product as proven in their segment.`;
     };
     const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI did not return an email");
-    return JSON.parse(args) as { subject: string; body: string };
+    const parsed = JSON.parse(args) as { subject: string; body: string };
+
+    // Cache so future opens are instant + free.
+    const cachedAt = new Date().toISOString();
+    await context.supabase
+      .from("qualifying_targets")
+      .update({
+        cached_email_subject: parsed.subject,
+        cached_email_body: parsed.body,
+        cached_email_at: cachedAt,
+      })
+      .eq("id", data.id);
+
+    return { ...parsed, cached: false, cachedAt };
   });
