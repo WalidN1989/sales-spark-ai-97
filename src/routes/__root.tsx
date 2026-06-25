@@ -60,6 +60,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "deploy-pipeline-check", content: "local-2026-06-25" },
       { title: "Sales Insights" },
       { name: "description", content: "AI-powered B2B sales intelligence and CRM for field sales teams." },
       { property: "og:title", content: "Sales Insights" },
