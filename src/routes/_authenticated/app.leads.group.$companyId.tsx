@@ -456,3 +456,130 @@ function LeadPanel({
     </Card>
   );
 }
+
+// ---------- Add Contact dialog ----------
+
+type AddContactInput = {
+  companyId: string;
+  contact_person: string;
+  contact_email: string | null;
+  whatsapp: string | null;
+  job_title: string | null;
+  department: string | null;
+};
+
+function AddContactDialog({
+  open,
+  onClose,
+  companyId,
+  onCreated,
+  addContactFn,
+}: {
+  open: boolean;
+  onClose: () => void;
+  companyId: string;
+  onCreated: (id: string) => void;
+  addContactFn: (args: { data: AddContactInput }) => Promise<{ id: string }>;
+}) {
+  const [name, setName] = useState("");
+  const [emailAddr, setEmailAddr] = useState("");
+  const [wa, setWa] = useState("");
+  const [title, setTitle] = useState("");
+  const [dept, setDept] = useState("");
+
+  const reset = () => {
+    setName("");
+    setEmailAddr("");
+    setWa("");
+    setTitle("");
+    setDept("");
+  };
+
+  const create = useMutation({
+    mutationFn: () =>
+      addContactFn({
+        data: {
+          companyId,
+          contact_person: name.trim(),
+          contact_email: emailAddr.trim() || null,
+          whatsapp: wa.trim() || null,
+          job_title: title.trim() || null,
+          department: dept.trim() || null,
+        },
+      }),
+    onSuccess: (r: { id: string }) => {
+      reset();
+      onCreated(r.id);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add contact to this company</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Contact name *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
+            </div>
+            <div>
+              <Label>Job title</Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={200}
+                placeholder="e.g. Procurement Manager"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                value={emailAddr}
+                onChange={(e) => setEmailAddr(e.target.value)}
+                maxLength={200}
+                type="email"
+              />
+            </div>
+            <div>
+              <Label>WhatsApp / phone</Label>
+              <Input
+                value={wa}
+                onChange={(e) => setWa(e.target.value)}
+                maxLength={30}
+                placeholder="+9715…"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Department</Label>
+              <Input
+                value={dept}
+                onChange={(e) => setDept(e.target.value)}
+                maxLength={120}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>
+            {create.isPending ? "Adding…" : "Add contact"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
