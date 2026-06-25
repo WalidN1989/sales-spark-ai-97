@@ -82,7 +82,8 @@ function GroupView() {
   const listFn = useServerFn(listLeadsByCompany);
   const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
   const getCompanyFn = useServerFn(getCompany);
-  const setStatusFn = useServerFn(setCompanyStatus);
+  const addContactFn = useServerFn(addContactToCompany);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["leads-group", companyId],
@@ -192,6 +193,16 @@ function GroupView() {
             )}
           </nav>
           <div className="flex flex-wrap items-center gap-2">
+            {resolvedCompanyId && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setAddOpen(true)}
+                title="Add another contact under this company"
+              >
+                <UserPlus className="mr-1 h-4 w-4" /> Add contact
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -214,6 +225,22 @@ function GroupView() {
             </Button>
           </div>
         </div>
+
+        {resolvedCompanyId && (
+          <AddContactDialog
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            companyId={resolvedCompanyId}
+            onCreated={(newId) => {
+              setAddOpen(false);
+              qc.invalidateQueries({ queryKey: ["leads-group", companyId] });
+              qc.invalidateQueries({ queryKey: ["leads"] });
+              setLeft(newId);
+              toast.success("Contact added");
+            }}
+            addContactFn={addContactFn}
+          />
+        )}
 
         {/* Carousel of lead mini-cards */}
         <Carousel
