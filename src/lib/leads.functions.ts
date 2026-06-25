@@ -7,7 +7,7 @@ const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 const LEAD_SELECT =
-  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, lead_type, reseller_company_id, end_user_project, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
+  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, lead_type, reseller_company_id, end_user_project, is_primary, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -59,16 +59,20 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
         .split("/")[0]
         .trim();
 
+    // Primary contact (is_primary=true) first, then original creation order.
+    const ORDER_PRIMARY_FIRST = "is_primary.desc.nullslast,created_at.asc";
+
     if (uuidRe.test(raw)) {
+      // Match either by company_id OR prospect_id (Hunter imports use prospect_id).
       const { data: rows, error } = await context.supabase
         .from("leads")
         .select(LEAD_SELECT)
-        .eq("company_id", raw)
-        .order("created_at", { ascending: false });
+        .or(`company_id.eq.${raw},prospect_id.eq.${raw}`)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
       if (error) throw new Error(error.message);
       if ((rows ?? []).length > 0) return rows ?? [];
-      // Fallback: prospect company exists but no leads linked by company_id.
-      // Find leads whose website/company_name matches the company's domain/name.
+      // Fallback: prospect company exists but no leads linked by company_id/prospect_id.
       const { data: company } = await context.supabase
         .from("companies")
         .select("name, domain")
@@ -78,7 +82,8 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
       const { data: all } = await context.supabase
         .from("leads")
         .select(LEAD_SELECT)
-        .order("created_at", { ascending: false });
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
       const targetDomain = normalizeDomain(company.domain);
       const targetName = normalizeName(company.name);
       return (all ?? []).filter((l) => {
@@ -88,19 +93,23 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
       });
     }
     if (raw.startsWith("id:") && uuidRe.test(raw.slice(3))) {
+      const cid = raw.slice(3);
       const { data: rows, error } = await context.supabase
         .from("leads")
         .select(LEAD_SELECT)
-        .eq("company_id", raw.slice(3))
-        .order("created_at", { ascending: false });
+        .or(`company_id.eq.${cid},prospect_id.eq.${cid}`)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
       if (error) throw new Error(error.message);
       return rows ?? [];
     }
+    void ORDER_PRIMARY_FIRST;
 
     const { data: rows, error } = await context.supabase
       .from("leads")
       .select(LEAD_SELECT)
-      .order("created_at", { ascending: false });
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     const all = rows ?? [];
     if (raw.startsWith("domain:")) {
@@ -109,6 +118,67 @@ export const listLeadsByCompany = createServerFn({ method: "GET" })
     }
     const name = normalizeName(raw.startsWith("name:") ? raw.slice(5) : raw);
     return all.filter((l) => normalizeName(l.company_name ?? l.companies?.name) === name);
+  });
+
+// Add a new contact (lead row) under an existing company - allows multiple
+// Direct contacts per company now that the unique index has been dropped.
+export const addContactToCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        companyId: z.string().uuid(),
+        contact_person: z.string().trim().min(1).max(200),
+        contact_email: z
+          .string()
+          .trim()
+          .max(200)
+          .email()
+          .optional()
+          .nullable()
+          .or(z.literal("").transform(() => null)),
+        whatsapp: z
+          .string()
+          .trim()
+          .max(30)
+          .regex(/^[0-9+\-\s()]*$/, "Digits and + - ( ) only")
+          .optional()
+          .nullable()
+          .or(z.literal("").transform(() => null)),
+        job_title: z.string().trim().max(200).optional().nullable(),
+        department: z.string().trim().max(120).optional().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: company, error: cErr } = await context.supabase
+      .from("companies")
+      .select("id, name, domain")
+      .eq("id", data.companyId)
+      .single();
+    if (cErr) throw new Error(cErr.message);
+
+    const { data: row, error } = await context.supabase
+      .from("leads")
+      .insert({
+        user_id: context.userId,
+        company_id: data.companyId,
+        contact_person: data.contact_person,
+        contact_email: data.contact_email || null,
+        whatsapp: data.whatsapp || null,
+        phone: data.whatsapp || null,
+        job_title: data.job_title || null,
+        department: data.department || null,
+        company_name: company.name,
+        website: company.domain,
+        status: "warm",
+        is_primary: false,
+        source: "manual",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: row.id };
   });
 
 export const resolveCompanyIdByGroupKey = createServerFn({ method: "GET" })

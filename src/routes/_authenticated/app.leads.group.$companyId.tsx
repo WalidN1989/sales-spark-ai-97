@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Mail,
@@ -13,15 +13,19 @@ import {
   ExternalLink,
   Copy,
   Building2,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listLeadsByCompany, resolveCompanyIdByGroupKey } from "@/lib/leads.functions";
+import { listLeadsByCompany, resolveCompanyIdByGroupKey, addContactToCompany } from "@/lib/leads.functions";
 import { setCompanyStatus, getCompany } from "@/lib/companies.functions";
 import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CompanyStatusPill } from "@/routes/_authenticated/app.prospects.$id";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   type LeadStatus,
   leadInitials,
@@ -79,6 +83,8 @@ function GroupView() {
   const resolveFn = useServerFn(resolveCompanyIdByGroupKey);
   const getCompanyFn = useServerFn(getCompany);
   const setStatusFn = useServerFn(setCompanyStatus);
+  const addContactFn = useServerFn(addContactToCompany);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["leads-group", companyId],
@@ -188,6 +194,16 @@ function GroupView() {
             )}
           </nav>
           <div className="flex flex-wrap items-center gap-2">
+            {resolvedCompanyId && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setAddOpen(true)}
+                title="Add another contact under this company"
+              >
+                <UserPlus className="mr-1 h-4 w-4" /> Add contact
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -210,6 +226,22 @@ function GroupView() {
             </Button>
           </div>
         </div>
+
+        {resolvedCompanyId && (
+          <AddContactDialog
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            companyId={resolvedCompanyId}
+            onCreated={(newId) => {
+              setAddOpen(false);
+              qc.invalidateQueries({ queryKey: ["leads-group", companyId] });
+              qc.invalidateQueries({ queryKey: ["leads"] });
+              setLeft(newId);
+              toast.success("Contact added");
+            }}
+            addContactFn={addContactFn}
+          />
+        )}
 
         {/* Carousel of lead mini-cards */}
         <Carousel
@@ -422,5 +454,132 @@ function LeadPanel({
         {side === "left" ? "Primary" : "Comparison"}
       </div>
     </Card>
+  );
+}
+
+// ---------- Add Contact dialog ----------
+
+type AddContactInput = {
+  companyId: string;
+  contact_person: string;
+  contact_email: string | null;
+  whatsapp: string | null;
+  job_title: string | null;
+  department: string | null;
+};
+
+function AddContactDialog({
+  open,
+  onClose,
+  companyId,
+  onCreated,
+  addContactFn,
+}: {
+  open: boolean;
+  onClose: () => void;
+  companyId: string;
+  onCreated: (id: string) => void;
+  addContactFn: (args: { data: AddContactInput }) => Promise<{ id: string }>;
+}) {
+  const [name, setName] = useState("");
+  const [emailAddr, setEmailAddr] = useState("");
+  const [wa, setWa] = useState("");
+  const [title, setTitle] = useState("");
+  const [dept, setDept] = useState("");
+
+  const reset = () => {
+    setName("");
+    setEmailAddr("");
+    setWa("");
+    setTitle("");
+    setDept("");
+  };
+
+  const create = useMutation({
+    mutationFn: () =>
+      addContactFn({
+        data: {
+          companyId,
+          contact_person: name.trim(),
+          contact_email: emailAddr.trim() || null,
+          whatsapp: wa.trim() || null,
+          job_title: title.trim() || null,
+          department: dept.trim() || null,
+        },
+      }),
+    onSuccess: (r: { id: string }) => {
+      reset();
+      onCreated(r.id);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add contact to this company</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Contact name *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
+            </div>
+            <div>
+              <Label>Job title</Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={200}
+                placeholder="e.g. Procurement Manager"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                value={emailAddr}
+                onChange={(e) => setEmailAddr(e.target.value)}
+                maxLength={200}
+                type="email"
+              />
+            </div>
+            <div>
+              <Label>WhatsApp / phone</Label>
+              <Input
+                value={wa}
+                onChange={(e) => setWa(e.target.value)}
+                maxLength={30}
+                placeholder="+9715…"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Department</Label>
+              <Input
+                value={dept}
+                onChange={(e) => setDept(e.target.value)}
+                maxLength={120}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>
+            {create.isPending ? "Adding…" : "Add contact"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

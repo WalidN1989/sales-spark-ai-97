@@ -73,10 +73,15 @@ type Row = {
   created_at: string;
   source_company_id: string;
   converted_lead_id: string | null;
+  cached_email_subject: string | null;
+  cached_email_body: string | null;
+  cached_email_at: string | null;
   competitor: { id: string; name: string; website: string | null; country: string | null; phone: string | null; email: string | null } | null;
   source: { id: string; name: string } | null;
   purchase: { id: string; brand: string | null; model_no: string | null; model_name: string } | null;
+  contact_emails?: Array<{ email: string; name: string | null; position: string | null }>;
 };
+
 
 function QualifyingPage() {
   const qc = useQueryClient();
@@ -149,16 +154,22 @@ function QualifyingPage() {
     return c;
   }, [rows]);
 
-  const openDraft = async (row: Row) => {
+  const openDraft = async (row: Row, force = false) => {
     setEmailFor(row);
-    setEmail(null);
-    setDrafting(true);
+    // Optimistically show cached email immediately if available
+    if (!force && row.cached_email_subject && row.cached_email_body) {
+      setEmail({ subject: row.cached_email_subject, body: row.cached_email_body });
+    } else {
+      setEmail(null);
+    }
+    setDrafting(!row.cached_email_subject || force);
     try {
-      const r = await draftFn({ data: { id: row.id } });
-      setEmail(r);
+      const r = await draftFn({ data: { id: row.id, force } });
+      setEmail({ subject: r.subject, body: r.body });
+      if (force) qc.invalidateQueries({ queryKey: ["qualifying"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
-      setEmailFor(null);
+      if (!row.cached_email_subject) setEmailFor(null);
     } finally {
       setDrafting(false);
     }
@@ -242,7 +253,14 @@ function QualifyingPage() {
                   {filtered.map((r) => (
                     <tr key={r.id} className="border-t hover:bg-muted/30">
                       <td className="p-3">
-                        <div className="font-medium">{r.competitor?.name}</div>
+                        <button
+                          type="button"
+                          onClick={() => openDraft(r)}
+                          className="text-left font-medium hover:underline"
+                          title="Open draft email for this target"
+                        >
+                          {r.competitor?.name}
+                        </button>
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           {r.competitor?.website && (
                             <a
@@ -260,12 +278,48 @@ function QualifyingPage() {
                             </a>
                           )}
                           {r.competitor?.country && <span>· {r.competitor.country}</span>}
+                          {r.cached_email_at && (
+                            <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                              Draft cached
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="p-3">{r.source?.name ?? "—"}</td>
+                      <td className="p-3">
+                        {r.source ? (
+                          <button
+                            type="button"
+                            className="hover:underline text-primary"
+                            onClick={() =>
+                              navigate({
+                                to: "/app/prospects/$id",
+                                params: { id: r.source!.id },
+                              })
+                            }
+                            title="Open source prospect card"
+                          >
+                            {r.source.name}
+                          </button>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="p-3 text-xs">
                         {r.purchase ? (
-                          <>
+                          <button
+                            type="button"
+                            className="text-left hover:underline"
+                            onClick={() => {
+                              // Open purchase context by jumping to source prospect (purchases live on a lead inside it).
+                              if (r.source) {
+                                navigate({
+                                  to: "/app/prospects/$id",
+                                  params: { id: r.source.id },
+                                });
+                              }
+                            }}
+                            title="Open the source prospect to edit this product"
+                          >
                             <div className="font-medium">
                               {[r.purchase.brand, r.purchase.model_no]
                                 .filter(Boolean)
@@ -274,7 +328,7 @@ function QualifyingPage() {
                             <div className="text-muted-foreground">
                               {r.purchase.model_name}
                             </div>
-                          </>
+                          </button>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
@@ -425,11 +479,26 @@ function QualifyingPage() {
                   onChange={(e) => setEmail({ ...email, body: e.target.value })}
                 />
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                {emailFor && (emailFor.contact_emails?.length ?? 0) > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const list = emailFor.contact_emails ?? [];
+                      const addrs = list.map((c) => c.email).join(", ");
+                      navigator.clipboard.writeText(addrs);
+                      toast.success(`Copied ${list.length} emails`);
+                    }}
+                    title="Copy all Hunter-found emails for this competitor"
+                  >
+                    <Copy className="mr-1 h-4 w-4" /> Copy all emails ({emailFor.contact_emails?.length ?? 0})
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (emailFor) openDraft(emailFor);
+                    if (emailFor) openDraft(emailFor, true);
                   }}
                 >
                   Regenerate
@@ -437,7 +506,10 @@ function QualifyingPage() {
                 <Button
                   onClick={() => {
                     if (!email || !emailFor) return;
-                    const to = emailFor.competitor?.email ?? "";
+                    const to =
+                      (emailFor.contact_emails ?? []).map((c) => c.email).join(", ") ||
+                      emailFor.competitor?.email ||
+                      "";
                     window.location.href = `mailto:${to}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
                     // Mark contacted
                     setStatus.mutate({ id: emailFor.id, status: "contacted" });
