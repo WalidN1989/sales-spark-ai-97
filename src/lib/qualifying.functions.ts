@@ -338,6 +338,84 @@ export const addToQualifying = createServerFn({ method: "POST" })
     return { id: row.id, created: true };
   });
 
+// Add a raw SERP lookalike result to qualifying.
+// Creates/reuses a competitor_profile from the name+domain discovered via search.
+export const addSerpResultToQualifying = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        sourceCompanyId: z.string().uuid(),
+        name: z.string().min(1).max(200),
+        domain: z.string().min(1).max(300),
+        country: z.string().nullable().optional(),
+        description: z.string().nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const domain_norm = data.domain
+      .toLowerCase()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/\/.*$/, "")
+      .trim();
+
+    // Upsert competitor_profile
+    const { data: existing_profile } = await context.supabase
+      .from("competitor_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("domain_norm", domain_norm)
+      .maybeSingle();
+
+    let profileId: string;
+    if (existing_profile) {
+      profileId = existing_profile.id;
+    } else {
+      const { data: created, error: pErr } = await context.supabase
+        .from("competitor_profiles")
+        .insert({
+          user_id: context.userId,
+          domain_norm,
+          name: data.name,
+          website: `https://${domain_norm}`,
+          country: data.country ?? null,
+          description: data.description ?? null,
+          socials: {},
+        })
+        .select("id")
+        .single();
+      if (pErr) throw new Error(pErr.message);
+      profileId = created.id;
+    }
+
+    // Upsert qualifying_target
+    const { data: existing_target } = await context.supabase
+      .from("qualifying_targets")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("source_company_id", data.sourceCompanyId)
+      .eq("competitor_id", profileId)
+      .maybeSingle();
+
+    if (existing_target) return { id: existing_target.id, created: false };
+
+    const { data: row, error } = await context.supabase
+      .from("qualifying_targets")
+      .insert({
+        user_id: context.userId,
+        source_company_id: data.sourceCompanyId,
+        competitor_id: profileId,
+        source_lead_purchase_id: null,
+        status: "new",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: row.id, created: true };
+  });
+
 // Add a prospect (company) directly to qualifying as a lookalike target.
 // Creates/reuses a competitor_profile from the company row.
 export const addLookalikeToQualifying = createServerFn({ method: "POST" })
