@@ -449,6 +449,32 @@ function QualifyingPage() {
             </div>
           ) : email ? (
             <div className="space-y-3">
+              {emailFor && (emailFor.contact_emails?.length ?? 0) > 0 && (
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Emails ({emailFor.contact_emails?.length ?? 0})
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Copy all emails"
+                      onClick={() => {
+                        const list = emailFor.contact_emails ?? [];
+                        navigator.clipboard.writeText(
+                          list.map((c) => c.email).join(", "),
+                        );
+                        toast.success(`Copied ${list.length} emails`);
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="max-h-24 overflow-y-auto rounded-md border bg-muted/30 p-2 text-xs break-all">
+                    {(emailFor.contact_emails ?? []).map((c) => c.email).join(", ")}
+                  </div>
+                </div>
+              )}
               <div>
                 <div className="mb-1 flex items-center justify-between">
                   <label className="text-xs font-semibold uppercase text-muted-foreground">
@@ -462,7 +488,7 @@ function QualifyingPage() {
                       toast.success("Copied");
                     }}
                   >
-                    <Copy className="mr-1 h-3 w-3" /> Copy
+                    <Copy className="h-3 w-3" />
                   </Button>
                 </div>
                 <Input
@@ -483,7 +509,7 @@ function QualifyingPage() {
                       toast.success("Copied");
                     }}
                   >
-                    <Copy className="mr-1 h-3 w-3" /> Copy
+                    <Copy className="h-3 w-3" />
                   </Button>
                 </div>
                 <Textarea
@@ -493,21 +519,6 @@ function QualifyingPage() {
                 />
               </div>
               <div className="flex flex-wrap justify-end gap-2">
-                {emailFor && (emailFor.contact_emails?.length ?? 0) > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const list = emailFor.contact_emails ?? [];
-                      const addrs = list.map((c) => c.email).join(", ");
-                      navigator.clipboard.writeText(addrs);
-                      toast.success(`Copied ${list.length} emails`);
-                    }}
-                    title="Copy all Hunter-found emails for this competitor"
-                  >
-                    <Copy className="mr-1 h-4 w-4" /> Copy all emails ({emailFor.contact_emails?.length ?? 0})
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   onClick={() => {
