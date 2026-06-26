@@ -338,6 +338,98 @@ export const addToQualifying = createServerFn({ method: "POST" })
     return { id: row.id, created: true };
   });
 
+// Add a prospect (company) directly to qualifying as a lookalike target.
+// Creates/reuses a competitor_profile from the company row.
+export const addLookalikeToQualifying = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        sourceCompanyId: z.string().uuid(),
+        targetCompanyId: z.string().uuid(),
+        sourceLeadPurchaseId: z.string().uuid().nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: company, error: cErr } = await context.supabase
+      .from("companies")
+      .select("id, name, domain, country, industry, product_service, research_data")
+      .eq("id", data.targetCompanyId)
+      .single();
+    if (cErr) throw new Error(cErr.message);
+
+    const domain_norm = (company.domain ?? company.name)
+      .toLowerCase()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/\/.*$/, "")
+      .trim() || company.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+
+    // Upsert competitor_profile
+    const { data: existing_profile } = await context.supabase
+      .from("competitor_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("domain_norm", domain_norm)
+      .maybeSingle();
+
+    let profileId: string;
+    if (existing_profile) {
+      profileId = existing_profile.id;
+    } else {
+      const research = company.research_data as { summary?: string } | null;
+      const { data: created, error: pErr } = await context.supabase
+        .from("competitor_profiles")
+        .insert({
+          user_id: context.userId,
+          domain_norm,
+          name: company.name,
+          website: company.domain,
+          country: company.country,
+          description: research?.summary ?? company.product_service ?? null,
+          socials: {},
+        })
+        .select("id")
+        .single();
+      if (pErr) throw new Error(pErr.message);
+      profileId = created.id;
+    }
+
+    // Upsert qualifying_target
+    const { data: existing_target } = await context.supabase
+      .from("qualifying_targets")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("source_company_id", data.sourceCompanyId)
+      .eq("competitor_id", profileId)
+      .maybeSingle();
+
+    if (existing_target) {
+      if (data.sourceLeadPurchaseId) {
+        await context.supabase
+          .from("qualifying_targets")
+          .update({ source_lead_purchase_id: data.sourceLeadPurchaseId })
+          .eq("id", existing_target.id);
+      }
+      return { id: existing_target.id, created: false };
+    }
+
+    const { data: row, error } = await context.supabase
+      .from("qualifying_targets")
+      .insert({
+        user_id: context.userId,
+        source_company_id: data.sourceCompanyId,
+        competitor_id: profileId,
+        source_lead_purchase_id: data.sourceLeadPurchaseId ?? null,
+        status: "new",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: row.id, created: true };
+  });
+
 export const listQualifyingTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

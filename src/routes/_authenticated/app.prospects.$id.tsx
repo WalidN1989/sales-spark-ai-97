@@ -12,6 +12,7 @@ import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, setCompanyStatus } from "@/lib/companies.functions";
 import { getOrCreatePrimaryLeadForCompany } from "@/lib/leads.functions";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { LookalikesPanel } from "@/components/prospects/LookalikesPanel";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
@@ -282,6 +283,7 @@ function CompanyProfile() {
           {can("prospects", "pitch") && <TabsTrigger value="pitch">Pitch email</TabsTrigger>}
           <TabsTrigger value="respond">Respond</TabsTrigger>
           <TabsTrigger value="market">Market insight</TabsTrigger>
+          <TabsTrigger value="lookalikes">Lookalikes</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
         </TabsList>
 
@@ -565,6 +567,14 @@ function CompanyProfile() {
             );
           })()}
         </TabsContent>
+        <TabsContent value="lookalikes">
+          <Card>
+            <CardContent className="pt-4">
+              <LookalikesPanel companyId={id} companyName={c.name} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="sales">
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
