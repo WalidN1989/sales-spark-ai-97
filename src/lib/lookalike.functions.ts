@@ -314,10 +314,64 @@ export const findLookalikes = createServerFn({ method: "POST" })
       }
     }
 
+    // Persist results to research_data.lookalike_cache so the panel
+    // can reload them without re-running the search.
+    const existingRd = (seed.research_data as Record<string, unknown>) ?? {};
+    await context.supabase
+      .from("companies")
+      .update({
+        research_data: {
+          ...existingRd,
+          lookalike_cache: {
+            results: scored,
+            queries,
+            industry_terms: industryTerms,
+            cached_at: new Date().toISOString(),
+          },
+        },
+      })
+      .eq("id", data.companyId);
+
     return {
       seed: { id: seed.id, name: seed.name, country: seed.country },
       queries,
       industryTerms,
       results: scored,
+      cached_at: new Date().toISOString(),
     };
+  });
+
+export const getLookalikeCache = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ companyId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: company } = await context.supabase
+      .from("companies")
+      .select("research_data")
+      .eq("id", data.companyId)
+      .single();
+    const rd = (company?.research_data as Record<string, unknown>) ?? {};
+    const cache = rd.lookalike_cache as {
+      results: ScoredResult[];
+      queries: string[];
+      industry_terms: string[];
+      cached_at: string;
+    } | undefined;
+    if (!cache) return null;
+    // Re-check alreadyInProspects flag against current companies (may have changed)
+    const { data: existing } = await context.supabase
+      .from("companies")
+      .select("domain")
+      .eq("user_id", context.userId);
+    const existingDomains = new Set(
+      (existing ?? [])
+        .map((c: { domain: string | null }) => extractDomain(c.domain ?? ""))
+        .filter(Boolean),
+    );
+    for (const r of cache.results) {
+      r.alreadyInProspects = existingDomains.has(r.domain);
+    }
+    return cache;
   });

@@ -81,6 +81,8 @@ type Row = {
   source: { id: string; name: string } | null;
   purchase: { id: string; brand: string | null; model_no: string | null; model_name: string } | null;
   contact_emails?: Array<{ email: string; name: string | null; position: string | null }>;
+  /** Set when the competitor has a full prospect record — navigates to its own page. */
+  target_company_id: string | null;
 };
 
 
@@ -254,20 +256,29 @@ function QualifyingPage() {
                   {filtered.map((r) => (
                     <tr key={r.id} className="border-t hover:bg-muted/30">
                       <td className="p-3">
-                        {r.source && r.competitor?.name ? (
+                        {r.competitor?.name ? (
                           <button
                             type="button"
-                            onClick={() =>
-                              navigate({
-                                to: "/app/prospects/$id/competitor/$slug",
-                                params: {
-                                  id: r.source!.id,
-                                  slug: slugifyCompetitor(r.competitor!.name),
-                                },
-                              })
-                            }
+                            onClick={() => {
+                              if (r.target_company_id) {
+                                // SERP lookalike — has its own prospect page
+                                navigate({
+                                  to: "/app/prospects/$id",
+                                  params: { id: r.target_company_id },
+                                });
+                              } else if (r.source) {
+                                // Market Insight competitor — navigate to competitor panel
+                                navigate({
+                                  to: "/app/prospects/$id/competitor/$slug",
+                                  params: {
+                                    id: r.source.id,
+                                    slug: slugifyCompetitor(r.competitor!.name),
+                                  },
+                                });
+                              }
+                            }}
                             className="text-left font-medium hover:underline"
-                            title="Open this target's competitor page under its source prospect"
+                            title={r.target_company_id ? "Open prospect page" : "Open competitor page under source prospect"}
                           >
                             {r.competitor.name}
                           </button>

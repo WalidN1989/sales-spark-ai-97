@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { findLookalikes } from "@/lib/lookalike.functions";
+import { findLookalikes, getLookalikeCache } from "@/lib/lookalike.functions";
 import { addSerpResultToQualifying } from "@/lib/qualifying.functions";
 
 type SerpResult = {
@@ -35,6 +35,7 @@ type FindResult = {
   queries: string[];
   industryTerms: string[];
   results: SerpResult[];
+  cached_at?: string;
 };
 
 const LABEL_STYLES: Record<SerpResult["label"], string> = {
@@ -72,11 +73,32 @@ export function LookalikesPanel({
 }) {
   const qc = useQueryClient();
   const findFn = useServerFn(findLookalikes);
+  const cacheFn = useServerFn(getLookalikeCache);
   const addFn = useServerFn(addSerpResultToQualifying);
 
   const [result, setResult] = useState<FindResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cacheLoading, setCacheLoading] = useState(true);
   const [added, setAdded] = useState<Set<string>>(new Set());
+
+  // Load cached results on mount
+  useEffect(() => {
+    cacheFn({ data: { companyId } })
+      .then((cache) => {
+        if (cache) {
+          setResult({
+            seed: { id: companyId, name: companyName, country: null },
+            queries: cache.queries,
+            industryTerms: cache.industry_terms,
+            results: cache.results,
+            cached_at: cache.cached_at,
+          });
+        }
+      })
+      .catch(() => {/* silently ignore cache miss */})
+      .finally(() => setCacheLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const run = async () => {
     setLoading(true);
@@ -135,6 +157,12 @@ export function LookalikesPanel({
       </div>
 
       {/* Loading state */}
+      {cacheLoading && !loading && (
+        <div className="rounded-md border bg-muted/10 p-4 text-center text-sm text-muted-foreground animate-pulse">
+          Loading saved results…
+        </div>
+      )}
+
       {loading && (
         <div className="rounded-md border bg-muted/20 p-6 text-center">
           <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-muted-foreground" />
@@ -147,7 +175,7 @@ export function LookalikesPanel({
       {/* Results */}
       {result && !loading && (
         <div className="space-y-3">
-          {/* Queries used — transparency */}
+          {/* Queries used + last run time — transparency */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Searched for:</span>
@@ -156,6 +184,11 @@ export function LookalikesPanel({
                 {q}
               </span>
             ))}
+            {result.cached_at && (
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                Last run: {new Date(result.cached_at).toLocaleString()}
+              </span>
+            )}
           </div>
 
           {result.results.length === 0 ? (

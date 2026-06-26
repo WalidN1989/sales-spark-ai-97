@@ -361,6 +361,26 @@ export const addSerpResultToQualifying = createServerFn({ method: "POST" })
       .replace(/\/.*$/, "")
       .trim();
 
+    // Upsert a full companies (prospect) record so the target gets its own
+    // page with research, contacts, notes, etc.
+    const { data: existing_company } = await context.supabase
+      .from("companies")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("domain", `https://${domain_norm}`)
+      .maybeSingle();
+
+    if (!existing_company) {
+      await context.supabase.from("companies").insert({
+        user_id: context.userId,
+        name: data.name,
+        domain: `https://${domain_norm}`,
+        country: data.country ?? null,
+        product_service: data.description ?? null,
+        status: "cold",
+      });
+    }
+
     // Upsert competitor_profile
     const { data: existing_profile } = await context.supabase
       .from("competitor_profiles")
@@ -557,15 +577,38 @@ export const listQualifyingTargets = createServerFn({ method: "GET" })
         .map((r) => (r as { source_company_id: string }).source_company_id),
     );
 
-    return rows.map((r) => ({
-      ...r,
-      purchase:
-        (r as { purchase: unknown }).purchase ??
-        fallbackByCompany.get((r as { source_company_id: string }).source_company_id) ??
-        null,
-      contact_emails:
-        byKey.get(`${(r as { source_company_id: string }).source_company_id}::${(r as { competitor_id: string }).competitor_id}`) ?? [],
-    }));
+    // Resolve target_company_id: map competitor domain_norm → company id.
+    // This lets SERP lookalikes navigate to their own prospect page.
+    const { data: allCompanies } = await context.supabase
+      .from("companies")
+      .select("id, domain")
+      .eq("user_id", context.userId);
+    const domainToCompanyId = new Map<string, string>();
+    for (const c of (allCompanies ?? []) as Array<{ id: string; domain: string | null }>) {
+      if (!c.domain) continue;
+      const norm = c.domain
+        .toLowerCase()
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .replace(/\/.*$/, "")
+        .trim();
+      if (norm) domainToCompanyId.set(norm, c.id);
+    }
+
+    return rows.map((r) => {
+      const domainNorm = (r as { competitor: { domain_norm?: string } | null }).competitor?.domain_norm ?? "";
+      const target_company_id = domainToCompanyId.get(domainNorm) ?? null;
+      return {
+        ...r,
+        target_company_id,
+        purchase:
+          (r as { purchase: unknown }).purchase ??
+          fallbackByCompany.get((r as { source_company_id: string }).source_company_id) ??
+          null,
+        contact_emails:
+          byKey.get(`${(r as { source_company_id: string }).source_company_id}::${(r as { competitor_id: string }).competitor_id}`) ?? [],
+      };
+    });
   });
 
 // Shared helper: most-recent lead_purchase per source company (across its leads,
