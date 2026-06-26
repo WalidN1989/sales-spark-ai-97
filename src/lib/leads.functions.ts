@@ -181,6 +181,50 @@ export const addContactToCompany = createServerFn({ method: "POST" })
     return { id: row.id };
   });
 
+// Resolve a representative ("primary") lead for a prospect/company so a purchase
+// can be attached to it. Prefers an existing is_primary lead, then the oldest
+// lead; creates a lightweight auto lead only when the prospect has none.
+export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ companyId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: leads, error } = await context.supabase
+      .from("leads")
+      .select("id, is_primary, created_at")
+      .or(`company_id.eq.${data.companyId},prospect_id.eq.${data.companyId}`)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (error) throw new Error(error.message);
+    if (leads && leads.length) return { leadId: leads[0].id };
+
+    const { data: company, error: cErr } = await context.supabase
+      .from("companies")
+      .select("id, name, domain")
+      .eq("id", data.companyId)
+      .single();
+    if (cErr) throw new Error(cErr.message);
+
+    const { data: row, error: iErr } = await context.supabase
+      .from("leads")
+      .insert({
+        user_id: context.userId,
+        company_id: data.companyId,
+        company_name: company.name,
+        website: company.domain,
+        contact_person: company.name,
+        status: "warm",
+        is_primary: true,
+        source: "auto",
+      })
+      .select("id")
+      .single();
+    if (iErr) throw new Error(iErr.message);
+    return { leadId: row.id };
+  });
+
 export const resolveCompanyIdByGroupKey = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

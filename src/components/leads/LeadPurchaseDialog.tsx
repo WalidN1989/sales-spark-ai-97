@@ -49,12 +49,15 @@ export function LeadPurchaseDialog({
   onOpenChange,
   leadId,
   trigger,
+  optional = false,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   leadId: string;
-  trigger: "won" | "hot" | "manual";
+  trigger: "won" | "hot" | "warm" | "manual";
+  /** When true the popup is never mandatory and all fields are optional (can skip). */
+  optional?: boolean;
   onSaved?: () => void;
 }) {
   const qc = useQueryClient();
@@ -91,23 +94,42 @@ export function LeadPurchaseDialog({
   }, [existing, open]);
 
   const save = useMutation({
-    mutationFn: async () => {
-      const valid = rows.filter(
-        (r) => r.model_name.trim() && (r.brand.trim() || r.model_no.trim()),
-      );
-      if (!valid.length) {
+    mutationFn: async (): Promise<number> => {
+      // Optional mode: any filled field is enough (model name auto-derived if blank).
+      // Strict mode (won/hot transition): model name + brand-or-model-no required.
+      const hasAnything = (r: Row) =>
+        r.model_name.trim() ||
+        r.brand.trim() ||
+        r.model_no.trim() ||
+        r.description.trim() ||
+        r.price.trim() ||
+        r.url.trim();
+      const toSave = optional
+        ? rows.filter(hasAnything)
+        : rows.filter(
+            (r) => r.model_name.trim() && (r.brand.trim() || r.model_no.trim()),
+          );
+      if (!toSave.length) {
+        if (optional) {
+          onOpenChange(false);
+          return 0;
+        }
         throw new Error(
           "Add at least one product: model name + brand (or model number).",
         );
       }
-      for (const r of valid) {
+      for (const r of toSave) {
+        const model_name =
+          r.model_name.trim() ||
+          [r.brand.trim(), r.model_no.trim()].filter(Boolean).join(" ").trim() ||
+          "Product";
         await saveFn({
           data: {
             id: r.id,
             lead_id: leadId,
             brand: r.brand || null,
             model_no: r.model_no || null,
-            model_name: r.model_name,
+            model_name,
             description: r.description || null,
             url: r.url || null,
             price_cents: r.price ? Math.round(Number(r.price) * 100) : null,
@@ -115,11 +137,12 @@ export function LeadPurchaseDialog({
           },
         });
       }
+      return toSave.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       qc.invalidateQueries({ queryKey: ["lead-purchases", leadId] });
       qc.invalidateQueries({ queryKey: ["purchases-by-source"] });
-      toast.success("Purchase saved");
+      if (count > 0) toast.success("Purchase saved");
       onSaved?.();
       onOpenChange(false);
     },
@@ -140,8 +163,10 @@ export function LeadPurchaseDialog({
   const update = (i: number, patch: Partial<Row>) =>
     setRows((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
-  // Mandatory if triggered by status transition — block close until saved
-  const mandatory = trigger === "won" || trigger === "hot";
+  // Mandatory if triggered by status transition (and not in optional mode) — block close until saved
+  const mandatory = !optional && (trigger === "won" || trigger === "hot");
+  const fromStatus = trigger !== "manual";
+  const req = optional ? "" : " *";
 
   return (
     <Dialog
@@ -157,10 +182,13 @@ export function LeadPurchaseDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {mandatory ? `Mark ${trigger.toUpperCase()} — what was bought?` : "Purchase details"}
+            {fromStatus
+              ? `Mark ${trigger.toUpperCase()} — what did they buy?`
+              : "Purchase details"}
           </DialogTitle>
           <DialogDescription>
             We use this to draft pitch emails to this customer&apos;s competitors. Multiple rows allowed.
+            {optional && " Optional — you can skip and add it later."}
           </DialogDescription>
         </DialogHeader>
 
@@ -169,7 +197,7 @@ export function LeadPurchaseDialog({
             <div key={i} className="rounded-md border p-3 space-y-2">
               <div className="grid gap-2 md:grid-cols-2">
                 <div>
-                  <Label className="text-xs">Brand *</Label>
+                  <Label className="text-xs">Brand{req}</Label>
                   <Input
                     placeholder="WACOM"
                     value={r.brand}
@@ -177,7 +205,7 @@ export function LeadPurchaseDialog({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Model no. *</Label>
+                  <Label className="text-xs">Model no.{req}</Label>
                   <Input
                     placeholder="STU-430"
                     value={r.model_no}
@@ -185,7 +213,7 @@ export function LeadPurchaseDialog({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Model name *</Label>
+                  <Label className="text-xs">Model name{req}</Label>
                   <Input
                     placeholder="Signature Pad"
                     value={r.model_name}

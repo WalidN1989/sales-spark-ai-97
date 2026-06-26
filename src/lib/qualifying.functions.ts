@@ -377,12 +377,80 @@ export const listQualifyingTargets = createServerFn({ method: "GET" })
       byKey.set(k, list);
     }
     void ids;
+
+    // Fallback bought-product: for targets without an explicitly linked purchase,
+    // use the most recent purchase recorded on the source prospect's leads.
+    const fallbackByCompany = await purchasesBySourceCompany(
+      context.supabase,
+      rows
+        .filter((r) => !(r as { purchase: unknown }).purchase)
+        .map((r) => (r as { source_company_id: string }).source_company_id),
+    );
+
     return rows.map((r) => ({
       ...r,
+      purchase:
+        (r as { purchase: unknown }).purchase ??
+        fallbackByCompany.get((r as { source_company_id: string }).source_company_id) ??
+        null,
       contact_emails:
         byKey.get(`${(r as { source_company_id: string }).source_company_id}::${(r as { competitor_id: string }).competitor_id}`) ?? [],
     }));
   });
+
+// Shared helper: most-recent lead_purchase per source company (across its leads,
+// matched by company_id OR prospect_id). Used to fall back when a qualifying
+// target has no explicitly linked source_lead_purchase_id.
+async function purchasesBySourceCompany(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  companyIds: string[],
+): Promise<
+  Map<string, { id: string; brand: string | null; model_no: string | null; model_name: string | null; description?: string | null }>
+> {
+  const out = new Map<
+    string,
+    { id: string; brand: string | null; model_no: string | null; model_name: string | null; description?: string | null }
+  >();
+  const uniq = Array.from(new Set(companyIds)).filter(Boolean);
+  if (!uniq.length) return out;
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("id, company_id, prospect_id")
+    .or(`company_id.in.(${uniq.join(",")}),prospect_id.in.(${uniq.join(",")})`);
+  const leadToCompany = new Map<string, string>();
+  for (const l of (leads ?? []) as Array<{ id: string; company_id: string | null; prospect_id: string | null }>) {
+    const cid = uniq.includes(l.company_id ?? "") ? l.company_id : l.prospect_id;
+    if (cid) leadToCompany.set(l.id, cid);
+  }
+  const leadIds = Array.from(leadToCompany.keys());
+  if (!leadIds.length) return out;
+  const { data: purchases } = await supabase
+    .from("lead_purchases")
+    .select("id, lead_id, brand, model_no, model_name, description, created_at")
+    .in("lead_id", leadIds)
+    .order("created_at", { ascending: false });
+  for (const p of (purchases ?? []) as Array<{
+    id: string;
+    lead_id: string;
+    brand: string | null;
+    model_no: string | null;
+    model_name: string | null;
+    description: string | null;
+  }>) {
+    const cid = leadToCompany.get(p.lead_id);
+    if (cid && !out.has(cid)) {
+      out.set(cid, {
+        id: p.id,
+        brand: p.brand,
+        model_no: p.model_no,
+        model_name: p.model_name,
+        description: p.description,
+      });
+    }
+  }
+  return out;
+}
 
 export const updateQualifyingStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -543,7 +611,7 @@ export const draftQualifyingEmail = createServerFn({ method: "POST" })
     const { data: target, error } = await context.supabase
       .from("qualifying_targets")
       .select(`
-        id,
+        id, source_company_id,
         competitor:competitor_profiles ( name, website, country, description, research_data ),
         source:companies!qualifying_targets_source_company_id_fkey ( name, industry, country ),
         purchase:lead_purchases ( brand, model_no, model_name, description )
@@ -559,10 +627,26 @@ export const draftQualifyingEmail = createServerFn({ method: "POST" })
       .maybeSingle();
 
     const t = target as unknown as {
+      source_company_id: string;
       competitor: { name: string; website: string | null; country: string | null; description: string | null; research_data: { summary?: string } | null };
       source: { name: string; industry: string | null; country: string | null } | null;
       purchase: { brand: string | null; model_no: string | null; model_name: string; description: string | null } | null;
     };
+
+    // Fall back to the source prospect's most recent purchase when this target
+    // has no explicitly linked one, so the draft still pitches the right product.
+    if (!t.purchase && t.source_company_id) {
+      const fb = await purchasesBySourceCompany(context.supabase, [t.source_company_id]);
+      const p = fb.get(t.source_company_id);
+      if (p) {
+        t.purchase = {
+          brand: p.brand,
+          model_no: p.model_no,
+          model_name: p.model_name ?? "Product",
+          description: p.description ?? null,
+        };
+      }
+    }
 
     const system = `You write concise, warm B2B outreach emails. Output JSON via the write_email tool. Keep body 120-180 words. No placeholders. Reference 1 specific fact about the recipient. Mention (without naming the source customer) that businesses similar to theirs already use our product. Tone: confident, helpful, not pushy.`;
 

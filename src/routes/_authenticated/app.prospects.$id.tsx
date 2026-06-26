@@ -10,6 +10,8 @@ import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, setCompanyStatus } from "@/lib/companies.functions";
+import { getOrCreatePrimaryLeadForCompany } from "@/lib/leads.functions";
+import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
@@ -46,6 +48,7 @@ function CompanyProfile() {
   const fn = useServerFn(getCompany);
   const del = useServerFn(deleteCompany);
   const setStatus = useServerFn(setCompanyStatus);
+  const getOrCreateLead = useServerFn(getOrCreatePrimaryLeadForCompany);
 
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
@@ -61,6 +64,9 @@ function CompanyProfile() {
   const [seedDraft, setSeedDraft] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [purchaseDialog, setPurchaseDialog] = useState<
+    null | { leadId: string; trigger: "won" | "hot" | "warm" }
+  >(null);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -179,6 +185,21 @@ function CompanyProfile() {
       </div>
       <FindContactsDialog open={findOpen} onOpenChange={setFindOpen} companyId={id} />
       <EditCompanyDialog open={editOpen} onOpenChange={setEditOpen} company={c as Parameters<typeof EditCompanyDialog>[0]["company"]} />
+      {purchaseDialog && (
+        <LeadPurchaseDialog
+          open
+          onOpenChange={(v) => {
+            if (!v) setPurchaseDialog(null);
+          }}
+          leadId={purchaseDialog.leadId}
+          trigger={purchaseDialog.trigger}
+          optional
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["purchases-by-source", id] });
+            qc.invalidateQueries({ queryKey: ["company", id] });
+          }}
+        />
+      )}
 
 
       <Card>
@@ -192,11 +213,23 @@ function CompanyProfile() {
                 <CompanyStatusPill
                   status={((c as { status?: CompanyStatus }).status ?? "warm") as CompanyStatus}
                   onChange={async (s) => {
+                    const current = (c as { status?: CompanyStatus }).status;
                     try {
                       await setStatus({ data: { id, status: s } });
                       qc.invalidateQueries({ queryKey: ["company", id] });
                       qc.invalidateQueries({ queryKey: ["leads-group", id] });
                       toast.success(`Status: ${s}`);
+                      // On a transition into won/hot/warm, prompt to record what
+                      // this prospect bought so it can feed competitor pitch emails.
+                      if (
+                        (s === "won" || s === "hot" || s === "warm") &&
+                        s !== current
+                      ) {
+                        const { leadId } = await getOrCreateLead({
+                          data: { companyId: id },
+                        });
+                        setPurchaseDialog({ leadId, trigger: s });
+                      }
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Failed");
                     }
