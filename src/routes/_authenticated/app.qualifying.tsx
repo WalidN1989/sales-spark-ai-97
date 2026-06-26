@@ -20,6 +20,7 @@ import {
   convertQualifyingToLead,
   draftQualifyingEmail,
 } from "@/lib/qualifying.functions";
+import { slugifyCompetitor } from "@/lib/competitor-email.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -253,14 +254,26 @@ function QualifyingPage() {
                   {filtered.map((r) => (
                     <tr key={r.id} className="border-t hover:bg-muted/30">
                       <td className="p-3">
-                        <button
-                          type="button"
-                          onClick={() => openDraft(r)}
-                          className="text-left font-medium hover:underline"
-                          title="Open draft email for this target"
-                        >
-                          {r.competitor?.name}
-                        </button>
+                        {r.source && r.competitor?.name ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate({
+                                to: "/app/prospects/$id/competitor/$slug",
+                                params: {
+                                  id: r.source!.id,
+                                  slug: slugifyCompetitor(r.competitor!.name),
+                                },
+                              })
+                            }
+                            className="text-left font-medium hover:underline"
+                            title="Open this target's competitor page under its source prospect"
+                          >
+                            {r.competitor.name}
+                          </button>
+                        ) : (
+                          <span className="font-medium">{r.competitor?.name}</span>
+                        )}
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           {r.competitor?.website && (
                             <a
