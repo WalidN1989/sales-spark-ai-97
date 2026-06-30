@@ -99,12 +99,13 @@ function VisualMatchPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {searches.map((s) => (
-              <div key={s.id} className="rounded-lg border bg-card overflow-hidden group relative">
-                <Link
-                  to="/app/visual-match/$searchId"
-                  params={{ searchId: s.id }}
-                  className="block aspect-square bg-muted"
-                >
+              <Link
+                key={s.id}
+                to="/app/visual-match/$searchId"
+                params={{ searchId: s.id }}
+                className="rounded-lg border bg-card overflow-hidden group relative block hover:border-primary/60 hover:shadow-md transition cursor-pointer"
+              >
+                <div className="aspect-square bg-muted">
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -117,7 +118,7 @@ function VisualMatchPage() {
                       —
                     </div>
                   )}
-                </Link>
+                </div>
                 <div className="p-2 space-y-1">
                   <div className="text-xs font-medium truncate">
                     {s.label || `Search ${timeAgo(s.created_at)}`}
@@ -145,6 +146,7 @@ function VisualMatchPage() {
                       className="h-6 w-6"
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         if (confirm("Delete this search?")) delMut.mutate(s.id);
                       }}
                     >
@@ -152,7 +154,7 @@ function VisualMatchPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
