@@ -1,134 +1,114 @@
+## Visual Match — standalone module (v1)
 
-# Leads / Prospects / Qualifying — Optimization Pass
+A new mobile-first module at `/app/visual-match`. Upload, paste a URL, or take a live photo → we send it to **SerpApi's Google Lens endpoint** and render a results grid mirroring the Google Lens "Visual matches" layout (your reference screenshot). Each match links out to its source (LinkedIn, Bayut, company sites, etc.) and can be saved as a Prospect or Lead in one click.
 
-Seven fixes, one shared helper (fuzzy company match), one new migration. Grouped by module so you can review.
-
----
-
-## 1. Reseller vs end-user segregation (Leads paste flow)
-
-**Detection:** auto — when the parsed contact's company name does NOT match the resolved end-user company (fuzzy, see §2).
-
-**Behavior on mismatch:**
-- After duplicate check, show modal: *"Reseller `<X>` already exists in Prospects — creating only the end-user `<Y>`."*
-- Create the end-user lead **without** copying reseller email / phone / address / website onto it.
-- End-user lead opens with empty website + contact fields; user fills the end-user website manually (editable).
-- **Hunter.io + Firecrawl + Find Contacts + Update Location buttons stay disabled** until end-user `website` (or `domain`) is set. Tooltip: *"Add the end-user website first."*
-- Link the reseller as `reseller_company_id` on the lead (already in schema from earlier work) so the relationship is preserved without data mixing.
-
-Files: `src/components/leads/PasteContactDialog.tsx` (or equivalent), `src/lib/leads.functions.ts`, `src/routes/_authenticated/app.leads.$id.tsx` (button-disable logic).
+Built fully isolated from existing modules so we can prove the workflow first, then wire integration points later.
 
 ---
 
-## 2. Fuzzy company duplicate check (shared helper)
+### How it works (in plain language)
 
-New helper `src/lib/fuzzy-match.ts`:
-- Normalize: lowercase, strip punctuation, drop suffixes (LLC, Pvt, Ltd, Clinic, Center, &, and).
-- Tokenize on whitespace.
-- Match if any **2+ consecutive token sequence** appears in both.
+1. You open `/app/visual-match` on your phone.
+2. You either upload from gallery, paste an image URL, or tap **Take photo** to use the rear camera.
+3. We upload that image to a private storage bucket and ask SerpApi to run Google Lens on it.
+4. Within 2–5 seconds you see a grid of visual matches: thumbnail, source title, source domain, link.
+5. Each match has 3 buttons: **Open source**, **Save as Prospect**, **Save as Lead**.
+6. Every search is saved to your **History** tab with the uploaded photo + all results, so you can revisit a banking-street walk from yesterday.
 
-Used in 3 places:
-- Lead/Prospect creation → "Danet Alafaqi" style duplicates → modal **"Same Company" / "No, Create New"**. "Same Company" attaches new contact as new lead under existing `company_id`.
-- Reseller detection (§1).
-- Products dropdown duplicate guard (§7).
+### What it CAN'T do (honest)
 
-Server fns: `findSimilarCompanies({name})`, `findSimilarProducts({name, brand})` in new `src/lib/fuzzy.functions.ts`.
-
----
-
-## 3. Add-contact / primary-contact bugs on Leads card (Pristine Private School)
-
-Two bugs:
-
-**3a. Cannot add new contact** to a company with multiple existing leads.
-- Audit `app.leads.group.$companyId.tsx` and the "Add Contact" action. Likely: button only exists on single-lead view, or insert silently fails because `company_id` isn't passed. Add an explicit **"+ Add Contact"** on the group view that opens the same paste/manual dialog pre-filled with `company_id`, then inserts a new `leads` row + new `contacts` row.
-
-**3b. Primary contact missing on leads card** when >1 contact is associated.
-- After image-extract → Hunter run, the original primary contact gets overshadowed by Hunter-discovered contacts. Fix: persist `is_primary = true` on the original contact and never overwrite; sort contacts by `is_primary desc, created_at asc` in the leads card render. Also fix the Hunter merge to set `is_primary = false` on freshly discovered contacts.
-
-Files: `src/routes/_authenticated/app.leads.group.$companyId.tsx`, `src/routes/_authenticated/app.leads.$id.tsx`, `src/lib/hunter.functions.ts`, migration adds `is_primary boolean default false` to whatever contacts table is being used (or `leads.is_primary` if contacts are stored as leads).
+- **No LinkedIn API**, so when a match comes from LinkedIn we can only show what the public Google Lens result returned (title like "Mohammed Walid N. — WACOM Solutions") and a link. We cannot fetch the full LinkedIn profile programmatically.
+- **Candid street photos** (face only, no professional headshot online) give weaker results than reused headshots. This is a SerpApi/Google Lens limitation, not ours.
+- This is **photo matching**, not face recognition. If we later want true face match (find someone whose photo is only on Instagram under a different crop), we'd add FaceCheck.ID as a second provider in v2.
 
 ---
 
-## 4. Competitor Enrich + card cleanup (NMC Royal Dental, Dr. Joy)
+### Setup needed from you
 
-**Remove the Outreach card** from `app.prospects.$id.competitor.$slug.tsx`. Keep Profile / Products & Services / Brand Keyword.
-
-**Fix Enrich:**
-- Debug `enrichCompetitor` in `src/lib/qualifying.functions.ts` — likely failing silently (Firecrawl error swallowed, or response shape mismatch, or `competitor_profiles` upsert key wrong).
-- After Firecrawl returns: parse `markdown` for company description → Profile card; extract product/service mentions (regex + Gemini extraction fallback) → Products & Services card; populate Brand Keyword from `<title>`/`og:site_name`.
-- Show toast on success ("Enriched from `<domain>`"), surface error message on failure (not silent).
-- Loading state on the Enrich button.
+1. **SerpApi account & key** — sign up at serpapi.com (free tier = 100 searches/month, paid from $50/mo for 5000). After you confirm, I'll request the key via `add_secret` as `SERPAPI_KEY`.
 
 ---
 
-## 5. Won/Hot purchase trigger fix
+### Technical section
 
-Current bug: toggling status off then back to `won` does not re-open `LeadPurchaseDialog`.
+**New secret**
+- `SERPAPI_KEY` (requested via add_secret after you confirm)
 
-Fix in `app.leads.$id.tsx`:
-- Compare **previous status** vs **new status** in the `onSuccess` of the status mutation (not from a `useEffect` watching the stored status — that's what's breaking the re-trigger).
-- Rule: **every transition INTO `won` or `hot`** opens the dialog, regardless of whether purchases already exist (per your answer). User can cancel.
-- Also add a manual **"+ Record Purchase"** button on already-won/hot leads so backlogged ones (Auvea, etc.) can be captured without re-toggling status.
+**New Storage bucket**
+- `visual-match-uploads` (private). RLS: user can read/write their own folder `{userId}/...`.
+- SerpApi needs a publicly fetchable image URL. We mint a short-lived **signed URL** (60s) and pass it as `image_url` to the Lens endpoint — the file itself stays private.
 
----
+**New tables**
 
-## 6. Qualifying module UX polish
+```sql
+create table public.visual_searches (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  image_path text not null,           -- path in visual-match-uploads bucket
+  label text,                          -- optional user-given label ("Bur Dubai banks 30 Jun")
+  status text not null default 'pending', -- pending | done | error
+  error text,
+  match_count int default 0,
+  created_at timestamptz default now()
+);
 
-In `app.qualifying.tsx`:
+create table public.visual_matches (
+  id uuid primary key default gen_random_uuid(),
+  search_id uuid not null references public.visual_searches(id) on delete cascade,
+  user_id uuid not null,
+  position int not null,
+  title text,
+  source text,            -- e.g. "LinkedIn", "Bayut", "Property Finder"
+  source_domain text,
+  link text not null,
+  thumbnail_url text,
+  saved_lead_id uuid references public.leads(id) on delete set null,
+  saved_company_id uuid references public.companies(id) on delete set null,
+  created_at timestamptz default now()
+);
+```
 
-- **Target name → clickable** → navigate to `/app/prospects/$id` (use the competitor's `source_company_id` parent or, if the competitor exists as its own prospect, link there).
-- **"Bought product" column → clickable** → open a side sheet showing the full `lead_purchases` row + linked Product detail (after §7 lands, links to `/app/products/$id`).
-- **Cache draft emails:** new column `qualifying_targets.cached_email_subject TEXT`, `cached_email_body TEXT`, `cached_email_generated_at TIMESTAMPTZ`. `draftQualifyingEmail` returns cached if present; existing "Regenerate" button bypasses cache and overwrites.
-- **"All emails" line in draft modal:** read `competitor_contacts` for the target, render a comma-joined `to:` line with a Copy button → user pastes into Outlook `To:` field.
+Both tables get standard GRANTs (`authenticated`, `service_role`), RLS enabled, and `user_id = auth.uid()` policies — same pattern used elsewhere in the project.
 
----
+**New server functions** (`src/lib/visual-match.functions.ts`)
+- `createVisualSearch({ imagePath, label })` — creates a `visual_searches` row, mints signed URL, calls SerpApi Google Lens (`engine=google_lens`), parses `visual_matches[]`, inserts `visual_matches` rows, returns the full payload.
+- `listVisualSearches()` — history feed, newest first.
+- `getVisualSearch({ id })` — one search + its matches.
+- `deleteVisualSearch({ id })` — also deletes the uploaded image.
+- `saveMatchAsProspect({ matchId, name?, notes? })` — creates a `companies` row (name from match title, source URL as website), links via `saved_company_id`.
+- `saveMatchAsLead({ matchId, name, ... })` — creates a `leads` row (and parent company if needed), links via `saved_lead_id`. Reuses existing `LeadPurchaseDialog`/lead-creation flow where possible.
 
-## 7. Products module tight-coupling
+**New route files**
+- `src/routes/_authenticated/app.visual-match.tsx` — index: capture/upload form + recent searches grid.
+- `src/routes/_authenticated/app.visual-match.$searchId.tsx` — search detail: original image at top, matches grid below.
 
-**LeadPurchaseDialog** rework:
-- Replace the free-text "Model / Brand / Description" inputs with a **Combobox**: searches existing `products` table (fuzzy via §2), shows "Create new product `<typed name>`" at the bottom of the dropdown.
-- Selecting existing product → `lead_purchases.product_id` set, denormalized model/brand/description copied for historical accuracy.
-- "Create new" → inserts a `products` row (full Products module row, with all standard fields), then attaches it. Duplicate guard via `findSimilarProducts` — if match, show *"Similar product exists: `<name>` — use it?"* with **Use existing / Create anyway**.
+**New components**
+- `src/components/visual-match/ImageCapture.tsx` — three tabs: **Upload**, **Camera** (uses `<input type="file" accept="image/*" capture="environment">` — works on iOS Safari and Android Chrome with no extra libs), **URL paste**.
+- `src/components/visual-match/MatchCard.tsx` — thumbnail, title, source pill, three action buttons.
+- `src/components/visual-match/SaveAsDialog.tsx` — pre-fills name/website from the match, lets you confirm before creating the prospect/lead.
 
-**Products module page** unchanged structurally — new rows just appear there and are editable.
+**Nav**
+- Add "Visual Match" entry to the sidebar/nav (camera icon) under existing tools.
 
-**Migration:**
-- Add `lead_purchases.product_id uuid references products(id)`.
-- Backfill: leave existing rows with `product_id NULL` (denormalized fields stay).
+**SerpApi call shape**
+```
+GET https://serpapi.com/search.json
+  ?engine=google_lens
+  &url={signed_image_url}
+  &api_key={SERPAPI_KEY}
+  &hl=en
+  &country=ae
+```
+Response field used: `visual_matches[]` → `{ position, title, link, source, source_icon, thumbnail }`.
 
----
+**Mobile-first UI**
+- Single column, large tap targets, sticky bottom action bar on the detail page, results grid is 2-col on mobile / 3–4 on desktop. No horizontal scroll.
 
-## Technical summary
+**Integration with existing modules (v1 hook)**
+- Only `saveMatchAsProspect` / `saveMatchAsLead`. After saving, we navigate to the newly created prospect/lead page so you continue in your familiar flow. No other module is modified.
 
-**One migration** (`add_fuzzy_and_caching.sql`):
-- `qualifying_targets`: + `cached_email_subject`, `cached_email_body`, `cached_email_generated_at`.
-- `lead_purchases`: + `product_id uuid references public.products(id) on delete set null`.
-- Whatever holds contacts: + `is_primary boolean default false`. Backfill `is_primary = true` for the oldest contact per company.
-- GRANTs preserved on all touched tables.
-
-**New files:**
-- `src/lib/fuzzy-match.ts` (pure helper)
-- `src/lib/fuzzy.functions.ts` (server fns: `findSimilarCompanies`, `findSimilarProducts`)
-- `src/components/products/ProductCombobox.tsx`
-
-**Edited files:**
-- `src/lib/leads.functions.ts` — reseller mismatch detection, duplicate check on create.
-- `src/lib/qualifying.functions.ts` — fix `enrichCompetitor`, cache draft email, surface Firecrawl errors.
-- `src/lib/hunter.functions.ts` — preserve `is_primary` on merge.
-- `src/lib/lead-purchases.functions.ts` — accept `product_id`, create-if-missing.
-- `src/components/leads/LeadPurchaseDialog.tsx` — Combobox.
-- `src/components/leads/PasteContactDialog.tsx` — reseller modal.
-- `src/routes/_authenticated/app.leads.$id.tsx` — transition-based trigger, manual record-purchase, contacts sort, button-disable until website.
-- `src/routes/_authenticated/app.leads.group.$companyId.tsx` — Add Contact action.
-- `src/routes/_authenticated/app.prospects.$id.competitor.$slug.tsx` — remove Outreach card, hook up Enrich.
-- `src/routes/_authenticated/app.qualifying.tsx` — clickable target/product, all-emails line, cached draft.
-
-**Out of scope (parking lot):**
-- Creative/image generation.
-- Trigram (pg_trgm) — using token-only matching per your answer.
-- Expertise & Focus widget expansion (deferred earlier).
-
----
-
-Reply **approve** to implement, or tell me what to adjust.
+### Out of scope for v1 (queued for v2)
+- FaceCheck.ID provider for true face match
+- Auto-extract LinkedIn name/title/company from match snippet
+- Bulk capture (10 photos in a row from a walk → one history entry)
+- Geo-tag each search with current GPS to plot on the Meetings map
