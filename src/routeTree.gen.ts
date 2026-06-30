@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as AuthenticatedAppVisualMatchRouteImport } from './routes/_authenticated/app.visual-match'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
 import { Route as AuthenticatedAppQualifyingRouteImport } from './routes/_authenticated/app.qualifying'
@@ -25,6 +26,7 @@ import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_authenticated/app.prospects.index'
 import { Route as AuthenticatedAppProductsIndexRouteImport } from './routes/_authenticated/app.products.index'
 import { Route as AuthenticatedAppLearningIndexRouteImport } from './routes/_authenticated/app.learning.index'
+import { Route as AuthenticatedAppVisualMatchSearchIdRouteImport } from './routes/_authenticated/app.visual-match.$searchId'
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
 import { Route as AuthenticatedAppSettingsMyCompanyRouteImport } from './routes/_authenticated/app.settings.my-company'
 import { Route as AuthenticatedAppSettingsImportRouteImport } from './routes/_authenticated/app.settings.import'
@@ -69,6 +71,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppVisualMatchRoute =
+  AuthenticatedAppVisualMatchRouteImport.update({
+    id: '/visual-match',
+    path: '/visual-match',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppSettingsRoute =
   AuthenticatedAppSettingsRouteImport.update({
     id: '/settings',
@@ -125,6 +133,12 @@ const AuthenticatedAppLearningIndexRoute =
     id: '/learning/',
     path: '/learning/',
     getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppVisualMatchSearchIdRoute =
+  AuthenticatedAppVisualMatchSearchIdRouteImport.update({
+    id: '/$searchId',
+    path: '/$searchId',
+    getParentRoute: () => AuthenticatedAppVisualMatchRoute,
   } as any)
 const AuthenticatedAppSettingsUsersRoute =
   AuthenticatedAppSettingsUsersRouteImport.update({
@@ -222,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/visual-match': typeof AuthenticatedAppVisualMatchRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
@@ -234,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/app/learning/': typeof AuthenticatedAppLearningIndexRoute
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
@@ -252,6 +268,7 @@ export interface FileRoutesByTo {
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/visual-match': typeof AuthenticatedAppVisualMatchRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
@@ -264,6 +281,7 @@ export interface FileRoutesByTo {
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/app/learning': typeof AuthenticatedAppLearningIndexRoute
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
@@ -285,6 +303,7 @@ export interface FileRoutesById {
   '/_authenticated/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/_authenticated/app/visual-match': typeof AuthenticatedAppVisualMatchRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/_authenticated/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
@@ -297,6 +316,7 @@ export interface FileRoutesById {
   '/_authenticated/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/_authenticated/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
+  '/_authenticated/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/_authenticated/app/learning/': typeof AuthenticatedAppLearningIndexRoute
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
@@ -318,6 +338,7 @@ export interface FileRouteTypes {
     | '/app/qualifying'
     | '/app/sales'
     | '/app/settings'
+    | '/app/visual-match'
     | '/app/'
     | '/app/inquiries/$id'
     | '/app/leads/$id'
@@ -330,6 +351,7 @@ export interface FileRouteTypes {
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
+    | '/app/visual-match/$searchId'
     | '/app/learning/'
     | '/app/products/'
     | '/app/prospects/'
@@ -348,6 +370,7 @@ export interface FileRouteTypes {
     | '/app/qualifying'
     | '/app/sales'
     | '/app/settings'
+    | '/app/visual-match'
     | '/app'
     | '/app/inquiries/$id'
     | '/app/leads/$id'
@@ -360,6 +383,7 @@ export interface FileRouteTypes {
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
+    | '/app/visual-match/$searchId'
     | '/app/learning'
     | '/app/products'
     | '/app/prospects'
@@ -380,6 +404,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/qualifying'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
+    | '/_authenticated/app/visual-match'
     | '/_authenticated/app/'
     | '/_authenticated/app/inquiries/$id'
     | '/_authenticated/app/leads/$id'
@@ -392,6 +417,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/settings/import'
     | '/_authenticated/app/settings/my-company'
     | '/_authenticated/app/settings/users'
+    | '/_authenticated/app/visual-match/$searchId'
     | '/_authenticated/app/learning/'
     | '/_authenticated/app/products/'
     | '/_authenticated/app/prospects/'
@@ -449,6 +475,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/visual-match': {
+      id: '/_authenticated/app/visual-match'
+      path: '/visual-match'
+      fullPath: '/app/visual-match'
+      preLoaderRoute: typeof AuthenticatedAppVisualMatchRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/settings': {
@@ -520,6 +553,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/learning/'
       preLoaderRoute: typeof AuthenticatedAppLearningIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/visual-match/$searchId': {
+      id: '/_authenticated/app/visual-match/$searchId'
+      path: '/$searchId'
+      fullPath: '/app/visual-match/$searchId'
+      preLoaderRoute: typeof AuthenticatedAppVisualMatchSearchIdRouteImport
+      parentRoute: typeof AuthenticatedAppVisualMatchRoute
     }
     '/_authenticated/app/settings/users': {
       id: '/_authenticated/app/settings/users'
@@ -674,6 +714,21 @@ const AuthenticatedAppSettingsRouteWithChildren =
     AuthenticatedAppSettingsRouteChildren,
   )
 
+interface AuthenticatedAppVisualMatchRouteChildren {
+  AuthenticatedAppVisualMatchSearchIdRoute: typeof AuthenticatedAppVisualMatchSearchIdRoute
+}
+
+const AuthenticatedAppVisualMatchRouteChildren: AuthenticatedAppVisualMatchRouteChildren =
+  {
+    AuthenticatedAppVisualMatchSearchIdRoute:
+      AuthenticatedAppVisualMatchSearchIdRoute,
+  }
+
+const AuthenticatedAppVisualMatchRouteWithChildren =
+  AuthenticatedAppVisualMatchRoute._addFileChildren(
+    AuthenticatedAppVisualMatchRouteChildren,
+  )
+
 interface AuthenticatedAppProspectsIdRouteChildren {
   AuthenticatedAppProspectsIdCompetitorSlugRoute: typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
 }
@@ -697,6 +752,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppQualifyingRoute: typeof AuthenticatedAppQualifyingRoute
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
+  AuthenticatedAppVisualMatchRoute: typeof AuthenticatedAppVisualMatchRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppLearningIdRoute: typeof AuthenticatedAppLearningIdRoute
   AuthenticatedAppLearningNewRoute: typeof AuthenticatedAppLearningNewRoute
@@ -717,6 +773,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppQualifyingRoute: AuthenticatedAppQualifyingRoute,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
+  AuthenticatedAppVisualMatchRoute:
+    AuthenticatedAppVisualMatchRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppLearningIdRoute: AuthenticatedAppLearningIdRoute,
   AuthenticatedAppLearningNewRoute: AuthenticatedAppLearningNewRoute,

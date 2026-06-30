@@ -1239,6 +1239,109 @@ export type Database = {
         }
         Relationships: []
       }
+      visual_matches: {
+        Row: {
+          created_at: string
+          id: string
+          link: string
+          position: number
+          saved_company_id: string | null
+          saved_lead_id: string | null
+          search_id: string
+          source: string | null
+          source_domain: string | null
+          thumbnail_url: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link: string
+          position: number
+          saved_company_id?: string | null
+          saved_lead_id?: string | null
+          search_id: string
+          source?: string | null
+          source_domain?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string
+          position?: number
+          saved_company_id?: string | null
+          saved_lead_id?: string | null
+          search_id?: string
+          source?: string | null
+          source_domain?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visual_matches_saved_company_id_fkey"
+            columns: ["saved_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_matches_saved_lead_id_fkey"
+            columns: ["saved_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_matches_search_id_fkey"
+            columns: ["search_id"]
+            isOneToOne: false
+            referencedRelation: "visual_searches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visual_searches: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          image_path: string
+          label: string | null
+          match_count: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          image_path: string
+          label?: string | null
+          match_count?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          image_path?: string
+          label?: string | null
+          match_count?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
