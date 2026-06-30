@@ -13,7 +13,7 @@ import {
 } from "@/lib/visual-match.functions";
 import { ImageCapture } from "@/components/visual-match/ImageCapture";
 
-export const Route = createFileRoute("/_authenticated/app/visual-match")({
+export const Route = createFileRoute("/_authenticated/app/visual-match/")({
   head: () => ({ meta: [{ title: "Visual Match" }] }),
   component: VisualMatchPage,
 });
