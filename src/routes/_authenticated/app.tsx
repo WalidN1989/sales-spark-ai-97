@@ -15,6 +15,7 @@ import {
   Layers,
   StickyNote,
   Target,
+  Camera,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,7 @@ function AppShell() {
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
     { to: "/app/notes", label: "Notes", icon: StickyNote, show: true },
+    { to: "/app/visual-match", label: "Visual Match", icon: Camera, show: true },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },
   ].filter((n) => n.show);
 
