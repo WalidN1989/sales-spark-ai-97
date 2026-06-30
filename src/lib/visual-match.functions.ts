@@ -214,7 +214,6 @@ export const saveMatchAsProspect = createServerFn({ method: "POST" })
         user_id: context.userId,
         name: data.name,
         domain: match.source_domain ?? null,
-        notes: data.notes ?? `Saved from Visual Match — ${match.link}`,
       })
       .select("id")
       .single();
