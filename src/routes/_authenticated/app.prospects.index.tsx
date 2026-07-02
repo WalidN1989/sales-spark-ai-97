@@ -80,9 +80,16 @@ function ProspectsList() {
                       {c.industry && <span className="rounded bg-secondary px-2 py-0.5">{c.industry}</span>}
                       {c.country && <span className="rounded bg-secondary px-2 py-0.5">{c.country}</span>}
                     </div>
-                    {c.contact_person && (
-                      <div className="mt-2 truncate text-xs text-muted-foreground">Contact: {c.contact_person}</div>
-                    )}
+                    <div className="mt-2 flex items-start justify-between gap-2">
+                      {c.contact_person ? (
+                        <div className="truncate text-xs text-muted-foreground">Contact: {c.contact_person}</div>
+                      ) : <span />}
+                      {c.product_service && (
+                        <div className="shrink-0 max-w-[55%] truncate text-right text-[11px] italic text-muted-foreground/80" title={c.product_service}>
+                          {c.product_service}
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 </Link>
                 <button
