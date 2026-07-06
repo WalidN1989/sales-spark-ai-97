@@ -502,9 +502,10 @@ function GroupCard({
   leads: Lead[];
 }) {
   const groupHasNew = leads.some(isNewLead);
-  const topStatus = [...leads].sort(
-    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
-  )[0].status;
+  const hasWon = leads.some((l) => l.status === "won");
+  const topStatus: LeadStatus = hasWon
+    ? "won"
+    : [...leads].sort((a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status])[0].status;
   const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
   const lastActivity = leads
     .map((l) => l.last_activity_at ?? "")
