@@ -954,13 +954,14 @@ function QuickAddLeadDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Product requested {tag("product")}
+                Product / service * {tag("product")}
               </Label>
               <Input
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
                 maxLength={500}
                 placeholder="What is the customer asking about?"
+                required
               />
             </div>
             <div>
