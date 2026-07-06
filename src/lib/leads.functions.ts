@@ -683,7 +683,7 @@ const quickLeadSchema = z.object({
     .or(z.literal("").transform(() => null)),
   company_name: z.string().trim().max(200).optional().nullable(),
   website: z.string().trim().max(300).optional().nullable(),
-  product: z.string().trim().max(500).optional().nullable(),
+  product: z.string().trim().min(1, "Product / service is required").max(500),
   note: z.string().trim().max(1000).optional().nullable(),
   is_reseller: z.boolean().optional(),
   reseller_company_id: z.string().uuid().optional().nullable(),
