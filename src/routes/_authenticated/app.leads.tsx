@@ -82,6 +82,7 @@ type Lead = {
   end_user_project: string | null;
   reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
+  products_services: string[] | null;
 };
 
 type SortKey = "score" | "updated" | "created" | "status";
