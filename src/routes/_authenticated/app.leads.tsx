@@ -298,14 +298,18 @@ function LeadsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 w-fit">
-        {(["direct", "resellers", "all"] as const).map((t) => {
-          const label = t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : "Direct";
+        {(["direct", "resellers", "all", "won"] as const).map((t) => {
+          const label =
+            t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : t === "won" ? "Won" : "Direct";
+          const activeLeads = leads.filter((l) => l.status !== "won");
           const count =
-            t === "all"
-              ? leads.length
-              : t === "resellers"
-                ? leads.filter((l) => l.lead_type === "reseller").length
-                : leads.filter((l) => l.lead_type !== "reseller").length;
+            t === "won"
+              ? leads.filter((l) => l.status === "won").length
+              : t === "all"
+                ? activeLeads.length
+                : t === "resellers"
+                  ? activeLeads.filter((l) => l.lead_type === "reseller").length
+                  : activeLeads.filter((l) => l.lead_type !== "reseller").length;
           return (
             <button
               key={t}
