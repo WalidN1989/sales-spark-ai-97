@@ -379,6 +379,14 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
               <div className="truncate text-xs text-muted-foreground">
                 {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
               </div>
+              {l.products_services && l.products_services.length > 0 && (
+                <div
+                  className="truncate text-[11px] italic text-muted-foreground/80"
+                  title={l.products_services.join(" · ")}
+                >
+                  {l.products_services.join(" · ")}
+                </div>
+              )}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}>
