@@ -82,6 +82,7 @@ type Lead = {
   end_user_project: string | null;
   reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
+  products_services: string[] | null;
 };
 
 type SortKey = "score" | "updated" | "created" | "status";
@@ -378,6 +379,14 @@ function SingleLeadCard({ l, onWhatsApp }: { l: Lead; onWhatsApp: (id: string) =
               <div className="truncate text-xs text-muted-foreground">
                 {l.company_name || l.companies?.name ? `@ ${l.company_name ?? l.companies?.name}` : "WhatsApp lead"}
               </div>
+              {l.products_services && l.products_services.length > 0 && (
+                <div
+                  className="truncate text-[11px] italic text-muted-foreground/80"
+                  title={l.products_services.join(" · ")}
+                >
+                  {l.products_services.join(" · ")}
+                </div>
+              )}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[l.status]}`}>
@@ -519,6 +528,18 @@ function GroupCard({
               <div className="truncate text-xs text-muted-foreground">
                 {[industry, country, domain].filter(Boolean).join(" · ") || "Group"}
               </div>
+              {(() => {
+                const products = Array.from(
+                  new Set(leads.flatMap((l) => l.products_services ?? [])),
+                );
+                if (products.length === 0) return null;
+                const text = products.join(" · ");
+                return (
+                  <div className="truncate text-[11px] italic text-muted-foreground/80" title={text}>
+                    {text}
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
@@ -933,13 +954,14 @@ function QuickAddLeadDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Product requested {tag("product")}
+                Product / service * {tag("product")}
               </Label>
               <Input
                 value={product}
                 onChange={(e) => setProduct(e.target.value)}
                 maxLength={500}
                 placeholder="What is the customer asking about?"
+                required
               />
             </div>
             <div>
@@ -1054,6 +1076,7 @@ function QuickAddLeadDialog({
             onClick={() => create.mutate()}
             disabled={
               !whatsapp.trim() ||
+              !product.trim() ||
               create.isPending ||
               (isReseller && !resellerChoice) ||
               (isReseller && resellerChoice === "__new__" && !newResellerName.trim())

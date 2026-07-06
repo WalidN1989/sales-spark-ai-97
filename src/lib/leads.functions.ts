@@ -294,13 +294,17 @@ export const promoteToLead = createServerFn({ method: "POST" })
 
     const { data: company, error: cErr } = await context.supabase
       .from("companies")
-      .select("contact_person, email, name, domain, phone")
+      .select("contact_person, email, name, domain, phone, product_service")
       .eq("id", data.companyId)
       .single();
     if (cErr) throw new Error(cErr.message);
 
     // Sanitize phone to satisfy leads.whatsapp validation (digits and + - ( ) only)
     const cleanPhone = (company.phone ?? "").toString().replace(/[^0-9+\-\s()]/g, "").trim() || null;
+
+    const productsServices = company.product_service
+      ? [company.product_service.toString().slice(0, 80)]
+      : [];
 
     const { data: row, error } = await context.supabase
       .from("leads")
@@ -313,6 +317,7 @@ export const promoteToLead = createServerFn({ method: "POST" })
         phone: cleanPhone,
         company_name: company.name,
         website: company.domain,
+        products_services: productsServices,
         status: "warm",
       })
       .select("id")
@@ -678,7 +683,7 @@ const quickLeadSchema = z.object({
     .or(z.literal("").transform(() => null)),
   company_name: z.string().trim().max(200).optional().nullable(),
   website: z.string().trim().max(300).optional().nullable(),
-  product: z.string().trim().max(500).optional().nullable(),
+  product: z.string().trim().min(1, "Product / service is required").max(500),
   note: z.string().trim().max(1000).optional().nullable(),
   is_reseller: z.boolean().optional(),
   reseller_company_id: z.string().uuid().optional().nullable(),
@@ -735,6 +740,7 @@ export const createQuickLead = createServerFn({ method: "POST" })
         whatsapp: data.whatsapp,
         company_name: data.company_name || null,
         website: data.website || null,
+        products_services: [data.product.slice(0, 80)],
         status: "warm",
         lead_type: data.is_reseller ? "reseller" : "direct",
         reseller_company_id: resellerCompanyId,
