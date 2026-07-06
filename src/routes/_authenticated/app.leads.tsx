@@ -141,8 +141,11 @@ function LeadsPage() {
       return name ? `name:${name}` : null;
     };
 
-    // Filter by tab
+    // Filter by tab. Won leads are hidden from Direct / Resellers / All
+    // and only visible under the dedicated Won tab.
     const visible = leads.filter((l) => {
+      if (tab === "won") return l.status === "won";
+      if (l.status === "won") return false;
       if (tab === "resellers") return l.lead_type === "reseller" && l.reseller_company_id;
       if (tab === "direct") return l.lead_type !== "reseller";
       return true;
