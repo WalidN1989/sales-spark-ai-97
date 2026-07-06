@@ -528,6 +528,18 @@ function GroupCard({
               <div className="truncate text-xs text-muted-foreground">
                 {[industry, country, domain].filter(Boolean).join(" · ") || "Group"}
               </div>
+              {(() => {
+                const products = Array.from(
+                  new Set(leads.flatMap((l) => l.products_services ?? [])),
+                );
+                if (products.length === 0) return null;
+                const text = products.join(" · ");
+                return (
+                  <div className="truncate text-[11px] italic text-muted-foreground/80" title={text}>
+                    {text}
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${LEAD_STATUS_STYLES[topStatus]}`}>
