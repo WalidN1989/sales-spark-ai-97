@@ -101,7 +101,7 @@ function LeadsPage() {
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("updated");
-  const [tab, setTab] = useState<"all" | "resellers" | "direct">("direct");
+  const [tab, setTab] = useState<"all" | "resellers" | "direct" | "won">("direct");
 
   useEffect(() => {
     const handler = () => setQuickOpen(true);
@@ -141,8 +141,11 @@ function LeadsPage() {
       return name ? `name:${name}` : null;
     };
 
-    // Filter by tab
+    // Filter by tab. Won leads are hidden from Direct / Resellers / All
+    // and only visible under the dedicated Won tab.
     const visible = leads.filter((l) => {
+      if (tab === "won") return l.status === "won";
+      if (l.status === "won") return false;
       if (tab === "resellers") return l.lead_type === "reseller" && l.reseller_company_id;
       if (tab === "direct") return l.lead_type !== "reseller";
       return true;
@@ -295,14 +298,18 @@ function LeadsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 w-fit">
-        {(["direct", "resellers", "all"] as const).map((t) => {
-          const label = t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : "Direct";
+        {(["direct", "resellers", "all", "won"] as const).map((t) => {
+          const label =
+            t === "all" ? "All Leads" : t === "resellers" ? "Resellers" : t === "won" ? "Won" : "Direct";
+          const activeLeads = leads.filter((l) => l.status !== "won");
           const count =
-            t === "all"
-              ? leads.length
-              : t === "resellers"
-                ? leads.filter((l) => l.lead_type === "reseller").length
-                : leads.filter((l) => l.lead_type !== "reseller").length;
+            t === "won"
+              ? leads.filter((l) => l.status === "won").length
+              : t === "all"
+                ? activeLeads.length
+                : t === "resellers"
+                  ? activeLeads.filter((l) => l.lead_type === "reseller").length
+                  : activeLeads.filter((l) => l.lead_type !== "reseller").length;
           return (
             <button
               key={t}
@@ -495,9 +502,10 @@ function GroupCard({
   leads: Lead[];
 }) {
   const groupHasNew = leads.some(isNewLead);
-  const topStatus = [...leads].sort(
-    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
-  )[0].status;
+  const hasWon = leads.some((l) => l.status === "won");
+  const topStatus: LeadStatus = hasWon
+    ? "won"
+    : [...leads].sort((a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status])[0].status;
   const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
   const lastActivity = leads
     .map((l) => l.last_activity_at ?? "")
@@ -597,9 +605,10 @@ function ResellerCard({
   leads: Lead[];
 }) {
   const groupHasNew = leads.some(isNewLead);
-  const topStatus = [...leads].sort(
-    (a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status],
-  )[0].status;
+  const hasWon = leads.some((l) => l.status === "won");
+  const topStatus: LeadStatus = hasWon
+    ? "won"
+    : [...leads].sort((a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status])[0].status;
   const sumValue = leads.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0);
   const lastActivity = leads.map((l) => l.last_activity_at ?? "").sort().slice(-1)[0];
   const visible = leads.slice(0, 3);
