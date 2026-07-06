@@ -1076,6 +1076,7 @@ function QuickAddLeadDialog({
             onClick={() => create.mutate()}
             disabled={
               !whatsapp.trim() ||
+              !product.trim() ||
               create.isPending ||
               (isReseller && !resellerChoice) ||
               (isReseller && resellerChoice === "__new__" && !newResellerName.trim())
