@@ -740,6 +740,7 @@ export const createQuickLead = createServerFn({ method: "POST" })
         whatsapp: data.whatsapp,
         company_name: data.company_name || null,
         website: data.website || null,
+        products_services: [data.product.slice(0, 80)],
         status: "warm",
         lead_type: data.is_reseller ? "reseller" : "direct",
         reseller_company_id: resellerCompanyId,
