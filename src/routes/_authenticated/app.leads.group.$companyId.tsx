@@ -55,6 +55,7 @@ export const Route = createFileRoute("/_authenticated/app/leads/group/$companyId
 type Lead = {
   id: string;
   company_id: string | null;
+  prospect_id: string | null;
   contact_person: string | null;
   contact_email: string | null;
   whatsapp: string | null;
@@ -104,6 +105,11 @@ function GroupView() {
   });
   const companyStatus = ((companyData?.company as { status?: CompanyStatus } | undefined)?.status ??
     "warm") as CompanyStatus;
+  const groupNotesCompanyId =
+    resolvedCompanyId ??
+    leads.find((l) => l.company_id)?.company_id ??
+    leads.find((l) => l.prospect_id)?.prospect_id ??
+    null;
 
   // Default selection: first lead in left pane
   useEffect(() => {
@@ -272,7 +278,7 @@ function GroupView() {
         <div className="sticky top-4 max-h-[calc(100vh-2rem)]">
           <EntityNotesRail
             entityType="prospect"
-            entityId={resolvedCompanyId ?? leads.find((l) => l.company_id)?.company_id ?? null}
+            entityId={groupNotesCompanyId}
             title="Company notes"
           />
         </div>
