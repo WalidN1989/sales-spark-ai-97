@@ -257,6 +257,8 @@ function LeadDetail() {
   if (!lead) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
   const l = lead as typeof lead & {
+    company_id: string | null;
+    prospect_id: string | null;
     status: LeadStatus;
     job_title: string | null;
     lead_score: number | null;
@@ -278,6 +280,9 @@ function LeadDetail() {
   const websiteHref = normalizeWebsite(effectiveWebsite);
   const favicon = faviconUrl(effectiveWebsite);
   const sb = scoreBucket(l.lead_score);
+  const sharedCompanyNoteId = l.company_id ?? l.prospect_id ?? null;
+  const notesEntityType = sharedCompanyNoteId ? "prospect" : "lead";
+  const notesEntityId = sharedCompanyNoteId ?? id;
 
   const handleSave = async () => {
     await update.mutateAsync({
@@ -718,9 +723,9 @@ function LeadDetail() {
       <aside className="hidden lg:block">
         <div className="sticky top-4 h-[calc(100vh-2rem)]">
           <EntityNotesRail
-            entityType="lead"
-            entityId={id}
-            title="Notes"
+            entityType={notesEntityType}
+            entityId={notesEntityId}
+            title={sharedCompanyNoteId ? "Company notes" : "Notes"}
           />
         </div>
       </aside>
