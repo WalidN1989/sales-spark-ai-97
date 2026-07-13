@@ -161,43 +161,84 @@ const extractToolSchema = {
 
 type Extracted = Record<string, string | null>;
 
-async function callExtract(
-  apiKey: string,
-  model: string,
+const CLAUDE_MODEL = "claude-sonnet-4-5";
+
+type ClaudeContentBlock =
+  | { type: "text"; text: string }
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: string; data: string };
+    };
+
+async function callClaudeExtract(
   systemPrompt: string,
-  userContent: unknown,
+  userContent: string | ClaudeContentBlock[],
 ): Promise<Extracted> {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
     body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
+      model: CLAUDE_MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
       tools: [
         {
-          type: "function",
-          function: {
-            name: "extract_company",
-            description: "Return structured company contact details.",
-            parameters: extractToolSchema,
-          },
+          name: "extract_company",
+          description: "Return structured company contact details.",
+          input_schema: extractToolSchema,
         },
       ],
-      tool_choice: { type: "function", function: { name: "extract_company" } },
+      tool_choice: { type: "tool", name: "extract_company" },
+      messages: [
+        {
+          role: "user",
+          content:
+            typeof userContent === "string"
+              ? [{ type: "text", text: userContent }]
+              : userContent,
+        },
+      ],
     }),
   });
-  if (res.status === 429) throw new Error("Rate limit exceeded. Try again shortly.");
-  if (res.status === 402) throw new Error("AI credits exhausted. Add credits in Settings → Workspace → Usage.");
-  if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`);
+
+  if (res.status === 429)
+    throw new Error("Anthropic rate limit exceeded. Try again shortly.");
+  if (res.status === 401)
+    throw new Error("Invalid ANTHROPIC_API_KEY. Update it in Settings → Secrets.");
+  if (res.status === 402 || res.status === 403)
+    throw new Error(
+      "Anthropic credits/quota exhausted. Top up at console.anthropic.com.",
+    );
+  if (!res.ok)
+    throw new Error(`Claude error ${res.status}: ${await res.text()}`);
+
   const json = (await res.json()) as {
-    choices: Array<{ message: { tool_calls?: Array<{ function: { arguments: string } }> } }>;
+    content?: Array<{ type: string; name?: string; input?: unknown }>;
   };
-  const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-  if (!args) throw new Error("AI did not return structured data");
-  return JSON.parse(args) as Extracted;
+  const toolBlock = json.content?.find(
+    (b) => b.type === "tool_use" && b.name === "extract_company",
+  );
+  if (!toolBlock?.input)
+    throw new Error("Claude did not return structured data");
+  return toolBlock.input as Extracted;
+}
+
+function parseImageDataUrl(dataUrl: string): {
+  media_type: string;
+  data: string;
+} {
+  const match = /^data:(image\/(?:png|jpe?g|webp|gif));base64,(.+)$/i.exec(
+    dataUrl,
+  );
+  if (!match) throw new Error("Invalid image data URL");
+  return { media_type: match[1].toLowerCase(), data: match[2] };
 }
 
 // 1) Extract from pasted text (email signature, snippet)
@@ -205,23 +246,18 @@ export const extractCompanyFromText = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ text: z.string().min(1).max(5000) }).parse(d))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
-    return callExtract(
-      apiKey,
-      "google/gemini-3-flash-preview",
+    return callClaudeExtract(
       "You extract company contact info from an email signature or pasted snippet. Always call the extract_company tool. Use null for missing fields. Derive domain from the email address when only the email is present (strip after @).",
       data.text,
     );
   });
 
-// 2) Extract from an uploaded image (business card / email screenshot) — vision model does OCR
+// 2) Extract from an uploaded image (business card / email screenshot) — Claude vision does OCR
 export const extractCompanyFromImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
-        // data URL like: data:image/png;base64,AAAA...
         imageDataUrl: z
           .string()
           .min(20)
@@ -231,15 +267,12 @@ export const extractCompanyFromImage = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
-    return callExtract(
-      apiKey,
-      "google/gemini-2.5-flash",
+    const { media_type, data: b64 } = parseImageDataUrl(data.imageDataUrl);
+    return callClaudeExtract(
       "You read business cards and screenshots of emails or signatures. OCR the image and extract company contact info. Always call the extract_company tool. Use null for missing fields. Derive domain from the email address when only the email is present (strip after @). Combine multi-line addresses into one field.",
       [
+        { type: "image", source: { type: "base64", media_type, data: b64 } },
         { type: "text", text: "Extract the company contact info from this image." },
-        { type: "image_url", image_url: { url: data.imageDataUrl } },
       ],
     );
   });
