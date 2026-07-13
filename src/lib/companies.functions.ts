@@ -290,9 +290,7 @@ export const extractCompanyFromUrl = createServerFn({ method: "POST" })
     z.object({ url: z.string().min(3).max(500) }).parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
     const fcKey = process.env.FIRECRAWL_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
     if (!fcKey) throw new Error("Firecrawl is not connected. Add it in Connectors.");
 
     const url = normalizeUrl(data.url);
@@ -314,9 +312,7 @@ export const extractCompanyFromUrl = createServerFn({ method: "POST" })
     const summary = fcJson.data?.summary ?? "";
     const links = (fcJson.data?.links ?? []).slice(0, 20);
 
-    const extracted = await callExtract(
-      apiKey,
-      "google/gemini-3-flash-preview",
+    const extracted = await callClaudeExtract(
       "You extract company contact info from a website's scraped content (homepage / about / contact pages). Always call the extract_company tool. Use null for missing fields. Derive the domain from the source URL. Prefer the company's official name, industry, and primary contact details. Combine multi-line addresses into one field.",
       `SOURCE URL: ${url}
 
