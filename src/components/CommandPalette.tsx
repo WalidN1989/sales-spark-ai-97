@@ -39,7 +39,7 @@ const isTypingTarget = (el: EventTarget | null) => {
 };
 
 type CompanyRow = { id: string; name: string; domain?: string | null; industry?: string | null; contact_person?: string | null; product_service?: string | null };
-type LeadRow = { id: string; contact_person?: string | null; contact_email?: string | null; company_name?: string | null; companies?: { name?: string | null } | null; products_services?: string | null; brands?: string | null; notes?: string | null; job_title?: string | null };
+type LeadRow = { id: string; contact_person?: string | null; contact_email?: string | null; company_name?: string | null; companies?: { name?: string | null } | null; products_services?: string | string[] | null; brands?: string | string[] | null; notes?: string | null; job_title?: string | null; last_activity_note?: string | null };
 type ProductRow = { id: string; name: string; brand?: string | null; part_number?: string | null; category?: string | null; description?: string | null };
 type NoteRow = { id: string; title?: string | null; body_text?: string | null; tags?: string[] | null; entity_type: string; entity_id: string | null; updated_at?: string | null };
 
