@@ -131,7 +131,7 @@ export function CommandPalette() {
       "product_service",
     ],
   }), [companies]);
-  const leadFuse = useMemo(() => new Fuse(leads as LeadRow[], {
+  const leadFuse = useMemo(() => new Fuse(leads as unknown as LeadRow[], {
     ...fuseOpts,
     keys: [
       { name: "contact_person", weight: 3 },
@@ -171,7 +171,7 @@ export function CommandPalette() {
     if (!debounced) return [];
     // Activity: leads with recent activity note matching
     const q = debounced.toLowerCase();
-    const acts = (leads as (LeadRow & { last_activity_note?: string | null; last_activity_at?: string | null; last_activity_kind?: string | null })[])
+    const acts = (leads as unknown as LeadRow[])
       .filter((l) => (l.last_activity_note || "").toLowerCase().includes(q))
       .slice(0, 8);
     return acts;
