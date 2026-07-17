@@ -552,6 +552,8 @@ export type Database = {
       }
       leads: {
         Row: {
+          ai_summary: string | null
+          assigned_to: string | null
           brands: string[]
           company_id: string | null
           company_name: string | null
@@ -575,8 +577,12 @@ export type Database = {
           lead_type: string
           linkedin_url: string | null
           notes: string | null
+          next_action: string | null
+          next_action_due: string | null
           phone: string | null
+          pipeline_stage: string | null
           pipeline_value_cents: number
+          priority: string | null
           products_services: string[]
           prospect_id: string | null
           reseller_company_id: string | null
@@ -589,6 +595,8 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          ai_summary?: string | null
+          assigned_to?: string | null
           brands?: string[]
           company_id?: string | null
           company_name?: string | null
@@ -612,8 +620,12 @@ export type Database = {
           lead_type?: string
           linkedin_url?: string | null
           notes?: string | null
+          next_action?: string | null
+          next_action_due?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           pipeline_value_cents?: number
+          priority?: string | null
           products_services?: string[]
           prospect_id?: string | null
           reseller_company_id?: string | null
@@ -626,6 +638,8 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          ai_summary?: string | null
+          assigned_to?: string | null
           brands?: string[]
           company_id?: string | null
           company_name?: string | null
@@ -649,8 +663,12 @@ export type Database = {
           lead_type?: string
           linkedin_url?: string | null
           notes?: string | null
+          next_action?: string | null
+          next_action_due?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           pipeline_value_cents?: number
+          priority?: string | null
           products_services?: string[]
           prospect_id?: string | null
           reseller_company_id?: string | null

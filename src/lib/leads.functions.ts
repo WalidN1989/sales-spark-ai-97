@@ -6,8 +6,10 @@ const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
 const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
+// "*" keeps the query working both before and after the sales-command-center
+// migration adds pipeline_stage / next_action / priority / ai_summary columns.
 const LEAD_SELECT =
-  "id, company_id, prospect_id, contact_person, contact_email, whatsapp, status, pipeline_value_cents, last_activity_kind, last_activity_at, last_activity_note, company_name, website, brands, products_services, notes, job_title, source, email_status, email_score, last_verified_at, lead_score, lead_score_manual_override, linkedin_url, department, seniority, hunter_confidence, phone, lead_type, reseller_company_id, end_user_project, is_primary, created_at, updated_at, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
+  "*, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -415,6 +417,19 @@ const patchSchema = z
     lead_type: z.enum(["direct", "reseller"]).optional(),
     reseller_company_id: z.string().uuid().nullable().optional(),
     end_user_project: z.string().max(1000).nullable().optional(),
+    // Sales Command Center fields (require the sales_command_center migration)
+    pipeline_stage: z
+      .enum(["prospect", "qualified", "meeting", "quotation", "negotiation", "purchase_order", "won", "lost"])
+      .nullable()
+      .optional(),
+    next_action: z.string().max(200).nullable().optional(),
+    next_action_due: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD")
+      .nullable()
+      .optional(),
+    priority: z.enum(["critical", "high", "medium", "low"]).nullable().optional(),
+    ai_summary: z.string().max(500).nullable().optional(),
   })
   .strict();
 
@@ -469,6 +484,51 @@ export const clearLeadStatusOverride = createServerFn({ method: "POST" })
       body: "Manual status override cleared",
     });
     return { ok: true };
+  });
+
+// Bulk operations for the Command Center — one round-trip for up to 200 leads.
+const bulkPatchSchema = z
+  .object({
+    status: statusEnum.optional(),
+    pipeline_stage: z
+      .enum(["prospect", "qualified", "meeting", "quotation", "negotiation", "purchase_order", "won", "lost"])
+      .optional(),
+    priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+    next_action: z.string().max(200).nullable().optional(),
+    next_action_due: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD")
+      .nullable()
+      .optional(),
+  })
+  .strict()
+  .refine((p) => Object.keys(p).length > 0, "Empty patch");
+
+export const bulkUpdateLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ ids: z.array(z.string().uuid()).min(1).max(200), patch: bulkPatchSchema })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("leads")
+      .update(data.patch)
+      .in("id", data.ids);
+    if (error) throw new Error(error.message);
+    return { ok: true, count: data.ids.length };
+  });
+
+export const bulkDeleteLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase.from("leads").delete().in("id", data.ids);
+    if (error) throw new Error(error.message);
+    return { ok: true, count: data.ids.length };
   });
 
 export const deleteLead = createServerFn({ method: "POST" })
@@ -776,6 +836,75 @@ export const listLeadsByReseller = createServerFn({ method: "GET" })
     return rows ?? [];
   });
 
+
+// ---- AI row summary (one sentence, <=20 words) ----
+
+export const generateLeadAiSummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const { data: lead, error: lErr } = await context.supabase
+      .from("leads")
+      .select(
+        "id, contact_person, company_name, products_services, status, pipeline_value_cents, notes, last_activity_note, end_user_project",
+      )
+      .eq("id", data.leadId)
+      .single();
+    if (lErr) throw new Error(lErr.message);
+
+    const { data: acts } = await context.supabase
+      .from("lead_activities")
+      .select("kind, body, created_at")
+      .eq("lead_id", data.leadId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const contextText = [
+      `Company: ${lead.company_name ?? "unknown"}`,
+      `Contact: ${lead.contact_person ?? "unknown"}`,
+      `Products of interest: ${(lead.products_services ?? []).join(", ") || "unknown"}`,
+      lead.end_user_project ? `End-user project: ${lead.end_user_project}` : null,
+      lead.notes ? `Notes: ${lead.notes}` : null,
+      lead.last_activity_note ? `Last activity note: ${lead.last_activity_note}` : null,
+      "Recent activity log (newest first):",
+      ...(acts ?? []).map((a) => `- [${a.kind}] ${a.body}`.slice(0, 300)),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You summarize CRM sales leads. Write ONE sentence of at most 20 words capturing what the customer wants and the current state of the deal. No preamble, no quotes, plain text only.",
+          },
+          { role: "user", content: contextText.slice(0, 8000) },
+        ],
+      }),
+    });
+    if (res.status === 429) throw new Error("Rate limit exceeded. Try again shortly.");
+    if (res.status === 402) throw new Error("AI credits exhausted. Add credits in Settings → Workspace → Usage.");
+    if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`);
+    const json = (await res.json()) as { choices: Array<{ message: { content?: string } }> };
+    const summary = (json.choices?.[0]?.message?.content ?? "").trim().slice(0, 500);
+    if (!summary) throw new Error("AI returned an empty summary");
+
+    // Persist when the ai_summary column exists; before the migration we still
+    // return the text so the UI can show it for the session.
+    const { error: uErr } = await context.supabase
+      .from("leads")
+      .update({ ai_summary: summary })
+      .eq("id", data.leadId);
+    return { summary, persisted: !uErr };
+  });
 
 const extractToolSchema = {
   type: "object",
