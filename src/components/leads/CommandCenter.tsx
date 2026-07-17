@@ -124,6 +124,7 @@ export type CommandLead = {
   lead_type: "direct" | "reseller" | null;
   reseller_company_id: string | null;
   end_user_project: string | null;
+  is_primary?: boolean | null;
   products_services: string[] | null;
   reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
@@ -226,10 +227,13 @@ function loadLSRaw<T>(key: string, fallback: T): T {
   }
 }
 
-// ---------- Row view-model ----------
+// ---------- Row view-model (one row per COMPANY, not per contact) ----------
 
 type RowVM = {
-  lead: CommandLead;
+  lead: CommandLead; // primary contact — inline edits fan out to all ids
+  ids: string[]; // every lead id in this company group
+  contactCount: number;
+  groupKey: string;
   stage: PipelineStage;
   health: LeadHealth;
   priority: LeadPriority;
@@ -242,23 +246,99 @@ type RowVM = {
   country: string | null;
   industry: string | null;
   productText: string;
+  searchExtra: string; // other contacts' names/emails so search still finds them
 };
 
-function buildVM(l: CommandLead): RowVM {
+const normName = (n: string | null | undefined) =>
+  (n ?? "").trim().toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+const normDomain = (d: string | null | undefined) =>
+  (d ?? "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].trim();
+
+// Same key format the /app/leads/group/$companyId route already understands.
+function groupKeyFor(l: CommandLead): string {
+  if (l.lead_type === "reseller" && l.reseller_company_id) return `id:${l.reseller_company_id}`;
+  const name = normName(l.company_name ?? l.companies?.name);
+  if (name) return `name:${name}`;
+  const domain = normDomain(l.website ?? l.companies?.domain);
+  if (domain) return `domain:${domain}`;
+  if (l.company_id) return `id:${l.company_id}`;
+  return `solo:${l.id}`;
+}
+
+function tabVisible(leads: CommandLead[], tab: Tab): CommandLead[] {
+  return leads.filter((l) => {
+    if (tab === "won") return l.status === "won";
+    if (l.status === "won") return false;
+    if (tab === "resellers") return l.lead_type === "reseller";
+    if (tab === "direct") return l.lead_type !== "reseller";
+    return true;
+  });
+}
+
+function groupByCompany(leads: CommandLead[]): CommandLead[][] {
+  const map = new Map<string, CommandLead[]>();
+  for (const l of leads) {
+    const k = groupKeyFor(l);
+    const arr = map.get(k) ?? [];
+    arr.push(l);
+    map.set(k, arr);
+  }
+  return [...map.values()];
+}
+
+function buildGroupVM(group: CommandLead[]): RowVM {
+  // Primary contact first (is_primary flag, then oldest — the original entry)
+  const sorted = [...group].sort(
+    (a, b) =>
+      (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+      (a.created_at ?? "").localeCompare(b.created_at ?? ""),
+  );
+  const primary = sorted[0];
+  const latest = group.reduce(
+    (best, l) => ((l.last_activity_at ?? "") > (best.last_activity_at ?? "") ? l : best),
+    primary,
+  );
+
+  // Company-level aggregates: most advanced stage, highest urgency, soonest due
+  const stages = group.map(leadStage);
+  const live = stages.filter((s) => s !== "lost");
+  const stage = live.length === 0 ? "lost" : live.reduce((a, b) => (STAGE_ORDER[b] > STAGE_ORDER[a] ? b : a));
+  const priority = group.map(leadPriority).reduce((a, b) => (PRIORITY_ORDER[b] < PRIORITY_ORDER[a] ? b : a));
+  const dues = group.map((l) => l.next_action_due).filter(Boolean) as string[];
+  const earliestDue = dues.length ? dues.sort()[0] : null;
+
+  const repr: CommandLead = {
+    ...primary,
+    products_services: [...new Set(group.flatMap((l) => l.products_services ?? []))],
+    pipeline_value_cents: group.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0),
+    last_activity_at: latest.last_activity_at,
+    last_activity_kind: latest.last_activity_kind,
+    last_activity_note: latest.last_activity_note,
+    next_action_due: earliestDue,
+    ai_summary: primary.ai_summary ?? group.find((l) => l.ai_summary)?.ai_summary ?? null,
+  };
+
   return {
-    lead: l,
-    stage: leadStage(l),
-    health: computeHealth(l),
-    priority: leadPriority(l),
-    due: dueInfo(l.next_action_due ?? null),
-    act: lastActivityInfo(l),
-    next: nextAction(l),
-    summary: displaySummary(l),
-    companyName: l.company_name ?? l.companies?.name ?? (l.whatsapp ? "WhatsApp lead" : "—"),
-    domain: l.website ?? l.companies?.domain ?? null,
-    country: l.companies?.country ?? null,
-    industry: l.companies?.industry ?? null,
-    productText: (l.products_services ?? []).join(" · "),
+    lead: repr,
+    ids: group.map((l) => l.id),
+    contactCount: group.length,
+    groupKey: groupKeyFor(primary),
+    stage,
+    health: computeHealth(repr),
+    priority,
+    due: dueInfo(earliestDue),
+    act: lastActivityInfo(repr),
+    next: nextAction({ ...repr, pipeline_stage: stage }),
+    summary: displaySummary(repr),
+    companyName: repr.company_name ?? repr.companies?.name ?? repr.reseller?.name ?? (repr.whatsapp ? "WhatsApp lead" : "—"),
+    domain: repr.website ?? repr.companies?.domain ?? repr.reseller?.domain ?? null,
+    country: repr.companies?.country ?? null,
+    industry: repr.companies?.industry ?? null,
+    productText: [...new Set(group.flatMap((l) => l.products_services ?? []))].join(" · "),
+    searchExtra: group
+      .flatMap((l) => [l.contact_person, l.contact_email, l.whatsapp])
+      .filter(Boolean)
+      .join(" "),
   };
 }
 
@@ -283,16 +363,34 @@ export function LeadsCommandCenter({
   const canEdit = hasCommandColumns(leads as unknown as Array<Record<string, unknown>>);
 
   // ----- Persistent UI prefs -----
-  const [widths, setWidths] = useState<Record<string, number>>(() => loadLS(LS_WIDTHS, {}));
-  const [hidden, setHidden] = useState<ColKey[]>(() =>
-    loadLSRaw<ColKey[]>(LS_HIDDEN, COLUMNS.filter((c) => c.defaultHidden).map((c) => c.key)),
+  // Defaults on first render (matches SSR output — reading localStorage during
+  // render causes hydration mismatches), then load stored prefs after mount.
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const [hidden, setHidden] = useState<ColKey[]>(
+    COLUMNS.filter((c) => c.defaultHidden).map((c) => c.key),
   );
-  const [dense, setDense] = useState<boolean>(() => loadLSRaw(LS_DENSITY, true));
-  const [views, setViews] = useState<SavedView[]>(() => loadLSRaw(LS_VIEWS, []));
-  useEffect(() => localStorage.setItem(LS_WIDTHS, JSON.stringify(widths)), [widths]);
-  useEffect(() => localStorage.setItem(LS_HIDDEN, JSON.stringify(hidden)), [hidden]);
-  useEffect(() => localStorage.setItem(LS_DENSITY, JSON.stringify(dense)), [dense]);
-  useEffect(() => localStorage.setItem(LS_VIEWS, JSON.stringify(views)), [views]);
+  const [dense, setDense] = useState<boolean>(true);
+  const [views, setViews] = useState<SavedView[]>([]);
+  useEffect(() => {
+    setWidths(loadLS(LS_WIDTHS, {}));
+    setHidden(loadLSRaw<ColKey[]>(LS_HIDDEN, COLUMNS.filter((c) => c.defaultHidden).map((c) => c.key)));
+    setDense(loadLSRaw(LS_DENSITY, true));
+    setViews(loadLSRaw(LS_VIEWS, []));
+    setPrefsLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_WIDTHS, JSON.stringify(widths));
+  }, [widths, prefsLoaded]);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_HIDDEN, JSON.stringify(hidden));
+  }, [hidden, prefsLoaded]);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_DENSITY, JSON.stringify(dense));
+  }, [dense, prefsLoaded]);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_VIEWS, JSON.stringify(views));
+  }, [views, prefsLoaded]);
 
   const ROW_H = dense ? 37 : 46;
 
@@ -363,17 +461,37 @@ export function LeadsCommandCenter({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // ----- Derived rows -----
-  const vms = useMemo(() => {
-    const visible = leads.filter((l) => {
-      if (tab === "won") return l.status === "won";
-      if (l.status === "won") return false;
-      if (tab === "resellers") return l.lead_type === "reseller";
-      if (tab === "direct") return l.lead_type !== "reseller";
-      return true;
-    });
-    return visible.map(buildVM);
-  }, [leads, tab]);
+  // ----- Derived rows: one per company -----
+  const vms = useMemo(
+    () => groupByCompany(tabVisible(leads, tab)).map(buildGroupVM),
+    [leads, tab],
+  );
+
+  // Open the right page for a row: single contact → lead detail; multiple →
+  // the existing group / reseller page listing all contacts.
+  const openRow = useCallback(
+    (r: RowVM) => {
+      if (r.contactCount > 1) {
+        if (r.lead.lead_type === "reseller" && r.lead.reseller_company_id) {
+          navigate({ to: "/app/leads/reseller/$resellerId", params: { resellerId: r.lead.reseller_company_id } });
+        } else {
+          navigate({ to: "/app/leads/group/$companyId", params: { companyId: encodeURIComponent(r.groupKey) } });
+        }
+      } else {
+        navigate({ to: "/app/leads/$id", params: { id: r.lead.id } });
+      }
+    },
+    [navigate],
+  );
+
+  // Inline edits apply to every contact of the company so data stays consistent.
+  const patchRow = useCallback(
+    (r: RowVM, patch: Record<string, unknown>) => {
+      if (r.ids.length > 1) bulkUpdate.mutate({ ids: r.ids, patch });
+      else update.mutate({ id: r.lead.id, patch });
+    },
+    [bulkUpdate, update],
+  );
 
   const rows = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
@@ -403,6 +521,7 @@ export function LeadsCommandCenter({
           r.industry,
           r.summary.text,
           r.next.label,
+          r.searchExtra,
         ]
           .filter(Boolean)
           .join(" ")
@@ -505,8 +624,12 @@ export function LeadsCommandCenter({
     };
   }, []);
 
-  // ----- Selection helpers -----
+  // ----- Selection helpers (selection keyed by company row; ops expand to all contacts) -----
   const rowIds = useMemo(() => rows.map((r) => r.lead.id), [rows]);
+  const selectedGroupIds = useMemo(
+    () => rows.filter((r) => selected.has(r.lead.id)).flatMap((r) => r.ids),
+    [rows, selected],
+  );
   const allSelected = rowIds.length > 0 && rowIds.every((id) => selected.has(id));
   const toggleAll = () => {
     setSelected(allSelected ? new Set() : new Set(rowIds));
@@ -557,7 +680,7 @@ export function LeadsCommandCenter({
     } else if (e.key === "Enter" && activeIdx >= 0 && rows[activeIdx]) {
       e.preventDefault();
       e.stopPropagation();
-      navigate({ to: "/app/leads/$id", params: { id: rows[activeIdx].lead.id } });
+      openRow(rows[activeIdx]);
     } else if ((e.key === " " || e.code === "Space") && activeIdx >= 0) {
       e.preventDefault();
       e.stopPropagation();
@@ -638,7 +761,7 @@ export function LeadsCommandCenter({
               if (!canEdit) return requireMigration();
               const patch: Record<string, unknown> = { pipeline_stage: s };
               if (s === "won") patch.status = "won";
-              update.mutate({ id: r.lead.id, patch });
+              patchRow(r, patch);
             }}
           >
             <span className={`mr-2 h-2 w-2 rounded-full ${STAGE_DOT[s]}`} />
@@ -666,7 +789,7 @@ export function LeadsCommandCenter({
         {PRIORITIES.map((p) => (
           <DropdownMenuItem
             key={p}
-            onSelect={() => (canEdit ? update.mutate({ id: r.lead.id, patch: { priority: p } }) : requireMigration())}
+            onSelect={() => (canEdit ? patchRow(r, { priority: p }) : requireMigration())}
           >
             <Flag className={`mr-2 h-3.5 w-3.5 ${PRIORITY_FLAG[p]}`} fill="currentColor" />
             {PRIORITY_LABEL[p]}
@@ -697,7 +820,7 @@ export function LeadsCommandCenter({
           onChange={(e) => {
             const v = e.target.value || null;
             if (!canEdit) return requireMigration();
-            update.mutate({ id: r.lead.id, patch: { next_action_due: v } });
+            patchRow(r, { next_action_due: v });
           }}
         />
         <div className="flex flex-wrap gap-1">
@@ -716,10 +839,7 @@ export function LeadsCommandCenter({
                 if (!canEdit) return requireMigration();
                 const d = new Date();
                 d.setDate(d.getDate() + (days as number));
-                update.mutate({
-                  id: r.lead.id,
-                  patch: { next_action_due: d.toISOString().slice(0, 10) },
-                });
+                patchRow(r, { next_action_due: d.toISOString().slice(0, 10) });
               }}
             >
               {label}
@@ -729,9 +849,7 @@ export function LeadsCommandCenter({
             size="sm"
             variant="ghost"
             className="h-6 px-2 text-xs text-muted-foreground"
-            onClick={() =>
-              canEdit ? update.mutate({ id: r.lead.id, patch: { next_action_due: null } }) : requireMigration()
-            }
+            onClick={() => (canEdit ? patchRow(r, { next_action_due: null }) : requireMigration())}
           >
             Clear
           </Button>
@@ -763,10 +881,7 @@ export function LeadsCommandCenter({
             e.preventDefault();
             if (!canEdit) return requireMigration();
             const v = new FormData(e.currentTarget).get("na");
-            update.mutate({
-              id: r.lead.id,
-              patch: { next_action: String(v ?? "").trim() || null },
-            });
+            patchRow(r, { next_action: String(v ?? "").trim() || null });
           }}
         >
           <Input name="na" defaultValue={r.next.auto ? "" : r.next.label} placeholder={r.next.label} maxLength={200} />
@@ -852,14 +967,16 @@ export function LeadsCommandCenter({
                 )}
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-1.5">
-                    <Link
-                      to="/app/leads/$id"
-                      params={{ id: r.lead.id }}
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRow(r);
+                      }}
                       className="truncate font-medium text-foreground hover:underline"
                     >
                       {r.companyName}
-                    </Link>
+                    </button>
                     {r.lead.lead_type === "reseller" && (
                       <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-bold uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
                         RSL
@@ -893,12 +1010,27 @@ export function LeadsCommandCenter({
         );
       case "contact":
         return (
-          <div className="min-w-0">
-            <div className="truncate" title={r.lead.job_title ?? undefined}>
-              {r.lead.contact_person ?? "—"}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="min-w-0">
+              <div className="truncate" title={r.lead.job_title ?? undefined}>
+                {r.lead.contact_person ?? "—"}
+              </div>
+              {!dense && r.lead.job_title && (
+                <div className="truncate text-[10px] leading-tight text-muted-foreground">{r.lead.job_title}</div>
+              )}
             </div>
-            {!dense && r.lead.job_title && (
-              <div className="truncate text-[10px] leading-tight text-muted-foreground">{r.lead.job_title}</div>
+            {r.contactCount > 1 && (
+              <button
+                type="button"
+                title={`${r.contactCount} contacts at this company — open all`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openRow(r);
+                }}
+                className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                +{r.contactCount - 1}
+              </button>
             )}
           </div>
         );
@@ -981,7 +1113,7 @@ export function LeadsCommandCenter({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-rose-600 focus:text-rose-600"
-                onSelect={() => setConfirmDelete([r.lead.id])}
+                onSelect={() => setConfirmDelete(r.ids)}
               >
                 <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
               </DropdownMenuItem>
@@ -999,14 +1131,16 @@ export function LeadsCommandCenter({
     );
   };
 
-  // ----- Tabs / counts -----
-  const activeLeads = leads.filter((l) => l.status !== "won");
-  const tabCounts: Record<Tab, number> = {
-    direct: activeLeads.filter((l) => l.lead_type !== "reseller").length,
-    resellers: activeLeads.filter((l) => l.lead_type === "reseller").length,
-    all: activeLeads.length,
-    won: leads.filter((l) => l.status === "won").length,
-  };
+  // ----- Tabs / counts (count companies, matching what the table shows) -----
+  const tabCounts = useMemo<Record<Tab, number>>(
+    () => ({
+      direct: groupByCompany(tabVisible(leads, "direct")).length,
+      resellers: groupByCompany(tabVisible(leads, "resellers")).length,
+      all: groupByCompany(tabVisible(leads, "all")).length,
+      won: groupByCompany(tabVisible(leads, "won")).length,
+    }),
+    [leads],
+  );
 
   const filtersActive =
     filters.q ||
@@ -1353,7 +1487,7 @@ export function LeadsCommandCenter({
                       key={r.lead.id}
                       data-idx={idx}
                       onClick={() => setActiveIdx(idx)}
-                      onDoubleClick={() => navigate({ to: "/app/leads/$id", params: { id: r.lead.id } })}
+                      onDoubleClick={() => openRow(r)}
                       className={`group border-b border-border/50 transition-colors ${
                         isSel
                           ? "bg-primary/[0.06]"
@@ -1414,7 +1548,14 @@ export function LeadsCommandCenter({
       {/* Bulk actions bar */}
       {selected.size > 0 && (
         <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-lg border bg-card px-3 py-2 shadow-lg">
-          <span className="mr-2 text-xs font-semibold">{selected.size} selected</span>
+          <span className="mr-2 text-xs font-semibold">
+            {selected.size} selected
+            {selectedGroupIds.length > selected.size && (
+              <span className="ml-1 font-normal text-muted-foreground">
+                ({selectedGroupIds.length} contacts)
+              </span>
+            )}
+          </span>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1428,7 +1569,7 @@ export function LeadsCommandCenter({
                   key={s}
                   onSelect={() =>
                     canEdit
-                      ? bulkUpdate.mutate({ ids: [...selected], patch: { pipeline_stage: s } })
+                      ? bulkUpdate.mutate({ ids: selectedGroupIds, patch: { pipeline_stage: s } })
                       : requireMigration()
                   }
                 >
@@ -1450,7 +1591,7 @@ export function LeadsCommandCenter({
                   key={p}
                   onSelect={() =>
                     canEdit
-                      ? bulkUpdate.mutate({ ids: [...selected], patch: { priority: p } })
+                      ? bulkUpdate.mutate({ ids: selectedGroupIds, patch: { priority: p } })
                       : requireMigration()
                   }
                 >
@@ -1475,7 +1616,7 @@ export function LeadsCommandCenter({
                   if (!e.target.value) return;
                   if (!canEdit) return requireMigration();
                   bulkUpdate.mutate({
-                    ids: [...selected],
+                    ids: selectedGroupIds,
                     patch: { next_action_due: e.target.value },
                   });
                 }}
@@ -1493,7 +1634,7 @@ export function LeadsCommandCenter({
             variant="outline"
             size="sm"
             className="h-7 text-xs text-rose-600 hover:text-rose-700"
-            onClick={() => setConfirmDelete([...selected])}
+            onClick={() => setConfirmDelete(selectedGroupIds)}
           >
             <Trash2 className="mr-1 h-3 w-3" /> Delete
           </Button>
@@ -1624,9 +1765,9 @@ function LeadPreview({ r }: { r: RowVM }) {
   );
 }
 
-// ---------- Generic facet filter ----------
+// ---------- Generic facet filter (shared with ProspectsTable) ----------
 
-function FacetFilter({
+export function FacetFilter({
   label,
   options,
   selected,
