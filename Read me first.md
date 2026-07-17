@@ -1,0 +1,127 @@
+# Read Me First — Project Handoff Brief
+
+> **Audience:** Claude Code (or any developer) starting a session on a new machine.
+> Read this before touching anything. It explains where the project stands, how it
+> is wired, and the working rules agreed with Walid.
+
+_Last updated: 2026-07-17 (office PC session)._
+
+---
+
+## 1. What this project is
+
+**Sales Insights** (repo `sales-spark-ai-97`) — a sales CRM for a company selling
+biometric devices, access control, time attendance, signature pads (Wacom STU),
+ID card printers and related software/accessories, mostly in the UAE/GCC market.
+
+- **Stack:** TanStack Start + React 19, Tailwind 4, shadcn/Radix UI, TanStack Query,
+  Supabase (Lovable Cloud) for DB/auth/storage, deployed to Cloudflare via Lovable.
+- **Built with Lovable:** this repo is two-way synced with the Lovable project.
+  The `.env` in the repo root is committed by Lovable on purpose (publishable keys only).
+- **Modules:** Prospects, Qualifying, Leads, Inquiries, Products, Meetings, Notes,
+  Learning, Sales, Visual Match, Settings (users/roles/import). Auth-gated behind
+  `/login`; multi-user with roles (admin / manager / sales_rep) and owner-only RLS
+  on `leads` (each user sees only their own leads).
+
+## 2. ⚠️ Critical working rules
+
+1. **Pushing to `main` = deploying live.** Lovable syncs GitHub `main` and publishes.
+   Never push without Walid's explicit go-ahead. Workflow: build → verify locally →
+   commit locally → show Walid → push only when approved.
+2. **Git identity on Walid's machines:** `etopseoexpert-web` (added as collaborator
+   on `WalidN1989/sales-spark-ai-97`). If a new machine lacks access, add it as a
+   collaborator or sign in appropriately.
+3. **Run locally with Bun:** `bun install`, `bun run dev` (port 8080),
+   `bun x tsc --noEmit` to typecheck, `bun run build` for a production check.
+   The dev server works out of the box because `.env` is in the repo.
+4. You cannot log into the app yourself — ask Walid to log in when visual
+   verification with real data is needed.
+
+## 3. What was just built (2026-07-17): the Sales Command Center
+
+The Leads and Prospects modules were redesigned from pretty-but-slow card grids
+into high-density operational tables (ClickUp/Linear-style density, ~25–40 rows
+per screen). Objective: a salesperson reviews 100 leads in minutes without
+opening records.
+
+### Commits
+- `d36f7a2` — Leads redesigned into the Command Center table.
+- `c2a1313` — One row per **company** (not per contact) + Prospects table + SSR fix.
+
+### Key files
+| File | Role |
+|---|---|
+| `src/components/leads/CommandCenter.tsx` | The whole Leads table: columns, virtualization, filters, saved views, bulk bar, keyboard nav, hover preview, inline editors. Exports `FacetFilter` (shared) and `CommandLead` type. |
+| `src/lib/leads-command.ts` | Pure helpers: auto lead health, pipeline stages, derived next actions, relative dates, feature detection. |
+| `src/components/prospects/ProspectsTable.tsx` | Prospects in the same table style. |
+| `src/lib/leads.functions.ts` | Server functions — now `select("*")`, plus `bulkUpdateLeads`, `bulkDeleteLeads`, `generateLeadAiSummary` (Lovable AI gateway, Gemini Flash). |
+| `supabase/migrations/20260717110000_sales_command_center.sql` | **The migration that unlocks editing** (see §4). |
+| `src/routes/_authenticated/app.leads.tsx` | Slim route: renders `LeadsCommandCenter` + the untouched WhatsApp Quick-Add dialog. |
+
+### Behaviour decisions (agreed with Walid)
+- **One row per company.** Companies with 10–20 contacts collapse into a single row
+  showing the primary contact (`is_primary`, else oldest) and a `+N` chip that opens
+  the existing group/reseller page. Row aggregates: most advanced stage, highest
+  priority, soonest due date, summed value, latest activity.
+- **Inline edits fan out** to every contact of the company (stage, priority, due,
+  next action) so contacts never drift apart. Bulk selection expands the same way.
+- **Lead Health is never manual** — computed from activity recency + status + score
+  (`computeHealth`): 🔥 Hot / 🟢 Active / 🟡 Warm / 🔴 Cold.
+- **Next Action is never empty** — manual value or an auto-suggestion derived from
+  stage/health (shown italic).
+- **Dashboard cards (Hot Leads / Pipeline Value / Hot Ratio) were removed** on
+  purpose — analytics belong in Analytics, the Leads page is for execution.
+- Old card components were deleted; group/reseller/lead-detail routes are untouched.
+
+## 4. ⚠️ Open item #1: check the DB migration
+
+`supabase/migrations/20260717110000_sales_command_center.sql` adds to `public.leads`:
+`pipeline_stage`, `next_action`, `next_action_due`, `priority`, `ai_summary`,
+`assigned_to` (+ checks, backfill from old `status`, indexes).
+
+**It was pushed with the code, but we have NOT confirmed Lovable Cloud applied it.**
+The UI feature-detects the columns (`hasCommandColumns`) and works safely either way:
+
+- Columns missing → derived read-only values; inline editors show a
+  "migration pending" toast; AI summaries generate but don't persist.
+- Columns present → full inline + bulk editing, everything persists.
+
+**First thing to verify on the live app:** open Leads, try changing a stage.
+If you get the migration-pending message, paste that SQL file's contents into the
+Lovable chat and ask it to run the migration. `src/integrations/supabase/types.ts`
+was already hand-updated with the new columns (Lovable will regenerate the same).
+
+## 5. Open item #2: known limitations / natural next steps
+
+Not commitments — just where the design points next:
+
+- **Assigned To** exists in the DB migration but is hidden in the UI: RLS is
+  owner-only (`leads_owner_all`), so cross-user assignment needs an RLS/policy
+  rethink first (manager/admin visibility).
+- **Lead health signals** currently use last activity + status + score. The spec's
+  richer signals (email opens, WhatsApp replies, quotation views) need event
+  tracking that doesn't exist yet.
+- **AI summaries** are on-demand per row (✨ button). Could be batched/scheduled.
+- **Saved views** live in `localStorage` (per browser). Could move to DB if Walid
+  wants them shared across devices.
+- The old **Qualifying** module wasn't touched; Walid may want the same table
+  treatment there next.
+
+## 6. How to verify changes locally (quick recipe)
+
+```
+bun install
+bun x tsc --noEmit        # typecheck
+bun run build             # production build must pass
+bun run dev               # http://localhost:8080 — ask Walid to log in
+```
+
+Keyboard map on the tables: ↑↓ navigate · Enter open · Space select ·
+Shift+Click range · Ctrl+K search · Ctrl+L add lead · Ctrl+I add company.
+
+## 7. Context files worth reading
+
+- `strategy-notes.md` — Walid's product vision ("Lead Engine": capture → enrich →
+  lookalikes → expand; demand signals; product reverse-index). The thinking layer.
+- `.lovable/plan.md` — Lovable's own running plan notes.
+- `supabase/migrations/` — full schema history (28 migrations).
