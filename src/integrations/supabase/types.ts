@@ -579,9 +579,9 @@ export type Database = {
           lead_score_manual_override: boolean
           lead_type: string
           linkedin_url: string | null
-          notes: string | null
           next_action: string | null
           next_action_due: string | null
+          notes: string | null
           phone: string | null
           pipeline_stage: string | null
           pipeline_value_cents: number
@@ -622,9 +622,9 @@ export type Database = {
           lead_score_manual_override?: boolean
           lead_type?: string
           linkedin_url?: string | null
-          notes?: string | null
           next_action?: string | null
           next_action_due?: string | null
+          notes?: string | null
           phone?: string | null
           pipeline_stage?: string | null
           pipeline_value_cents?: number
@@ -665,9 +665,9 @@ export type Database = {
           lead_score_manual_override?: boolean
           lead_type?: string
           linkedin_url?: string | null
-          notes?: string | null
           next_action?: string | null
           next_action_due?: string | null
+          notes?: string | null
           phone?: string | null
           pipeline_stage?: string | null
           pipeline_value_cents?: number
