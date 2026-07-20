@@ -89,6 +89,13 @@ Key files:
 | `src/lib/leads.functions.ts` | `listCompanyActivities` (merged feed); `addLeadActivity` now takes `outcome` + optional follow-up and schedules it on the lead atomically. |
 | `supabase/migrations/20260717150000_activity_journal.sql` | Adds activity kinds (whatsapp/quotation/visit) + `outcome` column. |
 
+**Prospect detail** (`app.prospects.$id.tsx`) was rebuilt on the same
+`LeadWorkspace`: identity + merged Activity Journal + contacts + follow-up, with
+AI Research / Pitch Email / Respond / Market Insight / Lookalikes moved into
+collapsible `Section`s and the company profile in `companyInfo`. Contact-less
+prospects are supported via `resolveAnchor` (lazily creates a primary lead on the
+first logged activity). Company notes merge into the journal (notes rail removed).
+
 Notes on decisions:
 - **Activity is the one history.** Every call/WhatsApp/meeting/email/visit/note/
   quotation is a journal entry with a type; the feed reads like a conversation.

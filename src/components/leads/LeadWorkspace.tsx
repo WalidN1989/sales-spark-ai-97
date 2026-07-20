@@ -121,12 +121,14 @@ export function LeadWorkspace({
   activeContactId,
   onSelectContact,
   onAddContact,
+  extraProducts,
   header,
   companyInfo,
   secondary,
   notesEntityType,
   notesEntityId,
   onChanged,
+  resolveAnchor,
 }: {
   companyName: string;
   industry?: string | null;
@@ -134,6 +136,7 @@ export function LeadWorkspace({
   city?: string | null;
   website?: string | null;
   contacts: WorkspaceContact[];
+  extraProducts?: string[];
   anchorId: string;
   activeContactId?: string;
   onSelectContact?: (id: string) => void;
@@ -145,6 +148,9 @@ export function LeadWorkspace({
   notesEntityType?: "prospect" | "lead";
   notesEntityId?: string | null;
   onChanged?: () => void;
+  // For contact-less prospects: lazily resolve/create a lead to attach the
+  // first activity to. Called only when there is no anchor contact.
+  resolveAnchor?: () => Promise<string>;
 }) {
   const qc = useQueryClient();
   const listActsFn = useServerFn(listCompanyActivities);
@@ -155,7 +161,7 @@ export function LeadWorkspace({
   const delNoteFn = useServerFn(deleteNote);
 
   const contactIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
-  const anchor = contacts.find((c) => c.id === anchorId) ?? contacts[0];
+  const anchor = contacts.find((c) => c.id === anchorId) ?? contacts[0] ?? null;
   const canEdit = hasCommandColumns(contacts as unknown as Array<Record<string, unknown>>);
 
   const primary =
@@ -164,8 +170,8 @@ export function LeadWorkspace({
     anchor;
 
   const productsInterested = useMemo(
-    () => [...new Set(contacts.flatMap((c) => c.products_services ?? []))],
-    [contacts],
+    () => [...new Set([...contacts.flatMap((c) => c.products_services ?? []), ...(extraProducts ?? [])])],
+    [contacts, extraProducts],
   );
   const contactName = useMemo(() => {
     const m = new Map<string, string>();
@@ -194,12 +200,12 @@ export function LeadWorkspace({
     onChanged?.();
   };
 
-  const stage = leadStage(anchor);
-  const priority = leadPriority(anchor);
+  const stage = anchor ? leadStage(anchor) : "prospect";
+  const priority = anchor ? leadPriority(anchor) : "low";
 
   // ---- Follow-up editing (on the anchor lead) ----
   const patchAnchor = useMutation({
-    mutationFn: (patch: Record<string, unknown>) => updateFn({ data: { id: anchorId, patch } }),
+    mutationFn: (patch: Record<string, unknown>) => updateFn({ data: { id: anchor!.id, patch } }),
     onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -236,9 +242,9 @@ export function LeadWorkspace({
   }, [activities, notes]);
 
   const rec = followUpRecommendation({
-    lastActivityAt: feed[0]?.created_at ?? anchor.last_activity_at,
+    lastActivityAt: feed[0]?.created_at ?? anchor?.last_activity_at,
     stage,
-    nextActionDue: anchor.next_action_due,
+    nextActionDue: anchor?.next_action_due,
     primaryContact: primary?.contact_person,
   });
 
@@ -417,15 +423,17 @@ export function LeadWorkspace({
       {/* RIGHT RAIL */}
       <div className="min-w-0 space-y-4 lg:sticky lg:top-4 lg:self-start">
         {/* WHAT NEXT — Next Follow-up */}
-        <NextFollowUpBox
-          anchor={anchor}
-          stage={stage}
-          priority={priority}
-          canEdit={canEdit}
-          onSetDue={(v) => patchAnchor.mutate({ next_action_due: v })}
-          onSetAction={(v) => patchAnchor.mutate({ next_action: v })}
-          onSetPriority={(p) => patchAnchor.mutate({ priority: p })}
-        />
+        {anchor && (
+          <NextFollowUpBox
+            anchor={anchor}
+            stage={stage}
+            priority={priority}
+            canEdit={canEdit}
+            onSetDue={(v) => patchAnchor.mutate({ next_action_due: v })}
+            onSetAction={(v) => patchAnchor.mutate({ next_action: v })}
+            onSetPriority={(p) => patchAnchor.mutate({ priority: p })}
+          />
+        )}
 
         {/* Derived recommendation */}
         {rec && (
@@ -479,9 +487,15 @@ export function LeadWorkspace({
         onClose={() => setAddOpen(false)}
         contacts={contacts}
         defaultContactId={anchorId}
-        canScheduleFollowUp={canEdit}
+        canScheduleFollowUp={canEdit || (!anchor && !!resolveAnchor)}
         onSubmit={async (payload) => {
-          await addActFn({ data: payload });
+          let leadId = payload.leadId;
+          if (!leadId && resolveAnchor) leadId = await resolveAnchor();
+          if (!leadId) {
+            toast.error("Add a contact first to log activity.");
+            return;
+          }
+          await addActFn({ data: { ...payload, leadId } });
           invalidate();
           setAddOpen(false);
           toast.success("Activity logged");
