@@ -43,6 +43,7 @@ import {
   listCompanyActivities,
   updateLead,
 } from "@/lib/leads.functions";
+import { listNotes, deleteNote } from "@/lib/notes.functions";
 import { faviconUrl, leadInitials, waHref, fmtMoneyCents, type LeadStatus } from "@/lib/leads-ui";
 import {
   ACTIVITY_KINDS,
@@ -96,6 +97,19 @@ type ActivityRow = {
   created_at: string;
 };
 
+type NoteRow = { id: string; title: string | null; body_text: string | null; created_at: string };
+
+// A journal entry is either an activity row or a note folded into the feed.
+type FeedEntry = {
+  id: string;
+  lead_id?: string;
+  noteId?: string;
+  kind: string;
+  body: string;
+  outcome?: string | null;
+  created_at: string;
+};
+
 export function LeadWorkspace({
   companyName,
   industry,
@@ -110,7 +124,8 @@ export function LeadWorkspace({
   header,
   companyInfo,
   secondary,
-  notesRail,
+  notesEntityType,
+  notesEntityId,
   onChanged,
 }: {
   companyName: string;
@@ -126,7 +141,9 @@ export function LeadWorkspace({
   header?: ReactNode;
   companyInfo?: ReactNode;
   secondary?: ReactNode;
-  notesRail?: ReactNode;
+  // Company/lead notes are blended into the Activity Journal (one history).
+  notesEntityType?: "prospect" | "lead";
+  notesEntityId?: string | null;
   onChanged?: () => void;
 }) {
   const qc = useQueryClient();
@@ -134,6 +151,8 @@ export function LeadWorkspace({
   const addActFn = useServerFn(addLeadActivity);
   const delActFn = useServerFn(deleteLeadActivity);
   const updateFn = useServerFn(updateLead);
+  const listNotesFn = useServerFn(listNotes);
+  const delNoteFn = useServerFn(deleteNote);
 
   const contactIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
   const anchor = contacts.find((c) => c.id === anchorId) ?? contacts[0];
@@ -161,8 +180,17 @@ export function LeadWorkspace({
     enabled: contactIds.length > 0,
   });
 
+  // Company/lead notes are folded into the same journal — one history.
+  const notesKey = ["workspace-notes", notesEntityType ?? "", notesEntityId ?? ""];
+  const { data: notes = [] } = useQuery({
+    queryKey: notesKey,
+    queryFn: () => listNotesFn({ data: { entityType: notesEntityType, entityId: notesEntityId } }),
+    enabled: !!notesEntityId && !!notesEntityType,
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: journalKey });
+    qc.invalidateQueries({ queryKey: notesKey });
     onChanged?.();
   };
 
@@ -177,7 +205,8 @@ export function LeadWorkspace({
   });
 
   const del = useMutation({
-    mutationFn: (id: string) => delActFn({ data: { id } }),
+    mutationFn: (entry: FeedEntry) =>
+      entry.noteId ? delNoteFn({ data: { id: entry.noteId } }) : delActFn({ data: { id: entry.id } }),
     onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -186,19 +215,39 @@ export function LeadWorkspace({
   const [filter, setFilter] = useState<ActivityKind | "all">("all");
   const [companyOpen, setCompanyOpen] = useState(false);
 
+  // One unified feed: activity rows + notes (as note-kind entries), newest first.
+  const feed = useMemo<FeedEntry[]>(() => {
+    const acts: FeedEntry[] = (activities as ActivityRow[]).map((a) => ({
+      id: a.id,
+      lead_id: a.lead_id,
+      kind: a.kind,
+      body: a.body,
+      outcome: a.outcome ?? null,
+      created_at: a.created_at,
+    }));
+    const noteEntries: FeedEntry[] = (notes as NoteRow[]).map((n) => ({
+      id: `note-${n.id}`,
+      noteId: n.id,
+      kind: "note",
+      body: [n.title, n.body_text].filter((s) => s && s.trim()).join("\n").trim() || "(empty note)",
+      created_at: n.created_at,
+    }));
+    return [...acts, ...noteEntries].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [activities, notes]);
+
   const rec = followUpRecommendation({
-    lastActivityAt: activities[0]?.created_at ?? anchor.last_activity_at,
+    lastActivityAt: feed[0]?.created_at ?? anchor.last_activity_at,
     stage,
     nextActionDue: anchor.next_action_due,
     primaryContact: primary?.contact_person,
   });
 
-  const filtered = filter === "all" ? activities : activities.filter((a: ActivityRow) => a.kind === filter);
+  const filtered = filter === "all" ? feed : feed.filter((a) => a.kind === filter);
 
   // Group the (newest-first) feed by day.
   const grouped = useMemo(() => {
-    const out: { day: string; items: ActivityRow[] }[] = [];
-    for (const a of filtered as ActivityRow[]) {
+    const out: { day: string; items: FeedEntry[] }[] = [];
+    for (const a of filtered) {
       const day = dayLabel(a.created_at);
       const last = out[out.length - 1];
       if (last && last.day === day) last.items.push(a);
@@ -209,9 +258,9 @@ export function LeadWorkspace({
 
   const kindsPresent = useMemo(() => {
     const s = new Set<string>();
-    for (const a of activities as ActivityRow[]) s.add(a.kind);
+    for (const a of feed) s.add(a.kind);
     return s;
-  }, [activities]);
+  }, [feed]);
 
   return (
     <div className="grid gap-4 min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -281,7 +330,7 @@ export function LeadWorkspace({
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold">Activity Journal</h2>
               <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                {activities.length}
+                {feed.length}
               </span>
             </div>
             <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
@@ -350,8 +399,8 @@ export function LeadWorkspace({
                         <JournalEntry
                           key={a.id}
                           a={a}
-                          who={contactIds.length > 1 ? contactName.get(a.lead_id) : undefined}
-                          onDelete={() => del.mutate(a.id)}
+                          who={contactIds.length > 1 && a.lead_id ? contactName.get(a.lead_id) : undefined}
+                          onDelete={() => del.mutate(a)}
                         />
                       ))}
                     </div>
@@ -423,8 +472,6 @@ export function LeadWorkspace({
             {companyOpen && <div className="border-t p-3">{companyInfo}</div>}
           </div>
         )}
-
-        {notesRail}
       </div>
 
       <AddActivityDialog
@@ -446,7 +493,7 @@ export function LeadWorkspace({
 
 // ---------- Journal entry ----------
 
-function JournalEntry({ a, who, onDelete }: { a: ActivityRow; who?: string; onDelete: () => void }) {
+function JournalEntry({ a, who, onDelete }: { a: FeedEntry; who?: string; onDelete: () => void }) {
   const m = activityMeta(a.kind);
   const oc = outcomeMeta(a.outcome);
   const time = new Date(a.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });

@@ -568,14 +568,23 @@ export const listLeadActivities = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
+    // `outcome` requires the activity_journal migration — fall back gracefully.
+    const full = await context.supabase
       .from("lead_activities")
       .select("id, lead_id, kind, body, outcome, created_at")
       .eq("lead_id", data.leadId)
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+    if (!full.error) return full.data ?? [];
+    if (!/outcome/i.test(full.error.message)) throw new Error(full.error.message);
+    const base = await context.supabase
+      .from("lead_activities")
+      .select("id, lead_id, kind, body, created_at")
+      .eq("lead_id", data.leadId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (base.error) throw new Error(base.error.message);
+    return (base.data ?? []).map((r) => ({ ...r, outcome: null as string | null }));
   });
 
 // Merged Activity Journal across every contact (lead row) of a company.
@@ -585,14 +594,22 @@ export const listCompanyActivities = createServerFn({ method: "GET" })
     z.object({ leadIds: z.array(z.string().uuid()).min(1).max(200) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
+    const full = await context.supabase
       .from("lead_activities")
       .select("id, lead_id, kind, body, outcome, created_at")
       .in("lead_id", data.leadIds)
       .order("created_at", { ascending: false })
       .limit(1000);
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+    if (!full.error) return full.data ?? [];
+    if (!/outcome/i.test(full.error.message)) throw new Error(full.error.message);
+    const base = await context.supabase
+      .from("lead_activities")
+      .select("id, lead_id, kind, body, created_at")
+      .in("lead_id", data.leadIds)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (base.error) throw new Error(base.error.message);
+    return (base.data ?? []).map((r) => ({ ...r, outcome: null as string | null }));
   });
 
 export const addLeadActivity = createServerFn({ method: "POST" })

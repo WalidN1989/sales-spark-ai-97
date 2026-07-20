@@ -7,7 +7,6 @@ import { toast } from "sonner";
 
 import { listLeadsByCompany, resolveCompanyIdByGroupKey, addContactToCompany } from "@/lib/leads.functions";
 import { setCompanyStatus, getCompany } from "@/lib/companies.functions";
-import { EntityNotesRail } from "@/components/notes/EntityNotesRail";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -206,9 +205,8 @@ function GroupView() {
             )}
           </dl>
         }
-        notesRail={
-          <EntityNotesRail entityType="prospect" entityId={groupNotesCompanyId} title="Company notes" />
-        }
+        notesEntityType="prospect"
+        notesEntityId={groupNotesCompanyId}
       />
 
       {resolvedCompanyId && (
