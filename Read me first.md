@@ -73,13 +73,41 @@ opening records.
   purpose — analytics belong in Analytics, the Leads page is for execution.
 - Old card components were deleted; group/reseller/lead-detail routes are untouched.
 
-## 4. ⚠️ Open item #1: check the DB migration
+### Lead page redesign — the "Sales Notebook" (2026-07-17, later session)
 
-`supabase/migrations/20260717110000_sales_command_center.sql` adds to `public.leads`:
-`pipeline_stage`, `next_action`, `next_action_due`, `priority`, `ai_summary`,
-`assigned_to` (+ checks, backfill from old `status`, indexes).
+The lead detail + company pages were rebuilt around one philosophy: the page is
+a **sales notebook**, not a dashboard. It answers three questions only — Who is
+this? · What happened? · What next? — and pushes everything else out of the way.
 
-**It was pushed with the code, but we have NOT confirmed Lovable Cloud applied it.**
+Key files:
+| File | Role |
+|---|---|
+| `src/components/leads/LeadWorkspace.tsx` | Shared notebook: identity header, **Activity Journal** (merged, day-grouped feed with type-filter chips), **Add Activity** dialog (Type → Note → Outcome → Next follow-up), searchable Contacts drawer, Next Follow-up box, derived follow-up recommendation, collapsible Company Information. |
+| `src/routes/_authenticated/app.leads.group.$companyId.tsx` | Company workspace (multi-contact). Merged journal across all contacts. Replaced the old carousel/compare view. |
+| `src/routes/_authenticated/app.leads.$id.tsx` | Single-contact workspace. Edit form / Documents / Inquiries / AI Respond moved into collapsible `Section`s. |
+| `src/lib/leads-command.ts` | Added `ACTIVITY_KIND_META`, `OUTCOME_META`, `dayLabel`, `followUpRecommendation`. |
+| `src/lib/leads.functions.ts` | `listCompanyActivities` (merged feed); `addLeadActivity` now takes `outcome` + optional follow-up and schedules it on the lead atomically. |
+| `supabase/migrations/20260717150000_activity_journal.sql` | Adds activity kinds (whatsapp/quotation/visit) + `outcome` column. |
+
+Notes on decisions:
+- **Activity is the one history.** Every call/WhatsApp/meeting/email/visit/note/
+  quotation is a journal entry with a type; the feed reads like a conversation.
+- **Health/next-action stays computed** (from the command-center work); the
+  notebook's recommendation box is honest derivation, **not** an AI call.
+- The group page's contacts drawer navigates to a contact's own page; the single
+  page shows just that contact's activities. Both share the same layout.
+- `addLeadActivity` retries without `outcome` if the column is missing, so it
+  works before the activity_journal migration is applied.
+
+## 4. ⚠️ Open item #1: check the DB migrations
+
+Two migrations ship with this work and must both run in Lovable Cloud:
+1. `20260717110000_sales_command_center.sql` — adds `pipeline_stage`,
+   `next_action`, `next_action_due`, `priority`, `ai_summary`, `assigned_to`.
+2. `20260717150000_activity_journal.sql` — widens `lead_activities.kind`
+   (whatsapp/quotation/visit) and adds an `outcome` column.
+
+**They were pushed with the code, but we have NOT confirmed Lovable Cloud applied them.**
 The UI feature-detects the columns (`hasCommandColumns`) and works safely either way:
 
 - Columns missing → derived read-only values; inline editors show a

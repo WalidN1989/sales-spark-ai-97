@@ -241,6 +241,106 @@ export function lastActivityInfo(l: CommandLeadLike): {
   };
 }
 
+// ---------- Activity journal presentation ----------
+
+export const ACTIVITY_KINDS = [
+  "call",
+  "whatsapp",
+  "meeting",
+  "email",
+  "visit",
+  "note",
+  "quotation",
+  "log",
+] as const;
+export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
+
+// Emoji keeps the journal readable without pulling icon components into helpers.
+export const ACTIVITY_KIND_META: Record<
+  ActivityKind,
+  { label: string; emoji: string; dot: string; tint: string }
+> = {
+  call: { label: "Call", emoji: "📞", dot: "bg-sky-500", tint: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300" },
+  whatsapp: { label: "WhatsApp", emoji: "💬", dot: "bg-emerald-500", tint: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" },
+  meeting: { label: "Meeting", emoji: "🤝", dot: "bg-violet-500", tint: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300" },
+  email: { label: "Email", emoji: "📧", dot: "bg-amber-500", tint: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" },
+  visit: { label: "Site visit", emoji: "📍", dot: "bg-rose-500", tint: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" },
+  note: { label: "Note", emoji: "📝", dot: "bg-slate-400", tint: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  quotation: { label: "Quotation", emoji: "📄", dot: "bg-teal-500", tint: "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300" },
+  log: { label: "Update", emoji: "•", dot: "bg-slate-300", tint: "bg-muted text-muted-foreground" },
+};
+
+export function activityMeta(kind: string): { label: string; emoji: string; dot: string; tint: string } {
+  return ACTIVITY_KIND_META[kind as ActivityKind] ?? ACTIVITY_KIND_META.log;
+}
+
+export const OUTCOMES = [
+  "interested",
+  "need_quotation",
+  "need_followup",
+  "waiting",
+  "decision_pending",
+  "not_interested",
+  "won",
+  "lost",
+] as const;
+export type Outcome = (typeof OUTCOMES)[number];
+
+export const OUTCOME_META: Record<Outcome, { label: string; className: string }> = {
+  interested: { label: "Interested", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  need_quotation: { label: "Need quotation", className: "bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300" },
+  need_followup: { label: "Need follow-up", className: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" },
+  waiting: { label: "Waiting", className: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300" },
+  decision_pending: { label: "Decision pending", className: "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" },
+  not_interested: { label: "Not interested", className: "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+  won: { label: "Won", className: "bg-emerald-500 text-white" },
+  lost: { label: "Lost", className: "bg-rose-500 text-white" },
+};
+
+export function outcomeMeta(o: string | null | undefined): { label: string; className: string } | null {
+  if (!o) return null;
+  return OUTCOME_META[o as Outcome] ?? null;
+}
+
+// Groups a chronological (newest-first) list into "Today / Yesterday / date" buckets.
+export function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const that = new Date(d);
+  that.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - that.getTime()) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+}
+
+// One-line "what to do next" recommendation from the last touch — no AI call,
+// just honest derivation the salesperson can trust.
+export function followUpRecommendation(opts: {
+  lastActivityAt: string | null | undefined;
+  stage: PipelineStage;
+  nextActionDue: string | null | undefined;
+  primaryContact?: string | null;
+}): { tone: "overdue" | "due" | "quiet" | "ok"; headline: string; suggestion: string } | null {
+  const { lastActivityAt, stage, nextActionDue, primaryContact } = opts;
+  if (stage === "won" || stage === "lost") return null;
+  const who = primaryContact ? primaryContact.split(/\s+/)[0] : "the contact";
+
+  if (nextActionDue) {
+    const info = dueInfo(nextActionDue);
+    if (info.tone === "overdue") return { tone: "overdue", headline: `Follow-up ${info.label.toLowerCase()}`, suggestion: `Reconnect with ${who} — the scheduled follow-up has passed.` };
+    if (info.tone === "today") return { tone: "due", headline: "Follow-up due today", suggestion: `Action the follow-up with ${who} today.` };
+  }
+
+  const silent = daysSince(lastActivityAt);
+  if (silent === null) return { tone: "quiet", headline: "No activity logged yet", suggestion: `Log your first touch with ${who}.` };
+  if (silent >= 14) return { tone: "quiet", headline: `Quiet for ${silent} days`, suggestion: `${primaryContact ?? "This lead"} has gone cold — a call would re-open the conversation.` };
+  if (silent >= 7) return { tone: "quiet", headline: `${silent} days since last contact`, suggestion: `Check back in with ${who} before it goes cold.` };
+  return { tone: "ok", headline: `Last contact ${silent === 0 ? "today" : `${silent}d ago`}`, suggestion: "This lead is being actively worked." };
+}
+
 // ---------- Feature detection ----------
 
 // True once the sales-command-center migration has run and the row actually

@@ -3,7 +3,26 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
-const activityKindEnum = z.enum(["note", "email", "call", "meeting", "log"]);
+const activityKindEnum = z.enum([
+  "note",
+  "email",
+  "call",
+  "meeting",
+  "log",
+  "whatsapp",
+  "quotation",
+  "visit",
+]);
+const outcomeEnum = z.enum([
+  "interested",
+  "waiting",
+  "not_interested",
+  "need_quotation",
+  "need_followup",
+  "decision_pending",
+  "lost",
+  "won",
+]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 // "*" keeps the query working both before and after the sales-command-center
@@ -551,10 +570,27 @@ export const listLeadActivities = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: rows, error } = await context.supabase
       .from("lead_activities")
-      .select("id, kind, body, created_at")
+      .select("id, lead_id, kind, body, outcome, created_at")
       .eq("lead_id", data.leadId)
       .order("created_at", { ascending: false })
       .limit(500);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+// Merged Activity Journal across every contact (lead row) of a company.
+export const listCompanyActivities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ leadIds: z.array(z.string().uuid()).min(1).max(200) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: rows, error } = await context.supabase
+      .from("lead_activities")
+      .select("id, lead_id, kind, body, outcome, created_at")
+      .in("lead_id", data.leadIds)
+      .order("created_at", { ascending: false })
+      .limit(1000);
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
@@ -567,22 +603,49 @@ export const addLeadActivity = createServerFn({ method: "POST" })
         leadId: z.string().uuid(),
         kind: activityKindEnum,
         body: z.string().trim().min(1).max(2000),
+        outcome: outcomeEnum.nullable().optional(),
+        // When set, the activity also schedules the lead's next follow-up.
+        next_action: z.string().trim().max(200).nullable().optional(),
+        next_action_due: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD")
+          .nullable()
+          .optional(),
+        priority: z.enum(["critical", "high", "medium", "low"]).nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    const { data: row, error } = await context.supabase
+    // Insert the journal entry. `outcome` requires the activity_journal
+    // migration; retry without it so the app still works pre-migration.
+    const base = { lead_id: data.leadId, user_id: context.userId, kind: data.kind, body: data.body };
+    let insert = await context.supabase
       .from("lead_activities")
-      .insert({
-        lead_id: data.leadId,
-        user_id: context.userId,
-        kind: data.kind,
-        body: data.body,
-      })
-      .select("id, kind, body, created_at")
+      .insert({ ...base, outcome: data.outcome ?? null })
+      .select("id, lead_id, kind, body, outcome, created_at")
       .single();
-    if (error) throw new Error(error.message);
-    return row;
+    if (insert.error && /outcome/i.test(insert.error.message)) {
+      insert = await context.supabase
+        .from("lead_activities")
+        .insert(base)
+        .select("id, lead_id, kind, body, created_at")
+        .single();
+    }
+    if (insert.error) throw new Error(insert.error.message);
+
+    // Optionally schedule the follow-up on the lead in the same action.
+    const leadPatch: {
+      next_action_due?: string | null;
+      next_action?: string | null;
+      priority?: string | null;
+    } = {};
+    if (data.next_action_due !== undefined) leadPatch.next_action_due = data.next_action_due;
+    if (data.next_action !== undefined) leadPatch.next_action = data.next_action;
+    if (data.priority !== undefined) leadPatch.priority = data.priority;
+    if (Object.keys(leadPatch).length > 0) {
+      await context.supabase.from("leads").update(leadPatch).eq("id", data.leadId);
+    }
+    return insert.data;
   });
 
 export const deleteLeadActivity = createServerFn({ method: "POST" })
