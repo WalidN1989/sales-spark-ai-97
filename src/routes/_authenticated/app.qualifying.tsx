@@ -11,6 +11,7 @@ import {
   Globe,
   Copy,
   Loader2,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -22,7 +23,6 @@ import {
 } from "@/lib/qualifying.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -179,60 +179,60 @@ function QualifyingPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Target className="h-6 w-6 text-primary" /> Qualifying
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Competitors of your won customers — qualify before promoting to Leads.
-          </p>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <Target className="h-5 w-5 text-primary" /> Qualifying
+        </h1>
+        <span className="text-xs text-muted-foreground">
+          {filtered.length}
+          {filtered.length !== rows.length ? ` of ${rows.length}` : ""}
+        </span>
+        <div className="relative ml-2 w-72 max-w-full">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+          <Input
+            placeholder="Search competitor, source, brand…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-8 pl-7 text-[13px]"
+          />
         </div>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Competitors of your won customers — qualify before promoting to Leads.
+      </p>
 
-      <div className="grid gap-2 grid-cols-2 md:grid-cols-7">
+      {/* Status filter chips */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+            statusFilter === "all"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-accent",
+          )}
+        >
+          All <span className="ml-1 opacity-70">{rows.length}</span>
+        </button>
         {STATUSES.map((s) => (
           <button
             key={s}
+            type="button"
             onClick={() => setStatusFilter(statusFilter === s ? "all" : s)}
             className={cn(
-              "rounded-md border p-2 text-left transition-colors hover:bg-accent",
-              statusFilter === s && "ring-2 ring-primary",
+              "rounded-full border px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+              STATUS_STYLES[s],
+              statusFilter === s && "ring-2 ring-primary ring-offset-1",
             )}
           >
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {s.replace("_", " ")}
-            </div>
-            <div className="text-lg font-semibold">{counts[s] ?? 0}</div>
+            {s.replace("_", " ")} <span className="ml-1 opacity-70">{counts[s] ?? 0}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Search competitor, source, brand…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as Status | "all")}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s.replace("_", " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
+      <div className="overflow-auto rounded-lg border bg-card" style={{ maxHeight: "calc(100vh - 260px)" }}>
           {isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
@@ -240,9 +240,8 @@ function QualifyingPage() {
               No qualifying targets yet. Open a prospect&apos;s Market Insight → Competitors → pick one → <strong>Add to Qualifying</strong>.
             </p>
           ) : (
-            <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <thead className="sticky top-0 z-10 border-b bg-card text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="p-3 text-left">Target</th>
                     <th className="p-3 text-left">Source prospect</th>
@@ -442,13 +441,11 @@ function QualifyingPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <Dialog open={!!emailFor} onOpenChange={(v) => !v && setEmailFor(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               Draft email — {emailFor?.competitor?.name}

@@ -7,12 +7,11 @@
 // (documents, inquiries, AI respond, notes) mount through the `secondary` and
 // `companyInfo` slots so this component stays focused.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CalendarClock,
-  ChevronDown,
   Flag,
   Linkedin,
   Mail,
@@ -219,7 +218,22 @@ export function LeadWorkspace({
 
   const [addOpen, setAddOpen] = useState(false);
   const [filter, setFilter] = useState<ActivityKind | "all">("all");
-  const [companyOpen, setCompanyOpen] = useState(false);
+
+  // Press "A" anywhere on a Lead/Prospect workspace to log an activity.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key !== "a" && e.key !== "A") || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable))
+        return;
+      // Don't hijack when a menu / dialog / popover is already open.
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      e.preventDefault();
+      setAddOpen(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // One unified feed: activity rows + notes (as note-kind entries), newest first.
   const feed = useMemo<FeedEntry[]>(() => {
@@ -231,13 +245,18 @@ export function LeadWorkspace({
       outcome: a.outcome ?? null,
       created_at: a.created_at,
     }));
-    const noteEntries: FeedEntry[] = (notes as NoteRow[]).map((n) => ({
-      id: `note-${n.id}`,
-      noteId: n.id,
-      kind: "note",
-      body: [n.title, n.body_text].filter((s) => s && s.trim()).join("\n").trim() || "(empty note)",
-      created_at: n.created_at,
-    }));
+    const noteEntries: FeedEntry[] = (notes as NoteRow[]).map((n) => {
+      // Some notes carry the same text in title and body — show it once.
+      const parts = [n.title, n.body_text].map((s) => (s ?? "").trim()).filter(Boolean);
+      const uniq = parts.filter((s, i) => parts.findIndex((t) => t.toLowerCase() === s.toLowerCase()) === i);
+      return {
+        id: `note-${n.id}`,
+        noteId: n.id,
+        kind: "note",
+        body: uniq.join("\n") || "(empty note)",
+        created_at: n.created_at,
+      };
+    });
     return [...acts, ...noteEntries].sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [activities, notes]);
 
@@ -339,8 +358,11 @@ export function LeadWorkspace({
                 {feed.length}
               </span>
             </div>
-            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)}>
+            <Button size="sm" className="h-8" onClick={() => setAddOpen(true)} title="Add activity (press A)">
               <Plus className="mr-1 h-4 w-4" /> Add Activity
+              <kbd className="ml-2 hidden rounded border border-primary-foreground/30 bg-primary-foreground/10 px-1 text-[10px] font-mono sm:inline">
+                A
+              </kbd>
             </Button>
           </div>
 
@@ -466,18 +488,11 @@ export function LeadWorkspace({
           companyName={companyName}
         />
 
-        {/* Collapsible Company Information */}
+        {/* Company Information — always expanded */}
         {companyInfo && (
           <div className="rounded-xl border bg-card">
-            <button
-              type="button"
-              onClick={() => setCompanyOpen((o) => !o)}
-              className="flex w-full items-center justify-between p-3 text-sm font-semibold"
-            >
-              Company Information
-              <ChevronDown className={cn("h-4 w-4 transition-transform", companyOpen && "rotate-180")} />
-            </button>
-            {companyOpen && <div className="border-t p-3">{companyInfo}</div>}
+            <div className="p-3 text-sm font-semibold">Company Information</div>
+            <div className="border-t p-3">{companyInfo}</div>
           </div>
         )}
       </div>
@@ -856,30 +871,43 @@ function AddActivityDialog({
         }
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Activity</DialogTitle>
+          <DialogTitle className="text-lg">Log an activity</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Capture what happened, the outcome, and when to follow up.
+          </p>
         </DialogHeader>
-        <div className="space-y-4">
+        <div
+          className="space-y-5"
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && body.trim() && !saving) submit();
+          }}
+        >
           {/* Type */}
           <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Activity type
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-2">
               {ACTIVITY_KINDS.filter((k) => k !== "log").map((k) => {
                 const m = activityMeta(k);
+                const active = kind === k;
                 return (
                   <button
                     key={k}
                     type="button"
                     onClick={() => setKind(k)}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-lg border py-2 text-xs transition-colors",
-                      kind === k ? "border-primary bg-primary/10 font-semibold" : "hover:bg-accent",
+                      "flex flex-col items-center gap-1.5 rounded-xl border py-3 text-xs transition-all",
+                      active
+                        ? "border-primary bg-primary/10 font-semibold shadow-sm ring-1 ring-primary/40"
+                        : "hover:border-foreground/20 hover:bg-accent",
                     )}
                   >
-                    <span className="text-base">{m.emoji}</span>
+                    <span className={cn("grid h-8 w-8 place-items-center rounded-full text-base", m.tint)}>
+                      {m.emoji}
+                    </span>
                     {m.label}
                   </button>
                 );
@@ -917,18 +945,20 @@ function AddActivityDialog({
               autoFocus
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              rows={3}
+              rows={6}
               maxLength={2000}
-              placeholder="e.g. Called procurement — asked about warranty, needs revised quotation."
+              placeholder="e.g. Called procurement — asked about warranty, needs revised quotation before month end."
+              className="resize-y text-sm leading-relaxed"
             />
+            <div className="mt-1 text-right text-[10px] text-muted-foreground/60">{body.length}/2000</div>
           </div>
 
           {/* Outcome */}
           <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Outcome <span className="font-normal normal-case">(optional)</span>
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {OUTCOMES.map((o) => {
                 const m = outcomeMeta(o)!;
                 return (
@@ -937,8 +967,8 @@ function AddActivityDialog({
                     type="button"
                     onClick={() => setOutcome(outcome === o ? null : o)}
                     className={cn(
-                      "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                      outcome === o ? m.className : "bg-muted text-muted-foreground hover:bg-accent",
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                      outcome === o ? cn(m.className, "shadow-sm ring-1 ring-primary/30") : "bg-muted text-muted-foreground hover:bg-accent",
                     )}
                   >
                     {m.label}
@@ -990,13 +1020,19 @@ function AddActivityDialog({
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={!body.trim() || saving}>
-            {saving ? "Saving…" : "Log Activity"}
-          </Button>
+        <DialogFooter className="items-center gap-2 sm:justify-between">
+          <span className="hidden text-[11px] text-muted-foreground sm:inline">
+            <kbd className="rounded border bg-muted px-1 font-mono">Ctrl</kbd>+
+            <kbd className="rounded border bg-muted px-1 font-mono">Enter</kbd> to save
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={!body.trim() || saving}>
+              {saving ? "Saving…" : "Log Activity"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

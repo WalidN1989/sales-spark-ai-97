@@ -96,6 +96,18 @@ collapsible `Section`s and the company profile in `companyInfo`. Contact-less
 prospects are supported via `resolveAnchor` (lazily creates a primary lead on the
 first logged activity). Company notes merge into the journal (notes rail removed).
 
+**Workspace refinements (later 2026-07-17):** company notes dedupe title/body so
+they render once; **Company Information is always expanded** (no longer
+collapsible); the Add Activity dialog is roomier (`max-w-2xl`, 6-row note, tinted
+type tiles, `Ctrl+Enter` to save); pressing **A** anywhere on a Lead/Prospect
+workspace opens the Add Activity dialog (guarded against inputs/open menus).
+
+**Qualifying** (`app.qualifying.tsx`) was modernised to the command-center list
+style (compact search + status filter chips replacing the big stat cards, sticky
+dense table). It's a triage list of competitors, not an entity with contacts, so
+it has no Activity Journal of its own — a qualified target's notebook lives on the
+Lead/Prospect it converts into.
+
 Notes on decisions:
 - **Activity is the one history.** Every call/WhatsApp/meeting/email/visit/note/
   quotation is a journal entry with a type; the feed reads like a conversation.
