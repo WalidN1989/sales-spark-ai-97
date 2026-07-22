@@ -118,6 +118,27 @@ Notes on decisions:
 - `addLeadActivity` retries without `outcome` if the column is missing, so it
   works before the activity_journal migration is applied.
 
+### Reminders / notifications (2026-07-17)
+
+A header **notification bell** (top-right, desktop top bar + mobile header) with a
+badge, a stacked notification **panel** (Due now / Upcoming / Done), and a
+center-screen **popup** that fires when a reminder's time arrives (blurred
+backdrop; Snooze 5m / Open / Done; clicking the backdrop defers it but keeps it
+in the bell). Clicking a reminder navigates to its linked lead or prospect.
+
+- `supabase/migrations/20260717170000_reminders.sql` — `reminders` table (title,
+  note, remind_at, entity_type/id/label, status) + owner RLS. **Must be applied
+  in Lovable** (until then `listReminders` returns [] so nothing errors).
+- `src/lib/reminders.functions.ts` — list/create/setStatus/snooze/delete.
+- `src/components/reminders/NotificationCenter.tsx` — bell + panel + popup +
+  30s poller (mounted in `app.tsx` shell).
+- `src/components/reminders/SetReminderDialog.tsx` — set a reminder for a date +
+  time; opened from the workspace Next Follow-up box ("Set a reminder"), passed a
+  `reminderEntity` ({type,id,label}) by each route.
+- Firing is **client-side** (a poller compares `remind_at` to now); there's no
+  server cron / web-push. An OS Notification is shown too if the user granted
+  permission, but the in-app popup is the primary surface.
+
 ## 4. ⚠️ Open item #1: check the DB migrations
 
 Two migrations ship with this work and must both run in Lovable Cloud:

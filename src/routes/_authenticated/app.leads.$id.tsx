@@ -396,6 +396,7 @@ function LeadDetail() {
         website={effectiveWebsite || null}
         contacts={[workspaceContact]}
         anchorId={id}
+        reminderEntity={{ type: "lead", id, label: companyDisplay }}
         header={header}
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["lead", id] });

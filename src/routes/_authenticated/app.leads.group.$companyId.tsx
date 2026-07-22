@@ -156,6 +156,11 @@ function GroupView() {
         website={website}
         contacts={leads}
         anchorId={anchorId}
+        reminderEntity={
+          resolvedCompanyId
+            ? { type: "prospect", id: resolvedCompanyId, label: companyName }
+            : { type: "lead", id: anchorId, label: companyName }
+        }
         onSelectContact={(id) => navigate({ to: "/app/leads/$id", params: { id } })}
         onAddContact={resolvedCompanyId ? () => setAddOpen(true) : undefined}
         header={header}

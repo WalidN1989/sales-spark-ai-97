@@ -261,6 +261,7 @@ function CompanyProfile() {
         contacts={leads}
         anchorId={anchorId}
         extraProducts={c.product_service ? [c.product_service] : []}
+        reminderEntity={{ type: "prospect", id, label: c.name }}
         onSelectContact={(cid) => navigate({ to: "/app/leads/$id", params: { id: cid } })}
         onAddContact={() => setFindOpen(true)}
         resolveAnchor={async () => {

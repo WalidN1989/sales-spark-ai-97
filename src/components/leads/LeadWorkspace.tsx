@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlarmClock,
   CalendarClock,
   Flag,
   Linkedin,
@@ -43,6 +44,7 @@ import {
   updateLead,
 } from "@/lib/leads.functions";
 import { listNotes, deleteNote } from "@/lib/notes.functions";
+import { SetReminderDialog, type ReminderEntity } from "@/components/reminders/SetReminderDialog";
 import { faviconUrl, leadInitials, waHref, fmtMoneyCents, type LeadStatus } from "@/lib/leads-ui";
 import {
   ACTIVITY_KINDS,
@@ -128,6 +130,7 @@ export function LeadWorkspace({
   notesEntityId,
   onChanged,
   resolveAnchor,
+  reminderEntity,
 }: {
   companyName: string;
   industry?: string | null;
@@ -150,6 +153,8 @@ export function LeadWorkspace({
   // For contact-less prospects: lazily resolve/create a lead to attach the
   // first activity to. Called only when there is no anchor contact.
   resolveAnchor?: () => Promise<string>;
+  // Enables the "Set reminder" action, linked to this lead/prospect.
+  reminderEntity?: ReminderEntity;
 }) {
   const qc = useQueryClient();
   const listActsFn = useServerFn(listCompanyActivities);
@@ -217,6 +222,7 @@ export function LeadWorkspace({
   });
 
   const [addOpen, setAddOpen] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
   const [filter, setFilter] = useState<ActivityKind | "all">("all");
 
   // Press "A" anywhere on a Lead/Prospect workspace to log an activity.
@@ -457,6 +463,17 @@ export function LeadWorkspace({
           />
         )}
 
+        {/* Timed reminder (date + time → header notification) */}
+        {reminderEntity && (
+          <button
+            type="button"
+            onClick={() => setRemindOpen(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
+          >
+            <AlarmClock className="h-4 w-4" /> Set a reminder
+          </button>
+        )}
+
         {/* Derived recommendation */}
         {rec && (
           <div
@@ -516,6 +533,15 @@ export function LeadWorkspace({
           toast.success("Activity logged");
         }}
       />
+
+      {reminderEntity && (
+        <SetReminderDialog
+          open={remindOpen}
+          onClose={() => setRemindOpen(false)}
+          entity={reminderEntity}
+          defaultTitle={reminderEntity.label ? `Follow up — ${reminderEntity.label}` : undefined}
+        />
+      )}
     </div>
   );
 }
