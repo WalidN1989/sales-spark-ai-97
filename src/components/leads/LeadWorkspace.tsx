@@ -44,6 +44,7 @@ import {
   updateLead,
 } from "@/lib/leads.functions";
 import { listNotes, deleteNote } from "@/lib/notes.functions";
+import { createReminder } from "@/lib/reminders.functions";
 import { SetReminderDialog, type ReminderEntity } from "@/components/reminders/SetReminderDialog";
 import { faviconUrl, leadInitials, waHref, fmtMoneyCents, type LeadStatus } from "@/lib/leads-ui";
 import {
@@ -163,6 +164,7 @@ export function LeadWorkspace({
   const updateFn = useServerFn(updateLead);
   const listNotesFn = useServerFn(listNotes);
   const delNoteFn = useServerFn(deleteNote);
+  const createReminderFn = useServerFn(createReminder);
 
   const contactIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
   const anchor = contacts.find((c) => c.id === anchorId) ?? contacts[0] ?? null;
@@ -527,10 +529,25 @@ export function LeadWorkspace({
             toast.error("Add a contact first to log activity.");
             return;
           }
-          await addActFn({ data: { ...payload, leadId } });
+          const { remind_at, ...activity } = payload;
+          await addActFn({ data: { ...activity, leadId } });
+          // When a follow-up time was picked, also create a timed reminder.
+          if (remind_at && reminderEntity) {
+            await createReminderFn({
+              data: {
+                title: payload.next_action?.trim() || `Follow up — ${reminderEntity.label ?? companyName}`,
+                note: null,
+                remind_at,
+                entity_type: reminderEntity.type,
+                entity_id: reminderEntity.id,
+                entity_label: reminderEntity.label,
+              },
+            });
+            qc.invalidateQueries({ queryKey: ["reminders"] });
+          }
           invalidate();
           setAddOpen(false);
-          toast.success("Activity logged");
+          toast.success(remind_at ? "Activity logged · reminder set" : "Activity logged");
         }}
       />
 
@@ -848,6 +865,7 @@ function AddActivityDialog({
     outcome?: Outcome | null;
     next_action?: string | null;
     next_action_due?: string | null;
+    remind_at?: string | null;
   }) => Promise<void>;
 }) {
   const [kind, setKind] = useState<ActivityKind>("call");
@@ -856,6 +874,7 @@ function AddActivityDialog({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [nextAction, setNextAction] = useState("");
   const [due, setDue] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -865,12 +884,15 @@ function AddActivityDialog({
     setOutcome(null);
     setNextAction("");
     setDue("");
+    setDueTime("");
   };
 
   const submit = async () => {
     if (!body.trim()) return;
     setSaving(true);
     try {
+      const remindAt =
+        canScheduleFollowUp && due && dueTime ? new Date(`${due}T${dueTime}`).toISOString() : undefined;
       await onSubmit({
         leadId,
         kind,
@@ -878,6 +900,7 @@ function AddActivityDialog({
         outcome,
         ...(canScheduleFollowUp && due ? { next_action_due: due } : {}),
         ...(canScheduleFollowUp && nextAction.trim() ? { next_action: nextAction.trim() } : {}),
+        ...(remindAt ? { remind_at: remindAt } : {}),
       });
       reset();
     } catch (e) {
@@ -897,7 +920,7 @@ function AddActivityDialog({
         }
       }}
     >
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg">Log an activity</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -905,17 +928,17 @@ function AddActivityDialog({
           </p>
         </DialogHeader>
         <div
-          className="space-y-5"
+          className="space-y-4"
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && body.trim() && !saving) submit();
           }}
         >
-          {/* Type */}
+          {/* Type — full width */}
           <div>
             <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Activity type
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
               {ACTIVITY_KINDS.filter((k) => k !== "log").map((k) => {
                 const m = activityMeta(k);
                 const active = kind === k;
@@ -925,13 +948,13 @@ function AddActivityDialog({
                     type="button"
                     onClick={() => setKind(k)}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-xl border py-3 text-xs transition-all",
+                      "flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs transition-all",
                       active
                         ? "border-primary bg-primary/10 font-semibold shadow-sm ring-1 ring-primary/40"
                         : "hover:border-foreground/20 hover:bg-accent",
                     )}
                   >
-                    <span className={cn("grid h-8 w-8 place-items-center rounded-full text-base", m.tint)}>
+                    <span className={cn("grid h-7 w-7 place-items-center rounded-full text-sm", m.tint)}>
                       {m.emoji}
                     </span>
                     {m.label}
@@ -941,110 +964,136 @@ function AddActivityDialog({
             </div>
           </div>
 
-          {/* Contact (only when several) */}
-          {contacts.length > 1 && (
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Contact
-              </label>
-              <select
-                value={leadId}
-                onChange={(e) => setLeadId(e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.contact_person ?? c.contact_email ?? "Unknown"}
-                    {c.job_title ? ` — ${c.job_title}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Note */}
-          <div>
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              What happened?
-            </label>
-            <Textarea
-              autoFocus
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={6}
-              maxLength={2000}
-              placeholder="e.g. Called procurement — asked about warranty, needs revised quotation before month end."
-              className="resize-y text-sm leading-relaxed"
-            />
-            <div className="mt-1 text-right text-[10px] text-muted-foreground/60">{body.length}/2000</div>
-          </div>
-
-          {/* Outcome */}
-          <div>
-            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Outcome <span className="font-normal normal-case">(optional)</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {OUTCOMES.map((o) => {
-                const m = outcomeMeta(o)!;
-                return (
-                  <button
-                    key={o}
-                    type="button"
-                    onClick={() => setOutcome(outcome === o ? null : o)}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
-                      outcome === o ? cn(m.className, "shadow-sm ring-1 ring-primary/30") : "bg-muted text-muted-foreground hover:bg-accent",
-                    )}
+          {/* Two columns so everything fits without scrolling */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Left: contact + what happened */}
+            <div className="space-y-3">
+              {contacts.length > 1 && (
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Contact
+                  </label>
+                  <select
+                    value={leadId}
+                    onChange={(e) => setLeadId(e.target.value)}
+                    className="h-9 w-full rounded-md border bg-background px-2 text-sm"
                   >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Next follow-up */}
-          {canScheduleFollowUp && (
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Schedule next follow-up <span className="font-normal normal-case">(optional)</span>
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-8 w-40" />
-                {([["Tomorrow", 1], ["+3d", 3], ["+1w", 7]] as const).map(([label, d]) => (
-                  <Button
-                    key={label}
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2 text-xs"
-                    onClick={() => {
-                      const dt = new Date();
-                      dt.setDate(dt.getDate() + d);
-                      setDue(dt.toISOString().slice(0, 10));
-                    }}
-                  >
-                    {label}
-                  </Button>
-                ))}
-                {due && (
-                  <button type="button" onClick={() => setDue("")} className="text-muted-foreground/60 hover:text-foreground">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {due && (
-                <Input
-                  value={nextAction}
-                  onChange={(e) => setNextAction(e.target.value)}
-                  placeholder="What's the next action? e.g. Send revised quote"
-                  maxLength={200}
-                  className="mt-2 h-8"
+                    {contacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.contact_person ?? c.contact_email ?? "Unknown"}
+                        {c.job_title ? ` — ${c.job_title}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  What happened?
+                </label>
+                <Textarea
+                  autoFocus
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={contacts.length > 1 ? 5 : 7}
+                  maxLength={2000}
+                  placeholder="e.g. Called procurement — asked about warranty, needs revised quotation before month end."
+                  className="resize-y text-sm leading-relaxed"
                 />
+                <div className="mt-1 text-right text-[10px] text-muted-foreground/60">{body.length}/2000</div>
+              </div>
+            </div>
+
+            {/* Right: outcome + follow-up */}
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Outcome <span className="font-normal normal-case">(optional)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {OUTCOMES.map((o) => {
+                    const m = outcomeMeta(o)!;
+                    return (
+                      <button
+                        key={o}
+                        type="button"
+                        onClick={() => setOutcome(outcome === o ? null : o)}
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+                          outcome === o ? cn(m.className, "shadow-sm ring-1 ring-primary/30") : "bg-muted text-muted-foreground hover:bg-accent",
+                        )}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {canScheduleFollowUp && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Schedule next follow-up <span className="font-normal normal-case">(optional)</span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-8 w-[9.5rem]" />
+                    <Input
+                      type="time"
+                      value={dueTime}
+                      onChange={(e) => setDueTime(e.target.value)}
+                      className="h-8 w-28"
+                      disabled={!due}
+                      title={due ? "Optional time — sets a reminder" : "Pick a date first"}
+                    />
+                    {(due || dueTime) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDue("");
+                          setDueTime("");
+                        }}
+                        className="text-muted-foreground/60 hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {([["Tomorrow", 1], ["+3d", 3], ["+1w", 7]] as const).map(([label, d]) => (
+                      <Button
+                        key={label}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const dt = new Date();
+                          dt.setDate(dt.getDate() + d);
+                          setDue(dt.toISOString().slice(0, 10));
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                  {due && (
+                    <Input
+                      value={nextAction}
+                      onChange={(e) => setNextAction(e.target.value)}
+                      placeholder="What's the next action? e.g. Send revised quote"
+                      maxLength={200}
+                      className="mt-2 h-8"
+                    />
+                  )}
+                  {due && dueTime && (
+                    <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-primary">
+                      <AlarmClock className="h-3 w-3" /> You&apos;ll get a reminder at this time.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="hidden text-[11px] text-muted-foreground sm:inline">
