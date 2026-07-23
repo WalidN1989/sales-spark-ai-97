@@ -127,8 +127,7 @@ backdrop; Snooze 5m / Open / Done; clicking the backdrop defers it but keeps it
 in the bell). Clicking a reminder navigates to its linked lead or prospect.
 
 - `supabase/migrations/20260717170000_reminders.sql` — `reminders` table (title,
-  note, remind_at, entity_type/id/label, status) + owner RLS. **Must be applied
-  in Lovable** (until then `listReminders` returns [] so nothing errors).
+  note, remind_at, entity_type/id/label, status) + owner RLS (applied).
 - `src/lib/reminders.functions.ts` — list/create/setStatus/snooze/delete.
 - `src/components/reminders/NotificationCenter.tsx` — bell + panel + popup +
   30s poller (mounted in `app.tsx` shell).
@@ -139,25 +138,25 @@ in the bell). Clicking a reminder navigates to its linked lead or prospect.
   server cron / web-push. An OS Notification is shown too if the user granted
   permission, but the in-app popup is the primary surface.
 
-## 4. ⚠️ Open item #1: check the DB migrations
+## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
-Two migrations ship with this work and must both run in Lovable Cloud:
-1. `20260717110000_sales_command_center.sql` — adds `pipeline_stage`,
-   `next_action`, `next_action_due`, `priority`, `ai_summary`, `assigned_to`.
-2. `20260717150000_activity_journal.sql` — widens `lead_activities.kind`
-   (whatsapp/quotation/visit) and adds an `outcome` column.
+All four migrations have been run in Lovable Cloud, so every feature is fully live:
 
-**They were pushed with the code, but we have NOT confirmed Lovable Cloud applied them.**
-The UI feature-detects the columns (`hasCommandColumns`) and works safely either way:
+1. `20260717110000_sales_command_center.sql` — `pipeline_stage`, `next_action`,
+   `next_action_due`, `priority`, `ai_summary`, `assigned_to` on `leads`.
+2. `20260717150000_activity_journal.sql` — activity kinds
+   (whatsapp/quotation/visit) + the `outcome` column.
+3. `20260717170000_reminders.sql` — the `reminders` table + owner RLS.
+4. `20260723120000_followup_outcomes.sql` — `no_response` / `ignoring` outcomes.
 
-- Columns missing → derived read-only values; inline editors show a
-  "migration pending" toast; AI summaries generate but don't persist.
-- Columns present → full inline + bulk editing, everything persists.
+**If you add a migration:** push it, then paste its SQL into the Lovable chat (or
+Cloud → SQL editor) and run it. Lovable regenerates
+`src/integrations/supabase/types.ts` and commits to `main` afterwards, so always
+`git pull --rebase` before your next change.
 
-**First thing to verify on the live app:** open Leads, try changing a stage.
-If you get the migration-pending message, paste that SQL file's contents into the
-Lovable chat and ask it to run the migration. `src/integrations/supabase/types.ts`
-was already hand-updated with the new columns (Lovable will regenerate the same).
+The UI still feature-detects (`hasCommandColumns`, and `listReminders` /
+`listCompanyActivities` degrade to empty) so a missing column never hard-fails —
+keep that pattern for new columns.
 
 ## 5. Open item #2: known limitations / natural next steps
 
