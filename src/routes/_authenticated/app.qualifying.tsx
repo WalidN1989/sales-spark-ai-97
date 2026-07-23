@@ -38,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/qualifying")({
@@ -179,31 +180,30 @@ function QualifyingPage() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <Target className="h-5 w-5 text-primary" /> Qualifying
-        </h1>
-        <span className="text-xs text-muted-foreground">
-          {filtered.length}
-          {filtered.length !== rows.length ? ` of ${rows.length}` : ""}
-        </span>
-        <div className="relative ml-2 w-72 max-w-full">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
-          <Input
-            placeholder="Search competitor, source, brand…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-7 text-[13px]"
-          />
+    <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col md:-m-6 md:h-[calc(100%+3rem)]">
+      <HeaderPortal>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <h1 className="flex shrink-0 items-center gap-2 text-lg font-bold tracking-tight">
+            <Target className="h-5 w-5 text-primary" /> Qualifying
+          </h1>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {filtered.length}
+            {filtered.length !== rows.length ? ` of ${rows.length}` : ""}
+          </span>
+          <div className="relative ml-2 w-72 max-w-full">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+            <Input
+              placeholder="Search competitor, source, brand…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-8 pl-7 text-[13px]"
+            />
+          </div>
         </div>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Competitors of your won customers — qualify before promoting to Leads.
-      </p>
+      </HeaderPortal>
 
       {/* Status filter chips */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
         <button
           type="button"
           onClick={() => setStatusFilter("all")}
@@ -232,7 +232,7 @@ function QualifyingPage() {
         ))}
       </div>
 
-      <div className="overflow-auto rounded-lg border bg-card" style={{ maxHeight: "calc(100vh - 260px)" }}>
+      <div className="min-h-0 flex-1 overflow-auto bg-card">
           {isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (

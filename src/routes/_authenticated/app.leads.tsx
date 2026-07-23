@@ -42,7 +42,7 @@ function LeadsPage() {
   }, []);
 
   return (
-    <div className="min-w-0">
+    <>
       <LeadsCommandCenter leads={leads} isLoading={isLoading} onAddLead={() => setQuickOpen(true)} />
       <QuickAddLeadDialog
         open={quickOpen}
@@ -52,7 +52,7 @@ function LeadsPage() {
           setQuickOpen(false);
         }}
       />
-    </div>
+    </>
   );
 }
 // ---------- Quick Add Lead (WhatsApp) ----------

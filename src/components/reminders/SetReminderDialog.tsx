@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createReminder } from "@/lib/reminders.functions";
+import { weekdayLabel } from "@/lib/leads-command";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -115,6 +116,13 @@ export function SetReminderDialog({
               <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           </div>
+
+          {date && (
+            <p className="-mt-1 text-xs font-medium text-muted-foreground">
+              {weekdayLabel(date)}
+              {time ? ` · ${time}` : ""}
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-1.5">
             {presets.map((p) => (

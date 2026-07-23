@@ -57,6 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import {
   updateLead,
   bulkUpdateLeads,
@@ -1167,10 +1168,11 @@ export function LeadsCommandCenter({
   // ---------- Render ----------
 
   return (
-    <div className="flex min-w-0 flex-col gap-2.5">
-      {/* Row 1: title + search + global actions */}
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold tracking-tight">Leads</h1>
+    <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col md:-m-6 md:h-[calc(100%+3rem)]">
+      {/* Title, search and actions render into the app header bar */}
+      <HeaderPortal>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <h1 className="shrink-0 text-lg font-bold tracking-tight">Leads</h1>
         <span className="text-xs text-muted-foreground">
           {rows.length}
           {filtersActive ? ` of ${vms.length}` : ""}
@@ -1280,10 +1282,11 @@ export function LeadsCommandCenter({
             + Add Lead
           </Button>
         </div>
-      </div>
+        </div>
+      </HeaderPortal>
 
-      {/* Row 2: tabs + stage chips + filters */}
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* Filters row */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
         <div className="flex items-center gap-0.5 rounded-md border bg-card p-0.5">
           {(["direct", "resellers", "all", "won"] as const).map((t) => (
             <button
@@ -1409,8 +1412,7 @@ export function LeadsCommandCenter({
         tabIndex={0}
         onKeyDown={handleKey}
         onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
-        className="relative overflow-auto rounded-lg border bg-card outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        style={{ maxHeight: "calc(100vh - 220px)", minHeight: 240 }}
+        className="relative min-h-0 flex-1 overflow-auto bg-card outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <table className="w-full border-collapse text-[13px]" style={{ tableLayout: "fixed", width: totalW }}>
           <colgroup>
@@ -1535,15 +1537,6 @@ export function LeadsCommandCenter({
           </tbody>
         </table>
       </div>
-
-      <p className="text-[11px] text-muted-foreground">
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">↑↓</kbd> navigate ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Enter</kbd> open ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Space</kbd> select ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Shift+Click</kbd> range ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Ctrl+K</kbd> search ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Ctrl+L</kbd> add lead
-      </p>
 
       {/* Bulk actions bar */}
       {selected.size > 0 && (

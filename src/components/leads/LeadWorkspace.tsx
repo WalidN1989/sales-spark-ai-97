@@ -14,6 +14,8 @@ import {
   AlarmClock,
   CalendarClock,
   Flag,
+  Lock,
+  Pencil,
   Linkedin,
   Mail,
   MessageCircle,
@@ -40,6 +42,8 @@ import {
 import {
   addLeadActivity,
   deleteLeadActivity,
+  updateLeadActivity,
+  ACTIVITY_EDIT_WINDOW_MS,
   listCompanyActivities,
   updateLead,
 } from "@/lib/leads.functions";
@@ -63,6 +67,7 @@ import {
   leadStage,
   leadPriority,
   followUpRecommendation,
+  weekdayLabel,
   hasCommandColumns,
   type ActivityKind,
   type Outcome,
@@ -161,6 +166,7 @@ export function LeadWorkspace({
   const listActsFn = useServerFn(listCompanyActivities);
   const addActFn = useServerFn(addLeadActivity);
   const delActFn = useServerFn(deleteLeadActivity);
+  const updateActFn = useServerFn(updateLeadActivity);
   const updateFn = useServerFn(updateLead);
   const listNotesFn = useServerFn(listNotes);
   const delNoteFn = useServerFn(deleteNote);
@@ -220,6 +226,15 @@ export function LeadWorkspace({
     mutationFn: (entry: FeedEntry) =>
       entry.noteId ? delNoteFn({ data: { id: entry.noteId } }) : delActFn({ data: { id: entry.id } }),
     onSuccess: () => invalidate(),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editAct = useMutation({
+    mutationFn: (v: { id: string; body: string }) => updateActFn({ data: v }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Entry updated");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -437,6 +452,7 @@ export function LeadWorkspace({
                           a={a}
                           who={contactIds.length > 1 && a.lead_id ? contactName.get(a.lead_id) : undefined}
                           onDelete={() => del.mutate(a)}
+                          onSaveEdit={(body) => editAct.mutate({ id: a.id, body })}
                         />
                       ))}
                     </div>
@@ -565,10 +581,27 @@ export function LeadWorkspace({
 
 // ---------- Journal entry ----------
 
-function JournalEntry({ a, who, onDelete }: { a: FeedEntry; who?: string; onDelete: () => void }) {
+function JournalEntry({
+  a,
+  who,
+  onDelete,
+  onSaveEdit,
+}: {
+  a: FeedEntry;
+  who?: string;
+  onDelete: () => void;
+  onSaveEdit?: (body: string) => void;
+}) {
   const m = activityMeta(a.kind);
   const oc = outcomeMeta(a.outcome);
   const time = new Date(a.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(a.body);
+
+  // Activities are editable for 24h after logging; notes are managed elsewhere.
+  const withinWindow = Date.now() - new Date(a.created_at).getTime() <= ACTIVITY_EDIT_WINDOW_MS;
+  const canEdit = !!onSaveEdit && !a.noteId && withinWindow;
+
   return (
     <div className="group flex gap-3">
       <div className="flex flex-col items-center">
@@ -583,16 +616,76 @@ function JournalEntry({ a, who, onDelete }: { a: FeedEntry; who?: string; onDele
           {oc && <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", oc.className)}>{oc.label}</span>}
           <span className="text-xs text-muted-foreground">{time}</span>
           {who && <span className="truncate text-xs text-muted-foreground">· {who}</span>}
-          <button
-            type="button"
-            onClick={onDelete}
-            className="ml-auto rounded p-1 text-muted-foreground/0 transition-colors hover:bg-muted hover:text-rose-600 group-hover:text-muted-foreground/60"
-            title="Delete entry"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            {canEdit && !editing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(a.body);
+                  setEditing(true);
+                }}
+                className="rounded p-1 text-muted-foreground/0 transition-colors hover:bg-muted hover:text-foreground group-hover:text-muted-foreground/60"
+                title="Edit entry (editable for 24 hours)"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+            {!a.noteId && !withinWindow && (
+              <span
+                className="rounded p-1 text-muted-foreground/0 group-hover:text-muted-foreground/40"
+                title="Locked — entries can only be edited within 24 hours"
+              >
+                <Lock className="h-3 w-3" />
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onDelete}
+              className="rounded p-1 text-muted-foreground/0 transition-colors hover:bg-muted hover:text-rose-600 group-hover:text-muted-foreground/60"
+              title="Delete entry"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground/90">{a.body}</p>
+
+        {editing ? (
+          <div className="mt-1 space-y-2">
+            <Textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              className="text-sm"
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && draft.trim()) {
+                  onSaveEdit?.(draft.trim());
+                  setEditing(false);
+                }
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                disabled={!draft.trim()}
+                onClick={() => {
+                  onSaveEdit?.(draft.trim());
+                  setEditing(false);
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground/90">{a.body}</p>
+        )}
       </div>
     </div>
   );
@@ -700,8 +793,13 @@ function NextFollowUpBox({
       ) : anchor.next_action_due || anchor.next_action ? (
         <div className="space-y-2">
           {anchor.next_action_due && (
-            <div className={cn("text-2xl font-bold", DUE_TONE_CLASS[due.tone])}>
-              {new Date(anchor.next_action_due).toLocaleDateString(undefined, { day: "numeric", month: "long" })}
+            <div>
+              <div className={cn("text-2xl font-bold leading-tight", DUE_TONE_CLASS[due.tone])}>
+                {new Date(anchor.next_action_due).toLocaleDateString(undefined, { day: "numeric", month: "long" })}
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                {weekdayLabel(anchor.next_action_due)}
+              </div>
             </div>
           )}
           <div className={cn("text-xs font-medium", DUE_TONE_CLASS[due.tone])}>{due.label}</div>
@@ -1085,8 +1183,14 @@ function AddActivityDialog({
                       className="mt-2 h-8"
                     />
                   )}
+                  {due && (
+                    <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                      {weekdayLabel(due)}
+                      {dueTime ? ` · ${dueTime}` : ""}
+                    </p>
+                  )}
                   {due && dueTime && (
-                    <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-primary">
+                    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-primary">
                       <AlarmClock className="h-3 w-3" /> You&apos;ll get a reminder at this time.
                     </p>
                   )}

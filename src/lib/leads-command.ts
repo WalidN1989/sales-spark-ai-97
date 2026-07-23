@@ -194,6 +194,14 @@ export function dueInfo(iso: string | null | undefined): DueInfo {
   return { label: `${days} days`, tone: "later" };
 }
 
+// Day of the week for a YYYY-MM-DD (or ISO) value — "Sunday", "Monday"…
+export function weekdayLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = value.length === 10 ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { weekday: "long" });
+}
+
 export const DUE_TONE_CLASS: Record<DueInfo["tone"], string> = {
   overdue: "text-rose-600 font-semibold",
   today: "text-amber-600 font-semibold",

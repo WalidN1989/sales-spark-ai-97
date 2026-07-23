@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAccess } from "@/hooks/use-access";
 import { NotificationCenter } from "@/components/reminders/NotificationCenter";
+import { APP_HEADER_SLOT_ID } from "@/components/layout/HeaderPortal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -98,7 +99,7 @@ function AppShell() {
   );
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
+    <div className="flex h-screen overflow-hidden bg-muted/20">
       {/* Sidebar - desktop */}
       <aside
         className={cn(
@@ -151,28 +152,13 @@ function AppShell() {
 
       {/* Content column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Desktop top bar — notification bell lives here */}
-        <header className="hidden items-center justify-end border-b bg-card px-4 py-2 md:flex">
-          <NotificationCenter />
-        </header>
-
-        {/* Mobile header */}
-        <header className="flex items-center gap-2 border-b bg-card px-3 py-2 md:hidden">
-          <div className="flex shrink-0 items-center gap-2">
-            <Briefcase className="h-5 w-5 text-primary" />
-          </div>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("shortcut:open-search"))}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-full border bg-muted/50 px-3 py-2 text-left text-sm text-muted-foreground active:bg-muted"
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            <span className="truncate">Search prospects, leads, products…</span>
-          </button>
-          <NotificationCenter />
+        {/* One primary header: page content (via portal) + global actions */}
+        <header className="flex shrink-0 items-center gap-2 border-b bg-card px-3 py-2 md:px-4">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0"><Menu className="h-5 w-5" /></Button>
+              <Button variant="ghost" size="icon" className="shrink-0 md:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64">
               <div className="mt-6">
@@ -183,9 +169,23 @@ function AppShell() {
               </div>
             </SheetContent>
           </Sheet>
+
+          {/* Pages render their title / search / actions here */}
+          <div id={APP_HEADER_SLOT_ID} className="flex min-w-0 flex-1 items-center gap-2" />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            title="Search (Ctrl+K)"
+            onClick={() => window.dispatchEvent(new CustomEvent("shortcut:open-search"))}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          <NotificationCenter />
         </header>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-4 md:p-6">
+        <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
           <Outlet />
         </main>
       </div>

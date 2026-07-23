@@ -665,6 +665,44 @@ export const addLeadActivity = createServerFn({ method: "POST" })
     return insert.data;
   });
 
+// Journal entries stay editable for 24 hours after they're logged, then lock.
+export const ACTIVITY_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export const updateLeadActivity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        body: z.string().trim().min(1).max(2000),
+        outcome: outcomeEnum.nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: row, error: gErr } = await context.supabase
+      .from("lead_activities")
+      .select("id, created_at")
+      .eq("id", data.id)
+      .single();
+    if (gErr) throw new Error(gErr.message);
+    if (Date.now() - new Date(row.created_at).getTime() > ACTIVITY_EDIT_WINDOW_MS) {
+      throw new Error("This entry is older than 24 hours and can no longer be edited.");
+    }
+
+    const patch: { body: string; outcome?: string | null } = { body: data.body };
+    if (data.outcome !== undefined) patch.outcome = data.outcome;
+    let res = await context.supabase.from("lead_activities").update(patch).eq("id", data.id);
+    if (res.error && /outcome/i.test(res.error.message)) {
+      res = await context.supabase
+        .from("lead_activities")
+        .update({ body: data.body })
+        .eq("id", data.id);
+    }
+    if (res.error) throw new Error(res.error.message);
+    return { ok: true };
+  });
+
 export const deleteLeadActivity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))

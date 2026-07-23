@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { faviconUrl } from "@/lib/leads-ui";
 import { shortAgo } from "@/lib/leads-command";
 import { FacetFilter } from "@/components/leads/CommandCenter";
+import { HeaderPortal } from "@/components/layout/HeaderPortal";
 
 export type ProspectRow = {
   id: string;
@@ -143,9 +144,10 @@ export function ProspectsTable({
   const filtersActive = q || industries.length || countries.length;
 
   return (
-    <div className="flex min-w-0 flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-bold tracking-tight">Prospects</h1>
+    <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col md:-m-6 md:h-[calc(100%+3rem)]">
+      <HeaderPortal>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <h1 className="shrink-0 text-lg font-bold tracking-tight">Prospects</h1>
         <span className="text-xs text-muted-foreground">
           {rows.length}
           {filtersActive ? ` of ${companies.length}` : ""}
@@ -193,19 +195,15 @@ export function ProspectsTable({
             <X className="h-3 w-3" /> Clear
           </button>
         ) : null}
-        <p className="ml-auto text-[11px] text-muted-foreground">
-          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Ctrl+I</kbd> add company ·{" "}
-          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Ctrl+L</kbd> add lead
-        </p>
-      </div>
+        </div>
+      </HeaderPortal>
 
       <div
         ref={scrollRef}
         tabIndex={0}
         onKeyDown={handleKey}
         onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
-        className="relative overflow-auto rounded-lg border bg-card outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        style={{ maxHeight: "calc(100vh - 180px)", minHeight: 240 }}
+        className="relative min-h-0 flex-1 overflow-auto border-t bg-card outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <table className="w-full border-collapse text-[13px]" style={{ tableLayout: "fixed", width: totalW }}>
           <colgroup>
@@ -390,11 +388,6 @@ export function ProspectsTable({
         </table>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">↑↓</kbd> navigate ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Enter</kbd> open ·{" "}
-        <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[9px]">Space</kbd> search
-      </p>
     </div>
   );
 }
