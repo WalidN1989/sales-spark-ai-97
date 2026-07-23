@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAccess } from "@/hooks/use-access";
 import { NotificationCenter } from "@/components/reminders/NotificationCenter";
-import { APP_HEADER_SLOT_ID } from "@/components/layout/HeaderPortal";
+import { APP_HEADER_SLOT_ID, HeaderActionsContext } from "@/components/layout/HeaderPortal";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app")({
@@ -38,6 +38,8 @@ function AppShell() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hydrated, setHydrated] = useState(false);
+  // Detail pages hide the search + bell to keep the profile UI uncluttered.
+  const [hideActions, setHideActions] = useState(false);
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem("sidebar:collapsed") === "1");
@@ -99,6 +101,7 @@ function AppShell() {
   );
 
   return (
+    <HeaderActionsContext.Provider value={setHideActions}>
     <div className="flex h-screen overflow-hidden bg-muted/20">
       {/* Sidebar - desktop */}
       <aside
@@ -173,16 +176,20 @@ function AppShell() {
           {/* Pages render their title / search / actions here */}
           <div id={APP_HEADER_SLOT_ID} className="flex min-w-0 flex-1 items-center gap-2" />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0"
-            title="Search (Ctrl+K)"
-            onClick={() => window.dispatchEvent(new CustomEvent("shortcut:open-search"))}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-          <NotificationCenter />
+          {!hideActions && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Search (Ctrl+K)"
+                onClick={() => window.dispatchEvent(new CustomEvent("shortcut:open-search"))}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              <NotificationCenter />
+            </>
+          )}
         </header>
 
         <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
@@ -190,5 +197,6 @@ function AppShell() {
         </main>
       </div>
     </div>
+    </HeaderActionsContext.Provider>
   );
 }

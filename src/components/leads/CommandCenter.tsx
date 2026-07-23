@@ -128,7 +128,13 @@ export type CommandLead = {
   is_primary?: boolean | null;
   products_services: string[] | null;
   reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
-  companies: { name: string; domain: string | null; country: string | null; industry: string | null } | null;
+  companies: {
+    name: string;
+    domain: string | null;
+    country: string | null;
+    industry: string | null;
+    product_service?: string | null;
+  } | null;
   // Present only after the sales_command_center migration:
   pipeline_stage?: string | null;
   next_action?: string | null;
@@ -287,6 +293,15 @@ function groupByCompany(leads: CommandLead[]): CommandLead[][] {
   return [...map.values()];
 }
 
+// Products the group is interested in — falls back to the linked company's
+// product_service so a prospect's captured product still shows on the lead.
+function productsFor(group: CommandLead[]): string[] {
+  const own = [...new Set(group.flatMap((l) => l.products_services ?? []))].filter(Boolean);
+  if (own.length > 0) return own;
+  const fromCompany = group.map((l) => l.companies?.product_service).find((p) => p && p.trim());
+  return fromCompany ? [fromCompany.trim()] : [];
+}
+
 function buildGroupVM(group: CommandLead[]): RowVM {
   // Primary contact first (is_primary flag, then oldest — the original entry)
   const sorted = [...group].sort(
@@ -308,9 +323,10 @@ function buildGroupVM(group: CommandLead[]): RowVM {
   const dues = group.map((l) => l.next_action_due).filter(Boolean) as string[];
   const earliestDue = dues.length ? dues.sort()[0] : null;
 
+  const products = productsFor(group);
   const repr: CommandLead = {
     ...primary,
-    products_services: [...new Set(group.flatMap((l) => l.products_services ?? []))],
+    products_services: products,
     pipeline_value_cents: group.reduce((a, l) => a + (l.pipeline_value_cents || 0), 0),
     last_activity_at: latest.last_activity_at,
     last_activity_kind: latest.last_activity_kind,
@@ -335,7 +351,7 @@ function buildGroupVM(group: CommandLead[]): RowVM {
     domain: repr.website ?? repr.companies?.domain ?? repr.reseller?.domain ?? null,
     country: repr.companies?.country ?? null,
     industry: repr.companies?.industry ?? null,
-    productText: [...new Set(group.flatMap((l) => l.products_services ?? []))].join(" · "),
+    productText: products.join(" · "),
     searchExtra: group
       .flatMap((l) => [l.contact_person, l.contact_email, l.whatsapp])
       .filter(Boolean)
@@ -547,11 +563,29 @@ export function LeadsCommandCenter({
     };
 
     if (sort.key === "smart") {
-      const dueRank = (r: RowVM) =>
-        r.due.tone === "overdue" ? 0 : r.due.tone === "today" ? 1 : r.due.tone === "soon" ? 2 : 3;
+      // Work order: today first, then the rest of this week, then later,
+      // then overdue, then anything without a follow-up date.
+      const dueRank = (r: RowVM) => {
+        switch (r.due.tone) {
+          case "today":
+            return 0;
+          case "soon":
+            return 1;
+          case "later":
+            return 2;
+          case "overdue":
+            return 3;
+          default:
+            return 4;
+        }
+      };
       out = [...out].sort((a, b) => {
         const d = dueRank(a) - dueRank(b);
         if (d !== 0) return d;
+        // Ascending by due date inside each band.
+        const da = a.lead.next_action_due ?? "";
+        const db = b.lead.next_action_due ?? "";
+        if (da !== db) return da.localeCompare(db);
         const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
         if (p !== 0) return p;
         return (b.lead.last_activity_at ?? "").localeCompare(a.lead.last_activity_at ?? "");

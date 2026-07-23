@@ -22,13 +22,15 @@ const outcomeEnum = z.enum([
   "decision_pending",
   "lost",
   "won",
+  "no_response",
+  "ignoring",
 ]);
 const docLabelEnum = z.enum(["trade_license", "vat_certificate", "other"]);
 
 // "*" keeps the query working both before and after the sales-command-center
 // migration adds pipeline_stage / next_action / priority / ai_summary columns.
 const LEAD_SELECT =
-  "*, companies!leads_company_id_fkey(name, domain, country, industry, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
+  "*, companies!leads_company_id_fkey(name, domain, country, industry, product_service, lat, lng), reseller:companies!leads_reseller_company_id_fkey(id, name, domain, status, is_reseller)";
 
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -223,10 +225,15 @@ export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" 
 
     const { data: company, error: cErr } = await context.supabase
       .from("companies")
-      .select("id, name, domain")
+      .select("id, name, domain, contact_person, email, phone, mobile, product_service")
       .eq("id", data.companyId)
       .single();
     if (cErr) throw new Error(cErr.message);
+
+    // Carry the prospect's product + contact details onto the lead so the
+    // Leads table isn't missing what the prospect already captured.
+    const cleanPhone =
+      ((company.mobile ?? company.phone) ?? "").toString().replace(/[^0-9+\-\s()]/g, "").trim() || null;
 
     const { data: row, error: iErr } = await context.supabase
       .from("leads")
@@ -235,7 +242,13 @@ export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" 
         company_id: data.companyId,
         company_name: company.name,
         website: company.domain,
-        contact_person: company.name,
+        contact_person: company.contact_person || company.name,
+        contact_email: company.email,
+        whatsapp: cleanPhone,
+        phone: cleanPhone,
+        products_services: company.product_service
+          ? [company.product_service.toString().slice(0, 80)]
+          : [],
         status: "warm",
         is_primary: true,
         source: "auto",

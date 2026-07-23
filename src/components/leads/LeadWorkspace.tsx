@@ -13,6 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlarmClock,
   CalendarClock,
+  CheckCircle2,
   Flag,
   Lock,
   Pencil,
@@ -50,10 +51,14 @@ import {
 import { listNotes, deleteNote } from "@/lib/notes.functions";
 import { createReminder } from "@/lib/reminders.functions";
 import { SetReminderDialog, type ReminderEntity } from "@/components/reminders/SetReminderDialog";
+import { HeaderPortal, useHideHeaderActions } from "@/components/layout/HeaderPortal";
 import { faviconUrl, leadInitials, waHref, fmtMoneyCents, type LeadStatus } from "@/lib/leads-ui";
 import {
   ACTIVITY_KINDS,
   OUTCOMES,
+  OUTCOME_META,
+  FOLLOWUP_RESOLUTIONS,
+  daysSince,
   PRIORITIES,
   PRIORITY_LABEL,
   PRIORITY_FLAG,
@@ -72,6 +77,7 @@ import {
   type ActivityKind,
   type Outcome,
   type LeadPriority,
+  type FollowUpResolution,
 } from "@/lib/leads-command";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +178,9 @@ export function LeadWorkspace({
   const delNoteFn = useServerFn(deleteNote);
   const createReminderFn = useServerFn(createReminder);
 
+  // A profile page owns the header — hide the global search + bell there.
+  useHideHeaderActions(true);
+
   const contactIds = useMemo(() => contacts.map((c) => c.id), [contacts]);
   const anchor = contacts.find((c) => c.id === anchorId) ?? contacts[0] ?? null;
   const canEdit = hasCommandColumns(contacts as unknown as Array<Record<string, unknown>>);
@@ -214,6 +223,9 @@ export function LeadWorkspace({
 
   const stage = anchor ? leadStage(anchor) : "prospect";
   const priority = anchor ? leadPriority(anchor) : "low";
+  const anchorDue = dueInfo(anchor?.next_action_due);
+  const anchorOverdue = !!anchor && anchorDue.tone === "overdue" && stage !== "won" && stage !== "lost";
+  const overdueDays = anchor?.next_action_due ? (daysSince(anchor.next_action_due) ?? 0) : 0;
 
   // ---- Follow-up editing (on the anchor lead) ----
   const patchAnchor = useMutation({
@@ -240,6 +252,7 @@ export function LeadWorkspace({
 
   const [addOpen, setAddOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [filter, setFilter] = useState<ActivityKind | "all">("all");
 
   // Press "A" anywhere on a Lead/Prospect workspace to log an activity.
@@ -312,8 +325,10 @@ export function LeadWorkspace({
 
   return (
     <div className="grid gap-4 min-w-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* The profile's breadcrumb + actions become the app's single header */}
+      <HeaderPortal>{header}</HeaderPortal>
+
       <div className="min-w-0 space-y-4">
-        {header}
 
         {/* WHO — compact identity */}
         <div className="rounded-xl border bg-card p-4">
@@ -481,15 +496,22 @@ export function LeadWorkspace({
           />
         )}
 
-        {/* Timed reminder (date + time → header notification) */}
-        {reminderEntity && (
-          <button
-            type="button"
-            onClick={() => setRemindOpen(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
-          >
-            <AlarmClock className="h-4 w-4" /> Set a reminder
-          </button>
+        {/* Overdue: close the loop, or set a timed nudge */}
+        {anchorOverdue && (
+          <div className="space-y-2">
+            <Button className="w-full" onClick={() => setCloseOpen(true)}>
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Close follow-up
+            </Button>
+            {reminderEntity && (
+              <button
+                type="button"
+                onClick={() => setRemindOpen(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent hover:text-foreground"
+              >
+                <AlarmClock className="h-4 w-4" /> Set a reminder
+              </button>
+            )}
+          </div>
         )}
 
         {/* Derived recommendation */}
@@ -575,6 +597,62 @@ export function LeadWorkspace({
           defaultTitle={reminderEntity.label ? `Follow up — ${reminderEntity.label}` : undefined}
         />
       )}
+
+      <CloseFollowUpDialog
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        companyLabel={companyName}
+        overdueDays={overdueDays}
+        canSchedule={canEdit}
+        onSubmit={async ({ resolution, note, due, dueTime }) => {
+          let leadId = anchorId;
+          if (!leadId && resolveAnchor) leadId = await resolveAnchor();
+          if (!leadId) {
+            toast.error("Add a contact first.");
+            return;
+          }
+
+          // Audit trail: an uneditable journal entry recording how the
+          // follow-up was resolved and how late it was.
+          const parts = [`Follow-up closed — ${OUTCOME_META[resolution].label}`];
+          if (overdueDays > 0) parts.push(`${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`);
+          if (due) parts.push(`next follow-up ${due}${dueTime ? ` ${dueTime}` : ""}`);
+          if (note.trim()) parts.push(note.trim());
+          await addActFn({
+            data: { leadId, kind: "log", body: parts.join(" · "), outcome: resolution },
+          });
+
+          const patch: Record<string, unknown> = {
+            next_action_due: due || null,
+            next_action: due ? note.trim() || OUTCOME_META[resolution].label : null,
+          };
+          if (resolution === "won") {
+            patch.pipeline_stage = "won";
+            patch.status = "won";
+          } else if (resolution === "lost") {
+            patch.pipeline_stage = "lost";
+          }
+          if (canEdit) await updateFn({ data: { id: leadId, patch } });
+
+          if (due && dueTime && reminderEntity) {
+            await createReminderFn({
+              data: {
+                title: note.trim() || `Follow up — ${reminderEntity.label ?? companyName}`,
+                note: null,
+                remind_at: new Date(`${due}T${dueTime}`).toISOString(),
+                entity_type: reminderEntity.type,
+                entity_id: reminderEntity.id,
+                entity_label: reminderEntity.label,
+              },
+            });
+            qc.invalidateQueries({ queryKey: ["reminders"] });
+          }
+
+          invalidate();
+          setCloseOpen(false);
+          toast.success("Follow-up closed");
+        }}
+      />
     </div>
   );
 }
@@ -598,9 +676,11 @@ function JournalEntry({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(a.body);
 
-  // Activities are editable for 24h after logging; notes are managed elsewhere.
+  // Activities are editable for 24h after logging. Notes live elsewhere, and
+  // "log" entries are system audit records (follow-up outcomes) — never editable.
+  const isSystem = a.kind === "log";
   const withinWindow = Date.now() - new Date(a.created_at).getTime() <= ACTIVITY_EDIT_WINDOW_MS;
-  const canEdit = !!onSaveEdit && !a.noteId && withinWindow;
+  const canEdit = !!onSaveEdit && !a.noteId && !isSystem && withinWindow;
 
   return (
     <div className="group flex gap-3">
@@ -630,7 +710,7 @@ function JournalEntry({
                 <Pencil className="h-3 w-3" />
               </button>
             )}
-            {!a.noteId && !withinWindow && (
+            {!a.noteId && !isSystem && !withinWindow && (
               <span
                 className="rounded p-1 text-muted-foreground/0 group-hover:text-muted-foreground/40"
                 title="Locked — entries can only be edited within 24 hours"
@@ -938,6 +1018,173 @@ function ContactsDrawer({
         {sorted.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">No contacts match.</p>}
       </div>
     </div>
+  );
+}
+
+// ---------- Close the follow-up loop ----------
+
+function CloseFollowUpDialog({
+  open,
+  onClose,
+  companyLabel,
+  overdueDays,
+  canSchedule,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  companyLabel: string;
+  overdueDays: number;
+  canSchedule: boolean;
+  onSubmit: (v: {
+    resolution: FollowUpResolution;
+    note: string;
+    due: string;
+    dueTime: string;
+  }) => Promise<void>;
+}) {
+  const [resolution, setResolution] = useState<FollowUpResolution>("need_followup");
+  const [note, setNote] = useState("");
+  const [due, setDue] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setResolution("need_followup");
+      setNote("");
+      setDue("");
+      setDueTime("");
+    }
+  }, [open]);
+
+  const closesDeal = resolution === "won" || resolution === "lost";
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-lg">Close the follow-up</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {companyLabel}
+            {overdueDays > 0 ? ` · ${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue` : ""}
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              What happened with this follow-up?
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {FOLLOWUP_RESOLUTIONS.map((r) => {
+                const m = OUTCOME_META[r];
+                const active = resolution === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setResolution(r)}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+                      active
+                        ? cn(m.className, "border-primary shadow-sm ring-1 ring-primary/40")
+                        : "hover:border-foreground/20 hover:bg-accent",
+                    )}
+                  >
+                    {r === "need_followup" ? "Still working it" : m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Note <span className="font-normal normal-case">(optional)</span>
+            </label>
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              maxLength={1000}
+              placeholder="e.g. Called twice, left voicemail — will try the procurement lead next."
+            />
+          </div>
+
+          {!closesDeal && (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                New follow-up {canSchedule ? "" : "(needs the DB migration)"}
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="h-8 w-[9.5rem]" />
+                <Input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  className="h-8 w-28"
+                  disabled={!due}
+                  title={due ? "Optional time — sets a reminder" : "Pick a date first"}
+                />
+                {([["Tomorrow", 1], ["+3d", 3], ["+1w", 7]] as const).map(([label, d]) => (
+                  <Button
+                    key={label}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => {
+                      const dt = new Date();
+                      dt.setDate(dt.getDate() + d);
+                      setDue(dt.toISOString().slice(0, 10));
+                    }}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {due && (
+                <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                  {weekdayLabel(due)}
+                  {dueTime ? ` · ${dueTime}` : ""}
+                </p>
+              )}
+              {due && dueTime && (
+                <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-primary">
+                  <AlarmClock className="h-3 w-3" /> You&apos;ll get a reminder at this time.
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground">
+            This is recorded in the Activity Journal as a permanent entry — it can&apos;t be edited later.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSubmit({ resolution, note, due, dueTime });
+              } catch (e) {
+                toast.error((e as Error).message);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {saving ? "Saving…" : "Close follow-up"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

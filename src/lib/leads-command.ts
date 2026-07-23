@@ -288,13 +288,27 @@ export const OUTCOMES = [
   "need_followup",
   "waiting",
   "decision_pending",
+  "no_response",
+  "ignoring",
   "not_interested",
   "won",
   "lost",
 ] as const;
 export type Outcome = (typeof OUTCOMES)[number];
 
+// The funnel offered when closing an overdue follow-up loop.
+export const FOLLOWUP_RESOLUTIONS = [
+  "won",
+  "lost",
+  "no_response",
+  "ignoring",
+  "need_followup",
+] as const;
+export type FollowUpResolution = (typeof FOLLOWUP_RESOLUTIONS)[number];
+
 export const OUTCOME_META: Record<Outcome, { label: string; className: string }> = {
+  no_response: { label: "No response", className: "bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300" },
+  ignoring: { label: "Ignoring us", className: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300" },
   interested: { label: "Interested", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
   need_quotation: { label: "Need quotation", className: "bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300" },
   need_followup: { label: "Need follow-up", className: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" },
