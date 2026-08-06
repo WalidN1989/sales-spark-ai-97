@@ -334,22 +334,9 @@ function LeadDetail() {
         <span className="font-medium text-foreground">{companyDisplay}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-1">
-        {/* Status control (drives scoring + purchase capture) */}
-        <div className="flex rounded-md border bg-background p-0.5">
-          {LEAD_STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => requestStatusChange(s)}
-              className={cn(
-                "rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
-                l.status === s ? LEAD_STATUS_STYLES[s] : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        {/* Unified funnel (drives scoring + purchase capture) */}
+        <StatusFunnel status={l.status} onChange={(s) => requestStatusChange(s)} />
+
         {(l.lead_score ?? 0) > 0 && (
           <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold", sb.className)}>
             {l.lead_score} · {sb.label}
