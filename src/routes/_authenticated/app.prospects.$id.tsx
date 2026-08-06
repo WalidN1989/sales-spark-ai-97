@@ -539,27 +539,11 @@ export function CompanyStatusPill({
   onChange: (s: CompanyStatus) => void;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80",
-            COMPANY_STATUS_STYLES[status],
-          )}
-          title="Change company status"
-        >
-          {status}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[120px]">
-        {COMPANY_STATUSES.map((s) => (
-          <DropdownMenuItem key={s} onClick={() => onChange(s)} className="flex items-center gap-2 capitalize">
-            <span className={cn("h-2.5 w-2.5 rounded-full", COMPANY_STATUS_STYLES[s])} />
-            {s}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <StatusFunnel
+      size="sm"
+      status={companyToUnified(status)}
+      onChange={(s) => onChange(unifiedToCompany(s))}
+    />
   );
 }
+
