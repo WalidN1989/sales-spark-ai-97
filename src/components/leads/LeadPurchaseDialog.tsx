@@ -16,13 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   listLeadPurchases,
   upsertLeadPurchase,
   deleteLeadPurchase,
 } from "@/lib/lead-purchases.functions";
+import { listProducts } from "@/lib/products.functions";
 
 type Row = {
   id?: string;
+  product_id: string | null;
   brand: string;
   model_no: string;
   model_name: string;
@@ -32,6 +41,7 @@ type Row = {
 };
 
 const blank: Row = {
+  product_id: null,
   brand: "",
   model_no: "",
   model_name: "",
@@ -39,6 +49,7 @@ const blank: Row = {
   url: "",
   price: "",
 };
+
 
 /**
  * Mandatory popup when a lead is flipped to WON or HOT.
@@ -71,6 +82,13 @@ export function LeadPurchaseDialog({
     enabled: open,
   });
 
+  const productsFn = useServerFn(listProducts);
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => productsFn(),
+    enabled: open,
+  });
+
   const [rows, setRows] = useState<Row[]>([{ ...blank }]);
 
   useEffect(() => {
@@ -79,6 +97,8 @@ export function LeadPurchaseDialog({
       setRows(
         existing.map((r) => ({
           id: r.id,
+          product_id: r.product_id ?? null,
+
           brand: r.brand ?? "",
           model_no: r.model_no ?? "",
           model_name: r.model_name ?? "",
@@ -127,6 +147,8 @@ export function LeadPurchaseDialog({
           data: {
             id: r.id,
             lead_id: leadId,
+            product_id: r.product_id,
+
             brand: r.brand || null,
             model_no: r.model_no || null,
             model_name,
@@ -195,8 +217,42 @@ export function LeadPurchaseDialog({
         <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={i} className="rounded-md border p-3 space-y-2">
+              <div>
+                <Label className="text-xs">Pick from Products (maps for analytics)</Label>
+                <Select
+                  value={r.product_id ?? "__custom"}
+                  onValueChange={(v) => {
+                    if (v === "__custom") return update(i, { product_id: null });
+                    const p = (products ?? []).find((x) => x.id === v);
+                    if (!p) return;
+                    update(i, {
+                      product_id: p.id,
+                      brand: p.brand ?? "",
+                      model_no: p.part_number ?? "",
+                      model_name: p.name,
+                      price:
+                        p.selling_price_cents != null
+                          ? String(Math.round(p.selling_price_cents / 100))
+                          : r.price,
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a product from your catalogue…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__custom">Custom / not in catalogue</SelectItem>
+                    {(products ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {[p.brand, p.name, p.part_number].filter(Boolean).join(" · ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2 md:grid-cols-2">
                 <div>
+
                   <Label className="text-xs">Brand{req}</Label>
                   <Input
                     placeholder="WACOM"

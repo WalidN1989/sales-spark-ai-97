@@ -41,7 +41,7 @@ import {
   deleteLeadDocument,
   createProspectFromLead,
 } from "@/lib/leads.functions";
-import { listResellerCompanies } from "@/lib/companies.functions";
+import { listResellerCompanies, setCompanyStatus } from "@/lib/companies.functions";
 import { Checkbox } from "@/components/ui/checkbox";
 import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,8 @@ import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { StatusFunnel, unifiedToCompany } from "@/components/leads/StatusFunnel";
+
 import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 
@@ -201,14 +203,33 @@ function LeadDetail() {
     },
   });
 
+  const setCompanyStatusFn = useServerFn(setCompanyStatus);
+
   const setStatusManual = useMutation({
-    mutationFn: (status: LeadStatus) => setStatusFn({ data: { id, status } }),
-    onSuccess: () => {
+    mutationFn: async (status: LeadStatus) => {
+      await setStatusFn({ data: { id, status } });
+      // Keep the single funnel in sync with the company-level card
+      const companyId =
+        (lead as { company_id?: string | null; prospect_id?: string | null } | undefined)
+          ?.company_id ??
+        (lead as { prospect_id?: string | null } | undefined)?.prospect_id ??
+        null;
+      if (companyId) {
+        await setCompanyStatusFn({ data: { id: companyId, status: unifiedToCompany(status) } });
+      }
+      return companyId;
+    },
+    onSuccess: (companyId) => {
       qc.invalidateQueries({ queryKey: ["lead", id] });
       qc.invalidateQueries({ queryKey: ["leads"] });
+      if (companyId) {
+        qc.invalidateQueries({ queryKey: ["company", companyId] });
+        qc.invalidateQueries({ queryKey: ["leads-group", companyId] });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const listPurchasesFn = useServerFn(listLeadPurchases);
   const [purchaseDialog, setPurchaseDialog] = useState<null | {
@@ -334,22 +355,9 @@ function LeadDetail() {
         <span className="font-medium text-foreground">{companyDisplay}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-1">
-        {/* Status control (drives scoring + purchase capture) */}
-        <div className="flex rounded-md border bg-background p-0.5">
-          {LEAD_STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => requestStatusChange(s)}
-              className={cn(
-                "rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
-                l.status === s ? LEAD_STATUS_STYLES[s] : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        {/* Unified funnel (drives scoring + purchase capture) */}
+        <StatusFunnel status={l.status} onChange={(s) => requestStatusChange(s)} />
+
         {(l.lead_score ?? 0) > 0 && (
           <span className={cn("rounded px-2 py-0.5 text-[10px] font-bold", sb.className)}>
             {l.lead_score} · {sb.label}
