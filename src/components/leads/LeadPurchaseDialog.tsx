@@ -147,6 +147,8 @@ export function LeadPurchaseDialog({
           data: {
             id: r.id,
             lead_id: leadId,
+            product_id: r.product_id,
+
             brand: r.brand || null,
             model_no: r.model_no || null,
             model_name,
