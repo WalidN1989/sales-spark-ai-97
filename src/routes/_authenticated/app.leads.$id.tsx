@@ -203,14 +203,33 @@ function LeadDetail() {
     },
   });
 
+  const setCompanyStatusFn = useServerFn(setCompanyStatus);
+
   const setStatusManual = useMutation({
-    mutationFn: (status: LeadStatus) => setStatusFn({ data: { id, status } }),
-    onSuccess: () => {
+    mutationFn: async (status: LeadStatus) => {
+      await setStatusFn({ data: { id, status } });
+      // Keep the single funnel in sync with the company-level card
+      const companyId =
+        (lead as { company_id?: string | null; prospect_id?: string | null } | undefined)
+          ?.company_id ??
+        (lead as { prospect_id?: string | null } | undefined)?.prospect_id ??
+        null;
+      if (companyId) {
+        await setCompanyStatusFn({ data: { id: companyId, status: unifiedToCompany(status) } });
+      }
+      return companyId;
+    },
+    onSuccess: (companyId) => {
       qc.invalidateQueries({ queryKey: ["lead", id] });
       qc.invalidateQueries({ queryKey: ["leads"] });
+      if (companyId) {
+        qc.invalidateQueries({ queryKey: ["company", companyId] });
+        qc.invalidateQueries({ queryKey: ["leads-group", companyId] });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const listPurchasesFn = useServerFn(listLeadPurchases);
   const [purchaseDialog, setPurchaseDialog] = useState<null | {
