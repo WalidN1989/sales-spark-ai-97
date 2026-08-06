@@ -28,6 +28,8 @@ import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, setCompanyStatus } from "@/lib/companies.functions";
 import { getOrCreatePrimaryLeadForCompany, listLeadsByCompany } from "@/lib/leads.functions";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { StatusFunnel, companyToUnified, unifiedToCompany } from "@/components/leads/StatusFunnel";
+
 import { LookalikesPanel } from "@/components/prospects/LookalikesPanel";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
