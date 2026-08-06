@@ -16,13 +16,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   listLeadPurchases,
   upsertLeadPurchase,
   deleteLeadPurchase,
 } from "@/lib/lead-purchases.functions";
+import { listProducts } from "@/lib/products.functions";
 
 type Row = {
   id?: string;
+  product_id: string | null;
   brand: string;
   model_no: string;
   model_name: string;
@@ -32,6 +41,7 @@ type Row = {
 };
 
 const blank: Row = {
+  product_id: null,
   brand: "",
   model_no: "",
   model_name: "",
@@ -39,6 +49,7 @@ const blank: Row = {
   url: "",
   price: "",
 };
+
 
 /**
  * Mandatory popup when a lead is flipped to WON or HOT.
