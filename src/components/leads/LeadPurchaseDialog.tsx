@@ -82,6 +82,13 @@ export function LeadPurchaseDialog({
     enabled: open,
   });
 
+  const productsFn = useServerFn(listProducts);
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => productsFn(),
+    enabled: open,
+  });
+
   const [rows, setRows] = useState<Row[]>([{ ...blank }]);
 
   useEffect(() => {
@@ -90,6 +97,8 @@ export function LeadPurchaseDialog({
       setRows(
         existing.map((r) => ({
           id: r.id,
+          product_id: r.product_id ?? null,
+
           brand: r.brand ?? "",
           model_no: r.model_no ?? "",
           model_name: r.model_name ?? "",
