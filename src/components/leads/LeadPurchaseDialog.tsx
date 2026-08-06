@@ -217,8 +217,42 @@ export function LeadPurchaseDialog({
         <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={i} className="rounded-md border p-3 space-y-2">
+              <div>
+                <Label className="text-xs">Pick from Products (maps for analytics)</Label>
+                <Select
+                  value={r.product_id ?? "__custom"}
+                  onValueChange={(v) => {
+                    if (v === "__custom") return update(i, { product_id: null });
+                    const p = (products ?? []).find((x) => x.id === v);
+                    if (!p) return;
+                    update(i, {
+                      product_id: p.id,
+                      brand: p.brand ?? "",
+                      model_no: p.part_number ?? "",
+                      model_name: p.name,
+                      price:
+                        p.selling_price_cents != null
+                          ? String(Math.round(p.selling_price_cents / 100))
+                          : r.price,
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a product from your catalogue…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__custom">Custom / not in catalogue</SelectItem>
+                    {(products ?? []).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {[p.brand, p.name, p.part_number].filter(Boolean).join(" · ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2 md:grid-cols-2">
                 <div>
+
                   <Label className="text-xs">Brand{req}</Label>
                   <Input
                     placeholder="WACOM"
