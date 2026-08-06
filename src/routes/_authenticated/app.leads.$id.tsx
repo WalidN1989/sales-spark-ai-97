@@ -41,7 +41,7 @@ import {
   deleteLeadDocument,
   createProspectFromLead,
 } from "@/lib/leads.functions";
-import { listResellerCompanies } from "@/lib/companies.functions";
+import { listResellerCompanies, setCompanyStatus } from "@/lib/companies.functions";
 import { Checkbox } from "@/components/ui/checkbox";
 import { hunterVerifyEmail } from "@/lib/hunter.functions";
 import { Button } from "@/components/ui/button";
