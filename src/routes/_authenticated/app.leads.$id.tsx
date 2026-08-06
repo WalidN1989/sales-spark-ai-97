@@ -75,6 +75,8 @@ import { TagInput } from "@/components/leads/TagInput";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
+import { StatusFunnel, unifiedToCompany } from "@/components/leads/StatusFunnel";
+
 import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 
