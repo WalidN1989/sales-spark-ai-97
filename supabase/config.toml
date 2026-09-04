@@ -1,1 +1,6 @@
 project_id = "qygugdjyiebhnlwhhbwi"
+
+# External prospect webhook — authenticates with its own x-api-key header
+# (PROSPECT_WEBHOOK_KEY), so the Supabase JWT gateway check is disabled.
+[functions.create-prospect]
+verify_jwt = false

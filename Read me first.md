@@ -150,7 +150,15 @@ in the bell). Clicking a reminder navigates to its linked lead or prospect.
   `importProspects` server fn (dedupes by company name, returns
   created/skipped/failed). A `notes` column is detected but not imported
   (companies have no notes field — flagged in the dialog).
-- **Webhook (Feature 3)** — deferred; needs API-key/secret infra, ship later.
+- **Webhook (Feature 3)** — `supabase/functions/create-prospect/index.ts`, a
+  Supabase Edge Function (TanStack Start 1.167 has no file-based API routes). It
+  authenticates with an `x-api-key` header (secret `PROSPECT_WEBHOOK_KEY`),
+  assigns rows to `PROSPECT_WEBHOOK_USER_ID`, inserts into `companies` via the
+  service role, dedupes by name. `config.toml` sets `verify_jwt = false`.
+  **To go live:** deploy the function (Lovable/Supabase) and set the two secrets
+  in Supabase → Edge Functions → Secrets. URL:
+  `https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/create-prospect`.
+  No SQL migration needed.
 
 ## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
