@@ -4,13 +4,15 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Flame, Mail, Phone, Search, X } from "lucide-react";
+import { ExternalLink, FileUp, Flame, Mail, Phone, Plus, Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { faviconUrl } from "@/lib/leads-ui";
 import { shortAgo } from "@/lib/leads-command";
 import { FacetFilter } from "@/components/leads/CommandCenter";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
+import { ImportProspectsDialog } from "@/components/prospects/ImportProspectsDialog";
 
 export type ProspectRow = {
   id: string;
@@ -60,6 +62,7 @@ export function ProspectsTable({
   const [countries, setCountries] = useState<string[]>([]);
   const [sort, setSort] = useState<SortState>({ key: "updated", dir: 1 });
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [importOpen, setImportOpen] = useState(false);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -195,8 +198,18 @@ export function ProspectsTable({
             <X className="h-3 w-3" /> Clear
           </button>
         ) : null}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1 h-3.5 w-3.5" /> Import CSV
+          </Button>
+          <Button size="sm" className="h-8 text-xs" onClick={() => navigate({ to: "/app/prospects/new" })}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Add Prospect
+          </Button>
+        </div>
         </div>
       </HeaderPortal>
+
+      <ImportProspectsDialog open={importOpen} onClose={() => setImportOpen(false)} onDone={() => {}} />
 
       <div
         ref={scrollRef}

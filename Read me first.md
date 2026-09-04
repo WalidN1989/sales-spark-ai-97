@@ -138,6 +138,20 @@ in the bell). Clicking a reminder navigates to its linked lead or prospect.
   server cron / web-push. An OS Notification is shown too if the user granted
   permission, but the in-app popup is the primary surface.
 
+### Add Prospect + CSV import (2026-07-23)
+
+- **Add Prospect** already existed at `/app/prospects/new` (manual form + AI
+  extract from text/image/URL, no phone required). Added a visible **+ Add
+  Prospect** button in the Prospects header (was only Ctrl+I before).
+- **Import CSV** — `src/components/prospects/ImportProspectsDialog.tsx`: CSV
+  (papaparse) or Excel (xlsx), case-insensitive header mapping
+  (company→name, contact_name→contact_person, website→domain, phone/whatsapp→
+  phone, product/service→product_service). Reuses the existing
+  `importProspects` server fn (dedupes by company name, returns
+  created/skipped/failed). A `notes` column is detected but not imported
+  (companies have no notes field — flagged in the dialog).
+- **Webhook (Feature 3)** — deferred; needs API-key/secret infra, ship later.
+
 ## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
 All four migrations have been run in Lovable Cloud, so every feature is fully live:
