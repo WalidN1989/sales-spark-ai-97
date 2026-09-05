@@ -58,6 +58,19 @@ Behaviour: upserts the company (by name) and product (by company+name+category);
 the child rows for that snapshot. Works for any `category`
 (`visitor_management | time_attendance | meal_management | access_control | turnstile | other`).
 
+### Edit or delete a snapshot (same key)
+```bash
+# update (title / summary / status / category / our_product_name / our_product_url)
+curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/manage-competitor-research \
+  -H "x-api-key: YOUR_KEY" -H "content-type: application/json" \
+  -d '{"action":"update","id":"<research uuid>","patch":{"status":"archived"}}'
+
+# delete (child feature/strength/weakness/gap rows cascade)
+curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/manage-competitor-research \
+  -H "x-api-key: YOUR_KEY" -H "content-type: application/json" \
+  -d '{"action":"delete","id":"<research uuid>"}'
+```
+
 ### List (for the agent to verify)
 ```bash
 curl "https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/list-competitor-research?category=visitor_management&status=published" \

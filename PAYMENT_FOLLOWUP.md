@@ -56,6 +56,19 @@ curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/upsert-paymen
 Dedupe: `(company_name, category, reference)` when reference present, else
 `(company_name, category, title)`. Returns `{ created, updated, skipped, failed, ids }`.
 
+### Edit or delete an item (same key)
+```bash
+# update by id (or by company_name + category + reference)
+curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/manage-payment-followup \
+  -H "x-api-key: YOUR_KEY" -H "content-type: application/json" \
+  -d '{"action":"update","id":"<uuid>","patch":{"status":"resolved","notes":"PDC cleared"}}'
+
+# delete by id
+curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/manage-payment-followup \
+  -H "x-api-key: YOUR_KEY" -H "content-type: application/json" \
+  -d '{"action":"delete","id":"<uuid>"}'
+```
+
 ### Log activity (suppresses Wed/Fri nudge)
 ```bash
 curl -X POST https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/log-payment-followup-activity \

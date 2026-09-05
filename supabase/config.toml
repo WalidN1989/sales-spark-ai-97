@@ -13,6 +13,10 @@ verify_jwt = false
 [functions.list-competitor-research]
 verify_jwt = false
 
+# Edit / delete a competitor-research snapshot (same COMPETITOR_RESEARCH_API_KEY).
+[functions.manage-competitor-research]
+verify_jwt = false
+
 # Payment Follow-up assistant APIs — auth via x-api-key (PAYMENT_FOLLOWUP_API_KEY).
 [functions.upsert-payment-followups]
 verify_jwt = false
@@ -24,4 +28,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.list-payment-followups]
+verify_jwt = false
+
+# Edit / delete a payment follow-up (same PAYMENT_FOLLOWUP_API_KEY).
+[functions.manage-payment-followup]
 verify_jwt = false
