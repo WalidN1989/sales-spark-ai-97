@@ -12,3 +12,16 @@ verify_jwt = false
 
 [functions.list-competitor-research]
 verify_jwt = false
+
+# Payment Follow-up assistant APIs — auth via x-api-key (PAYMENT_FOLLOWUP_API_KEY).
+[functions.upsert-payment-followups]
+verify_jwt = false
+
+[functions.log-payment-followup-activity]
+verify_jwt = false
+
+[functions.payment-followups-needing-reminder]
+verify_jwt = false
+
+[functions.list-payment-followups]
+verify_jwt = false

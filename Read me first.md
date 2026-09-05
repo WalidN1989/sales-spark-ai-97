@@ -173,6 +173,20 @@ curl examples in `COMPETITOR_ANALYSIS.md`. Runtime FK embeds work; the hand-adde
 types use empty `Relationships: []`, so the two route consumers cast through
 `unknown` (Lovable's regen will add real relationships and the casts can go).
 
+### Payment Follow-up module (2026-09-05)
+
+Sidebar **Payment Follow-up** (`/app/payments`) — track PDCs, collections,
+PO/payment-advice, demo units, consignment, with an activity timeline feeding a
+3×/week reminder assistant (Mon full list; Wed/Fri only items with no activity
+since Mon 10:00 Dubai). Migration `20260905130000_payment_followups.sql` adds
+`payment_followups` + `payment_followup_activities` (+ last_activity_at trigger,
+shared RLS) and seeds the current open set. Four Edge Functions —
+`upsert-payment-followups`, `log-payment-followup-activity`,
+`payment-followups-needing-reminder`, `list-payment-followups` — auth
+`PAYMENT_FOLLOWUP_API_KEY`. UI: list/detail/new + `payments.functions.ts`,
+`payments-ui.ts` (incl. Dubai Monday-10:00 week-start calc). Full details +
+curl in `PAYMENT_FOLLOWUP.md`.
+
 ## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
 All four migrations have been run in Lovable Cloud, so every feature is fully live:
