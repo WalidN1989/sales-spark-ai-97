@@ -142,6 +142,57 @@ export type Database = {
         }
         Relationships: []
       }
+      competitor_companies: {
+        Row: {
+          aka: string[]
+          created_at: string
+          created_by: string | null
+          hardware_brands: string[]
+          hq_country: string | null
+          id: string
+          is_distributor: boolean
+          name: string
+          notes: string | null
+          positioning: string | null
+          regions: string[]
+          software_strength: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          aka?: string[]
+          created_at?: string
+          created_by?: string | null
+          hardware_brands?: string[]
+          hq_country?: string | null
+          id?: string
+          is_distributor?: boolean
+          name: string
+          notes?: string | null
+          positioning?: string | null
+          regions?: string[]
+          software_strength?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          aka?: string[]
+          created_at?: string
+          created_by?: string | null
+          hardware_brands?: string[]
+          hq_country?: string | null
+          id?: string
+          is_distributor?: boolean
+          name?: string
+          notes?: string | null
+          positioning?: string | null
+          regions?: string[]
+          software_strength?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       competitor_contacts: {
         Row: {
           competitor_id: string
@@ -198,6 +249,135 @@ export type Database = {
             columns: ["source_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_feature_rows: {
+        Row: {
+          capability: string
+          id: string
+          leader: string | null
+          our_assessment: string | null
+          research_id: string
+          sort_order: number
+          their_assessment: string | null
+        }
+        Insert: {
+          capability: string
+          id?: string
+          leader?: string | null
+          our_assessment?: string | null
+          research_id: string
+          sort_order?: number
+          their_assessment?: string | null
+        }
+        Update: {
+          capability?: string
+          id?: string
+          leader?: string | null
+          our_assessment?: string | null
+          research_id?: string
+          sort_order?: number
+          their_assessment?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_feature_rows_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_research"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_gaps: {
+        Row: {
+          id: string
+          owner: string | null
+          priority: string
+          recommended_action: string | null
+          research_id: string
+          sort_order: number
+          status: string
+          title: string
+          why_it_hurts: string | null
+        }
+        Insert: {
+          id?: string
+          owner?: string | null
+          priority?: string
+          recommended_action?: string | null
+          research_id: string
+          sort_order?: number
+          status?: string
+          title: string
+          why_it_hurts?: string | null
+        }
+        Update: {
+          id?: string
+          owner?: string | null
+          priority?: string
+          recommended_action?: string | null
+          research_id?: string
+          sort_order?: number
+          status?: string
+          title?: string
+          why_it_hurts?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_gaps_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_research"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_products: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          datasheet_url: string | null
+          deployment: string[]
+          id: string
+          name: string
+          product_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          company_id: string
+          created_at?: string
+          datasheet_url?: string | null
+          deployment?: string[]
+          id?: string
+          name: string
+          product_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          datasheet_url?: string | null
+          deployment?: string[]
+          id?: string
+          name?: string
+          product_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_products_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_companies"
             referencedColumns: ["id"]
           },
         ]
@@ -267,6 +447,145 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      competitor_research: {
+        Row: {
+          category: string
+          competitor_company_id: string | null
+          competitor_product_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          our_product_id: string | null
+          our_product_name: string | null
+          our_product_url: string | null
+          raw_html_artifact_url: string | null
+          researched_at: string | null
+          researcher: string | null
+          sources: Json
+          status: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          competitor_company_id?: string | null
+          competitor_product_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          our_product_id?: string | null
+          our_product_name?: string | null
+          our_product_url?: string | null
+          raw_html_artifact_url?: string | null
+          researched_at?: string | null
+          researcher?: string | null
+          sources?: Json
+          status?: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          competitor_company_id?: string | null
+          competitor_product_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          our_product_id?: string | null
+          our_product_name?: string | null
+          our_product_url?: string | null
+          raw_html_artifact_url?: string | null
+          researched_at?: string | null
+          researcher?: string | null
+          sources?: Json
+          status?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_research_competitor_company_id_fkey"
+            columns: ["competitor_company_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_research_competitor_product_id_fkey"
+            columns: ["competitor_product_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_strengths: {
+        Row: {
+          id: string
+          point: string
+          research_id: string
+          side: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          point: string
+          research_id: string
+          side: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          point?: string
+          research_id?: string
+          side?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_strengths_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_research"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_weaknesses: {
+        Row: {
+          id: string
+          point: string
+          research_id: string
+          side: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          point: string
+          research_id: string
+          side: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          point?: string
+          research_id?: string
+          side?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_weaknesses_research_id_fkey"
+            columns: ["research_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_research"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inquiries: {
         Row: {
