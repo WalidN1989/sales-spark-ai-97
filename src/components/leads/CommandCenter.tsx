@@ -563,6 +563,20 @@ export function LeadsCommandCenter({
     };
 
     if (sort.key === "smart") {
+      // Freshly created or freshly-touched leads (momentum) float to the very
+      // top for the first 24h so a new prospect + logged activity is visible
+      // without searching. After that they rejoin the work order below.
+      const FRESH_MS = 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const momentumTs = (r: RowVM) => {
+        const a = r.lead.last_activity_at ? Date.parse(r.lead.last_activity_at) : 0;
+        const c = r.lead.created_at ? Date.parse(r.lead.created_at) : 0;
+        return Math.max(Number.isNaN(a) ? 0 : a, Number.isNaN(c) ? 0 : c);
+      };
+      const isFresh = (r: RowVM) => {
+        const t = momentumTs(r);
+        return t > 0 && now - t <= FRESH_MS;
+      };
       // Work order: today first, then the rest of this week, then later,
       // then overdue, then anything without a follow-up date.
       const dueRank = (r: RowVM) => {
@@ -580,6 +594,12 @@ export function LeadsCommandCenter({
         }
       };
       out = [...out].sort((a, b) => {
+        // Tier 1: fresh momentum, newest first.
+        const fa = isFresh(a);
+        const fb = isFresh(b);
+        if (fa !== fb) return fa ? -1 : 1;
+        if (fa && fb) return momentumTs(b) - momentumTs(a);
+        // Tier 2: the work order.
         const d = dueRank(a) - dueRank(b);
         if (d !== 0) return d;
         // Ascending by due date inside each band.
@@ -1433,7 +1453,7 @@ export function LeadsCommandCenter({
             type="button"
             onClick={() => setSort({ key: "smart", dir: 1 })}
             className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-            title="Back to smart order: overdue → due today → priority → recent activity"
+            title="Back to smart order: new & active first, then due today → this week → later → overdue"
           >
             ↺ Smart sort
           </button>
