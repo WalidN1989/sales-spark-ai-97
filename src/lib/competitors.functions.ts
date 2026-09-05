@@ -16,7 +16,7 @@ const CATEGORY = z.enum([
 export const listCompetitorResearch = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { data, error } = await (context.supabase as any)
       .from("competitor_research")
       .select(
         "id, title, category, status, summary, our_product_name, researcher, researched_at, created_at, competitor_companies:competitor_company_id(name, website), competitor_products:competitor_product_id(name)",
@@ -31,7 +31,7 @@ export const getCompetitorResearch = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const { data: research, error } = await context.supabase
+    const { data: research, error } = await (context.supabase as any)
       .from("competitor_research")
       .select(
         "*, competitor_companies:competitor_company_id(*), competitor_products:competitor_product_id(*)",
@@ -41,10 +41,10 @@ export const getCompetitorResearch = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const [features, strengths, weaknesses, gaps] = await Promise.all([
-      context.supabase.from("competitor_feature_rows").select("*").eq("research_id", data.id).order("sort_order"),
-      context.supabase.from("competitor_strengths").select("*").eq("research_id", data.id).order("sort_order"),
-      context.supabase.from("competitor_weaknesses").select("*").eq("research_id", data.id).order("sort_order"),
-      context.supabase.from("competitor_gaps").select("*").eq("research_id", data.id).order("sort_order"),
+      (context.supabase as any).from("competitor_feature_rows").select("*").eq("research_id", data.id).order("sort_order"),
+      (context.supabase as any).from("competitor_strengths").select("*").eq("research_id", data.id).order("sort_order"),
+      (context.supabase as any).from("competitor_weaknesses").select("*").eq("research_id", data.id).order("sort_order"),
+      (context.supabase as any).from("competitor_gaps").select("*").eq("research_id", data.id).order("sort_order"),
     ]);
     return {
       research,
@@ -58,7 +58,7 @@ export const getCompetitorResearch = createServerFn({ method: "GET" })
 export const listCompetitorCompanies = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { data, error } = await (context.supabase as any)
       .from("competitor_companies")
       .select("*, competitor_products(id, name, category, product_url, status)")
       .order("name");
@@ -74,7 +74,7 @@ export const setResearchStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: z.enum(["draft", "published", "archived"]) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase
+    const { error } = await (context.supabase as any)
       .from("competitor_research")
       .update({ status: data.status, updated_at: new Date().toISOString() })
       .eq("id", data.id);
@@ -86,7 +86,7 @@ export const deleteCompetitorResearch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase.from("competitor_research").delete().eq("id", data.id);
+    const { error } = await (context.supabase as any).from("competitor_research").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -147,7 +147,7 @@ export const createCompetitorResearchManual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => manualSchema.parse(d))
   .handler(async ({ context, data }) => {
-    const sb = context.supabase;
+    const sb = (context.supabase as any);
 
     // Upsert company by case-insensitive name.
     const { data: existingCo } = await sb
