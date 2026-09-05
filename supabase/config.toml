@@ -4,3 +4,11 @@ project_id = "qygugdjyiebhnlwhhbwi"
 # (PROSPECT_WEBHOOK_KEY), so the Supabase JWT gateway check is disabled.
 [functions.create-prospect]
 verify_jwt = false
+
+# Competitor research ingest + list — auth via x-api-key
+# (COMPETITOR_RESEARCH_API_KEY).
+[functions.create-competitor-research]
+verify_jwt = false
+
+[functions.list-competitor-research]
+verify_jwt = false

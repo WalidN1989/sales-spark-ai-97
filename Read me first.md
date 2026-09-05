@@ -160,6 +160,19 @@ in the bell). Clicking a reminder navigates to its linked lead or prospect.
   `https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/create-prospect`.
   No SQL migration needed.
 
+### Competitor Analysis module (2026-09-05)
+
+Sidebar **Competitor Analysis** (`/app/competitors`) — dated competitive-research
+snapshots (feature matrix, strengths, weaknesses, gaps) per competitor + product
+category. List/detail/new routes + `competitors.functions.ts` + `competitors-ui.ts`.
+Migration `20260905120000_competitor_analysis.sql` adds 7 `competitor_*` tables
+(shared-team RLS) and seeds an eTOP VMS vs GuestFlow record. Two Edge Functions —
+`create-competitor-research` (ingest webhook) + `list-competitor-research` —
+authed with `COMPETITOR_RESEARCH_API_KEY` (one secret to set). Full details +
+curl examples in `COMPETITOR_ANALYSIS.md`. Runtime FK embeds work; the hand-added
+types use empty `Relationships: []`, so the two route consumers cast through
+`unknown` (Lovable's regen will add real relationships and the casts can go).
+
 ## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
 All four migrations have been run in Lovable Cloud, so every feature is fully live:

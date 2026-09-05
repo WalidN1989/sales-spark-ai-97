@@ -17,6 +17,7 @@ import {
   Target,
   Camera,
   Search,
+  Swords,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,7 @@ function AppShell() {
     { to: "/app/qualifying", label: "Qualifying", icon: Target, show: can("prospects") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
     { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("prospects") },
+    { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("prospects") },
     { to: "/app/products", label: "Products", icon: Package, show: true },
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
