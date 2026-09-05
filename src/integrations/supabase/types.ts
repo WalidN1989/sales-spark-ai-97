@@ -927,6 +927,125 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_followup_activities: {
+        Row: {
+          activity_at: string
+          activity_type: string
+          created_at: string
+          created_by: string | null
+          details: string | null
+          followup_id: string
+          id: string
+          source: string | null
+          summary: string
+        }
+        Insert: {
+          activity_at?: string
+          activity_type: string
+          created_at?: string
+          created_by?: string | null
+          details?: string | null
+          followup_id: string
+          id?: string
+          source?: string | null
+          summary: string
+        }
+        Update: {
+          activity_at?: string
+          activity_type?: string
+          created_at?: string
+          created_by?: string | null
+          details?: string | null
+          followup_id?: string
+          id?: string
+          source?: string | null
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_followup_activities_followup_id_fkey"
+            columns: ["followup_id"]
+            isOneToOne: false
+            referencedRelation: "payment_followups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_followups: {
+        Row: {
+          amount_aed: number | null
+          category: string
+          company_name: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          due_date: string | null
+          id: string
+          last_activity_at: string | null
+          notes: string | null
+          owner: string | null
+          priority: string
+          prospect_id: string | null
+          quantity: number | null
+          reference: string | null
+          resolved_at: string | null
+          sent_date: string | null
+          status: string
+          title: string
+          unit_sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_aed?: number | null
+          category: string
+          company_name: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          last_activity_at?: string | null
+          notes?: string | null
+          owner?: string | null
+          priority?: string
+          prospect_id?: string | null
+          quantity?: number | null
+          reference?: string | null
+          resolved_at?: string | null
+          sent_date?: string | null
+          status?: string
+          title: string
+          unit_sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_aed?: number | null
+          category?: string
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          last_activity_at?: string | null
+          notes?: string | null
+          owner?: string | null
+          priority?: string
+          prospect_id?: string | null
+          quantity?: number | null
+          reference?: string | null
+          resolved_at?: string | null
+          sent_date?: string | null
+          status?: string
+          title?: string
+          unit_sku?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string | null
