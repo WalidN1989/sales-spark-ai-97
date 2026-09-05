@@ -5,6 +5,11 @@ project_id = "qygugdjyiebhnlwhhbwi"
 [functions.create-prospect]
 verify_jwt = false
 
+# Log a quote/WhatsApp activity onto a prospect's primary lead + 24h reminder
+# (same PROSPECT_WEBHOOK_KEY / PROSPECT_WEBHOOK_USER_ID as create-prospect).
+[functions.log-quote-activity]
+verify_jwt = false
+
 # Competitor research ingest + list — auth via x-api-key
 # (COMPETITOR_RESEARCH_API_KEY).
 [functions.create-competitor-research]
