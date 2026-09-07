@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
+import { downloadSheet, type Cell } from "@/lib/export-sheet";
 import {
   updateLead,
   bulkUpdateLeads,
@@ -771,30 +772,20 @@ export function LeadsCommandCenter({
   };
 
   // ----- CSV export -----
-  const exportCsv = (only: Set<string> | null) => {
+  const exportRows = (only: Set<string> | null, format: "xlsx" | "csv") => {
     const pick = only && only.size > 0 ? rows.filter((r) => only.has(r.lead.id)) : rows;
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const header = [
       "Company", "Contact", "Email", "WhatsApp", "Product", "Source", "Stage", "Health",
       "Priority", "Due", "Last Activity", "Next Action", "Value (AED)", "Summary",
     ];
-    const lines = pick.map((r) =>
-      [
-        r.companyName, r.lead.contact_person, r.lead.contact_email, r.lead.whatsapp,
-        r.productText, r.lead.source, STAGE_LABEL[r.stage], HEALTH_META[r.health].label,
-        PRIORITY_LABEL[r.priority], r.lead.next_action_due ?? "",
-        r.lead.last_activity_at ?? "", r.next.label,
-        (r.lead.pipeline_value_cents / 100).toFixed(0), r.summary.text ?? "",
-      ].map(esc).join(","),
-    );
-    const blob = new Blob([[header.map(esc).join(","), ...lines].join("\r\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const data: Cell[][] = pick.map((r) => [
+      r.companyName, r.lead.contact_person, r.lead.contact_email, r.lead.whatsapp,
+      r.productText, r.lead.source, STAGE_LABEL[r.stage], HEALTH_META[r.health].label,
+      PRIORITY_LABEL[r.priority], r.lead.next_action_due ?? "",
+      r.lead.last_activity_at ?? "", r.next.label,
+      Math.round((r.lead.pipeline_value_cents ?? 0) / 100), r.summary.text ?? "",
+    ]);
+    downloadSheet("leads", header, data, format, "Leads");
   };
 
   const bulkEmail = () => {
@@ -1344,9 +1335,17 @@ export function LeadsCommandCenter({
             <Rows3 className="h-3.5 w-3.5" />
           </Button>
 
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => exportCsv(null)}>
-            <Download className="mr-1 h-3.5 w-3.5" /> Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs">
+                <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => exportRows(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportRows(null, "csv")}>CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button size="sm" className="h-8 text-xs" onClick={onAddLead}>
             + Add Lead
@@ -1690,9 +1689,17 @@ export function LeadsCommandCenter({
           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={bulkEmail}>
             <Mail className="mr-1 h-3 w-3" /> Email
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => exportCsv(selected)}>
-            <Download className="mr-1 h-3 w-3" /> Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 text-xs">
+                <Download className="mr-1 h-3 w-3" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onSelect={() => exportRows(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportRows(selected, "csv")}>CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             size="sm"

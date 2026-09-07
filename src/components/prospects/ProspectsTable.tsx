@@ -4,15 +4,22 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, FileUp, Flame, Mail, Phone, Plus, Search, X } from "lucide-react";
+import { ChevronDown, Download, ExternalLink, FileUp, Flame, Mail, Phone, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { faviconUrl } from "@/lib/leads-ui";
 import { shortAgo } from "@/lib/leads-command";
 import { FacetFilter } from "@/components/leads/CommandCenter";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import { ImportProspectsDialog } from "@/components/prospects/ImportProspectsDialog";
+import { downloadSheet, type Cell } from "@/lib/export-sheet";
 
 export type ProspectRow = {
   id: string;
@@ -179,6 +186,14 @@ export function ProspectsTable({
 
   const filtersActive = q || industries.length || countries.length || products.length;
 
+  const exportRows = (format: "xlsx" | "csv") => {
+    const header = ["Company", "Industry", "Country", "Contact", "Email", "Phone", "Website", "Product / Service", "Updated"];
+    const data: Cell[][] = rows.map((c) => [
+      c.name, c.industry, c.country, c.contact_person, c.email, c.phone, c.domain, c.product_service, c.updated_at ?? c.created_at,
+    ]);
+    downloadSheet("prospects", header, data, format, "Prospects");
+  };
+
   return (
     <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col md:-m-6 md:h-[calc(100%+3rem)]">
       <HeaderPortal>
@@ -239,6 +254,17 @@ export function ProspectsTable({
           </button>
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs">
+                <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => exportRows("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportRows("csv")}>CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setImportOpen(true)}>
             <FileUp className="mr-1 h-3.5 w-3.5" /> Import CSV
           </Button>
