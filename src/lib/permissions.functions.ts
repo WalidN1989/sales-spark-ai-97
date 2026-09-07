@@ -13,10 +13,11 @@ export const getMyAccess = createServerFn({ method: "GET" })
     ]);
     const roleList = (roles ?? []).map((r) => r.role as string);
     const isAdmin = roleList.includes("admin");
+    const isManager = isAdmin || roleList.includes("manager");
     const map: PermissionMap = {};
     for (const p of perms ?? []) {
       map[p.module] = map[p.module] ?? {};
       map[p.module][p.tab] = p.enabled;
     }
-    return { roles: roleList, isAdmin, permissions: map };
+    return { roles: roleList, isAdmin, isManager, permissions: map };
   });

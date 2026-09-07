@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+export type TeamMember = { id: string; role: string; full_name: string | null; email: string | null };
 
 const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
 const activityKindEnum = z.enum([
@@ -41,6 +44,41 @@ export const listLeads = createServerFn({ method: "GET" })
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
+  });
+
+// Active org members a manager can assign leads to. Reps get an empty list
+// (they don't assign). Returns [] cleanly before the multi-user migration runs.
+export const listTeamMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<TeamMember[]> => {
+    const { data: role } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .in("role", ["admin", "manager"])
+      .maybeSingle();
+    if (!role) return [];
+    // org_members isn't in the generated types until Lovable regenerates them.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyAdmin = supabaseAdmin as any;
+    const { data: members, error } = await anyAdmin
+      .from("org_members")
+      .select("user_id, role, status");
+    if (error || !members) return [];
+    const ids: string[] = members.map((m: { user_id: string }) => m.user_id);
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+    const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+    return members
+      .filter((m: { status: string }) => m.status === "active")
+      .map((m: { user_id: string; role: string }) => ({
+        id: m.user_id,
+        role: m.role,
+        full_name: byId.get(m.user_id)?.full_name ?? null,
+        email: byId.get(m.user_id)?.email ?? null,
+      }));
   });
 
 export const getLead = createServerFn({ method: "GET" })
@@ -446,6 +484,7 @@ const patchSchema = z
     department: z.string().max(120).nullable().optional(),
     seniority: z.string().max(80).nullable().optional(),
     phone: z.string().max(40).nullable().optional(),
+    assigned_to: z.string().uuid().nullable().optional(),
     lead_type: z.enum(["direct", "reseller"]).optional(),
     reseller_company_id: z.string().uuid().nullable().optional(),
     end_user_project: z.string().max(1000).nullable().optional(),
@@ -532,6 +571,7 @@ const bulkPatchSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD")
       .nullable()
       .optional(),
+    assigned_to: z.string().uuid().nullable().optional(),
   })
   .strict()
   .refine((p) => Object.keys(p).length > 0, "Empty patch");

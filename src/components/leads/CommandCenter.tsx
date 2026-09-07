@@ -30,6 +30,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  UserCircle2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,10 @@ import {
   bulkDeleteLeads,
   generateLeadAiSummary,
   listLeadActivities,
+  listTeamMembers,
+  type TeamMember,
 } from "@/lib/leads.functions";
+import { useAccess } from "@/hooks/use-access";
 import {
   fmtMoneyCents,
   waHref,
@@ -127,6 +131,7 @@ export type CommandLead = {
   reseller_company_id: string | null;
   end_user_project: string | null;
   is_primary?: boolean | null;
+  assigned_to?: string | null;
   products_services: string[] | null;
   reseller: { id: string; name: string; domain: string | null; status: string | null } | null;
   companies: {
@@ -149,6 +154,7 @@ type Tab = "direct" | "resellers" | "all" | "won";
 type ColKey =
   | "company"
   | "contact"
+  | "assignee"
   | "product"
   | "source"
   | "country"
@@ -169,6 +175,7 @@ type ColDef = { key: ColKey; label: string; width: number; min: number; sortable
 const COLUMNS: ColDef[] = [
   { key: "company", label: "Company", width: 210, min: 140, sortable: true },
   { key: "contact", label: "Contact", width: 140, min: 100, sortable: true },
+  { key: "assignee", label: "Assigned to", width: 132, min: 100, sortable: true },
   { key: "product", label: "Product", width: 180, min: 110 },
   { key: "stage", label: "Stage", width: 128, min: 110, sortable: true },
   { key: "health", label: "Health", width: 92, min: 80, sortable: true },
@@ -203,6 +210,7 @@ type Filters = {
   sources: string[];
   countries: string[];
   products: string[];
+  assignees: string[];
   quick: "" | "overdue" | "today" | "cold";
 };
 
@@ -214,6 +222,7 @@ const EMPTY_FILTERS: Filters = {
   sources: [],
   countries: [],
   products: [],
+  assignees: [],
   quick: "",
 };
 
@@ -257,6 +266,8 @@ type RowVM = {
   industry: string | null;
   productText: string;
   searchExtra: string; // other contacts' names/emails so search still finds them
+  assignedTo: string | null; // user id the company is assigned to (null = unassigned)
+  mixedAssignee: boolean; // contacts in the group have different assignees
 };
 
 const normName = (n: string | null | undefined) =>
@@ -359,6 +370,8 @@ function buildGroupVM(group: CommandLead[]): RowVM {
       .flatMap((l) => [l.contact_person, l.contact_email, l.whatsapp])
       .filter(Boolean)
       .join(" "),
+    assignedTo: primary.assigned_to ?? null,
+    mixedAssignee: new Set(group.map((l) => l.assigned_to ?? "")).size > 1,
   };
 }
 
@@ -379,8 +392,23 @@ export function LeadsCommandCenter({
   const bulkUpdateFn = useServerFn(bulkUpdateLeads);
   const bulkDeleteFn = useServerFn(bulkDeleteLeads);
   const summaryFn = useServerFn(generateLeadAiSummary);
+  const membersFn = useServerFn(listTeamMembers);
 
   const canEdit = hasCommandColumns(leads as unknown as Array<Record<string, unknown>>);
+
+  // Team roster (managers only) for assigning leads to staff.
+  const { isManager } = useAccess();
+  const { data: members = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: () => membersFn(),
+    enabled: isManager,
+    staleTime: 60_000,
+  });
+  const memberName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const x of members) m.set(x.id, x.full_name || x.email || "Member");
+    return m;
+  }, [members]);
 
   // ----- Persistent UI prefs -----
   // Defaults on first render (matches SSR output — reading localStorage during
@@ -540,6 +568,7 @@ export function LeadsCommandCenter({
         !(r.lead.products_services ?? []).some((p) => filters.products.includes(p))
       )
         return false;
+      if (filters.assignees.length && !filters.assignees.includes(r.assignedTo ?? "")) return false;
       if (filters.quick === "overdue" && r.due.tone !== "overdue") return false;
       if (filters.quick === "today" && r.due.tone !== "today" && r.due.tone !== "overdue") return false;
       if (filters.quick === "cold" && r.health !== "cold") return false;
@@ -569,6 +598,10 @@ export function LeadsCommandCenter({
     const cmp: Record<string, (a: RowVM, b: RowVM) => number> = {
       company: (a, b) => a.companyName.localeCompare(b.companyName),
       contact: (a, b) => (a.lead.contact_person ?? "").localeCompare(b.lead.contact_person ?? ""),
+      assignee: (a, b) =>
+        (a.assignedTo ? memberName.get(a.assignedTo) ?? "" : "~").localeCompare(
+          b.assignedTo ? memberName.get(b.assignedTo) ?? "" : "~",
+        ),
       stage: (a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage],
       health: (a, b) => HEALTH_META[a.health].order - HEALTH_META[b.health].order,
       priority: (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
@@ -631,7 +664,7 @@ export function LeadsCommandCenter({
       out = [...out].sort((a, b) => dir * cmp[sort.key](a, b));
     }
     return out;
-  }, [vms, filters, sort]);
+  }, [vms, filters, sort, memberName]);
 
   // ----- Facet options -----
   const facets = useMemo(() => {
@@ -648,6 +681,7 @@ export function LeadsCommandCenter({
       sources: count((r) => (r.lead.source ?? "—") as string),
       countries: count((r) => (r.country ?? "—") as string),
       products: count((r) => r.lead.products_services ?? []).slice(0, 40),
+      assignees: count((r) => (r.assignedTo ?? "") as string),
       stageCounts: count((r) => r.stage as string),
     };
   }, [vms]);
@@ -675,7 +709,9 @@ export function LeadsCommandCenter({
   }, [rows.length, activeIdx]);
 
   // ----- Columns -----
-  const visibleCols = COLUMNS.filter((c) => !hidden.includes(c.key));
+  const visibleCols = COLUMNS.filter(
+    (c) => !hidden.includes(c.key) && (c.key !== "assignee" || isManager),
+  );
   const colW = (c: ColDef) => Math.max(c.min, widths[c.key] ?? c.width);
   const totalW = CHECK_W + visibleCols.reduce((a, c) => a + colW(c), 0);
 
@@ -1040,8 +1076,53 @@ export function LeadsCommandCenter({
     );
   };
 
+  const assigneeCell = (r: RowVM) => {
+    const label = r.mixedAssignee
+      ? "Multiple"
+      : r.assignedTo
+        ? memberName.get(r.assignedTo) ?? "Member"
+        : "Unassigned";
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            className={`flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-accent ${
+              r.assignedTo || r.mixedAssignee ? "" : "text-muted-foreground/60"
+            }`}
+          >
+            <UserCircle2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+            <span className="truncate">{label}</span>
+            <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/50" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuLabel className="text-xs">Assign to</DropdownMenuLabel>
+          {members.map((m) => (
+            <DropdownMenuItem key={m.id} onSelect={() => patchRow(r, { assigned_to: m.id })}>
+              <UserCircle2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <span className="truncate">{m.full_name || m.email}</span>
+              {r.assignedTo === m.id && !r.mixedAssignee && <Check className="ml-auto h-3.5 w-3.5" />}
+            </DropdownMenuItem>
+          ))}
+          {members.length === 0 && (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">No team members yet</div>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => patchRow(r, { assigned_to: null })}>
+            Unassign
+            {!r.assignedTo && !r.mixedAssignee && <Check className="ml-auto h-3.5 w-3.5" />}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   const renderCell = (c: ColDef, r: RowVM, idx: number): ReactNode => {
     switch (c.key) {
+      case "assignee":
+        return assigneeCell(r);
       case "company":
         return (
           <HoverCard openDelay={350} closeDelay={100}>
@@ -1472,6 +1553,18 @@ export function LeadsCommandCenter({
           selected={filters.products}
           onChange={(v) => setFilters((f) => ({ ...f, products: v }))}
         />
+        {isManager && (
+          <FacetFilter
+            label="Assigned to"
+            options={facets.assignees.map(([v, n]) => ({
+              value: v,
+              label: v ? memberName.get(v) ?? "Member" : "Unassigned",
+              count: n,
+            }))}
+            selected={filters.assignees}
+            onChange={(v) => setFilters((f) => ({ ...f, assignees: v }))}
+          />
+        )}
         <FacetFilter
           label="Country"
           options={facets.countries.map(([v, n]) => ({ value: v, label: v, count: n }))}
@@ -1650,6 +1743,37 @@ export function LeadsCommandCenter({
               </span>
             )}
           </span>
+
+          {isManager && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <UserCircle2 className="mr-1 h-3 w-3" /> Assign <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel className="text-xs">Assign {selected.size} to</DropdownMenuLabel>
+                {members.map((m) => (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onSelect={() => bulkUpdate.mutate({ ids: selectedGroupIds, patch: { assigned_to: m.id } })}
+                  >
+                    <UserCircle2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="truncate">{m.full_name || m.email}</span>
+                  </DropdownMenuItem>
+                ))}
+                {members.length === 0 && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">No team members yet</div>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => bulkUpdate.mutate({ ids: selectedGroupIds, patch: { assigned_to: null } })}
+                >
+                  Unassign
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

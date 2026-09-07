@@ -10,6 +10,7 @@ export function useAccess() {
     staleTime: 30_000,
   });
   const isAdmin = data?.isAdmin ?? false;
+  const isManager = data?.isManager ?? false;
   const permissions: PermissionMap = data?.permissions ?? {};
   const can = (module: string, tab: string = "*") => {
     if (isAdmin) return true;
@@ -19,5 +20,5 @@ export function useAccess() {
     if (m["*"] !== undefined) return m["*"];
     return true;
   };
-  return { isLoading, isAdmin, roles: data?.roles ?? [], can };
+  return { isLoading, isAdmin, isManager, roles: data?.roles ?? [], can };
 }
