@@ -8,6 +8,11 @@
 // Dedupe: skips a company whose (case-insensitive, trimmed) name the owner
 //         already has. Phone is never required. `notes` is ignored (the
 //         companies table has no notes column).
+// Back-fill: whether the company is new or a duplicate, any blank contact
+//         field on its primary lead (whatsapp/phone/contact/email/website) is
+//         filled from this payload — so a quoted lead shows the number that
+//         only used to reach the company. Existing values are never overwritten.
+//         Response includes a `backfilled` count.
 //
 // No SQL migration is required — this inserts into the existing companies table.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -65,6 +70,14 @@ function normalize(row: Incoming): {
   };
 }
 
+type Normalized = ReturnType<typeof normalize>;
+
+// Strip a phone down to the characters we store; null if nothing is left.
+const cleanPhone = (v: string | null): string | null => {
+  const s = (v ?? "").replace(/[^0-9+\-\s()]/g, "").trim();
+  return s.length ? s : null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -97,17 +110,48 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(url, serviceKey);
 
-  // Existing names for this owner → dedupe.
+  // Existing companies for this owner → dedupe + lead back-fill targets. We keep
+  // the company id + phone so a duplicate push can still fill a blank field on
+  // the company's lead instead of doing nothing.
   const { data: existing, error: exErr } = await supabase
     .from("companies")
-    .select("name")
+    .select("id, name, phone")
     .eq("user_id", ownerId);
   if (exErr) return json({ error: exErr.message }, 500);
-  const seen = new Set((existing ?? []).map((r) => (r.name ?? "").toLowerCase().trim()));
+  const byName = new Map<string, { id: string; phone: string | null }>();
+  for (const r of existing ?? []) {
+    byName.set((r.name ?? "").toLowerCase().trim(), { id: r.id as string, phone: (r.phone ?? null) as string | null });
+  }
+
+  // Fill blank contact fields on a company's primary lead. Only empties are
+  // touched — never overwrite what's already there. Returns true if it wrote.
+  async function backfillLead(companyId: string, f: Normalized, companyPhone: string | null): Promise<boolean> {
+    const { data: leads } = await supabase
+      .from("leads")
+      .select("id, whatsapp, phone, contact_person, contact_email, website")
+      .or(`company_id.eq.${companyId},prospect_id.eq.${companyId}`)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (!leads || !leads.length) return false;
+    const lead = leads[0] as Record<string, unknown>;
+    const blank = (x: unknown) => x == null || String(x).trim() === "";
+    const phone = cleanPhone(f.phone ?? companyPhone);
+    const patch: Record<string, string> = {};
+    if (blank(lead.whatsapp) && phone) patch.whatsapp = phone;
+    if (blank(lead.phone) && phone) patch.phone = phone;
+    if (blank(lead.contact_person) && f.contact_person) patch.contact_person = f.contact_person;
+    if (blank(lead.contact_email) && f.email) patch.contact_email = f.email;
+    if (blank(lead.website) && f.domain) patch.website = f.domain;
+    if (!Object.keys(patch).length) return false;
+    await supabase.from("leads").update(patch).eq("id", lead.id as string);
+    return true;
+  }
 
   const created: string[] = [];
   const skipped: { company: string | null; reason: string }[] = [];
   const failed: { company: string | null; error: string }[] = [];
+  let backfilled = 0;
 
   for (const raw of list) {
     const f = normalize(raw);
@@ -116,11 +160,14 @@ Deno.serve(async (req) => {
       continue;
     }
     const key = f.name.toLowerCase().trim();
-    if (seen.has(key)) {
+    const dupe = byName.get(key);
+    if (dupe) {
+      // Company already exists — still back-fill its lead with any new details
+      // (e.g. a phone number the lead was missing).
+      if (await backfillLead(dupe.id, f, dupe.phone)) backfilled++;
       skipped.push({ company: f.name, reason: "duplicate" });
       continue;
     }
-    seen.add(key);
     const { data, error } = await supabase
       .from("companies")
       .insert({
@@ -136,8 +183,16 @@ Deno.serve(async (req) => {
       })
       .select("id")
       .single();
-    if (error) failed.push({ company: f.name, error: error.message });
-    else created.push(data.id as string);
+    if (error) {
+      failed.push({ company: f.name, error: error.message });
+      continue;
+    }
+    const companyId = data.id as string;
+    created.push(companyId);
+    byName.set(key, { id: companyId, phone: f.phone });
+    // A lead rarely exists yet for a brand-new company, but if one does
+    // (e.g. created manually first), fill its blanks too.
+    if (await backfillLead(companyId, f, f.phone)) backfilled++;
   }
 
   return json({
@@ -145,6 +200,7 @@ Deno.serve(async (req) => {
     created: created.length,
     skipped: skipped.length,
     failed: failed.length,
+    backfilled,
     ids: created,
     details: { skipped, failed },
   });
