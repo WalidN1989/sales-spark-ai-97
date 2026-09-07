@@ -788,6 +788,33 @@ export function LeadsCommandCenter({
     downloadSheet("leads", header, data, format, "Leads");
   };
 
+  // Contact-level export: one row per PERSON, not per company. Each contact at a
+  // company (e.g. the 10 people pulled for AUD) becomes its own row with the
+  // company repeated — the format a team needs to start reaching out. Respects
+  // the current filters/tab (and selection, in the bulk bar).
+  const exportContacts = (only: Set<string> | null, format: "xlsx" | "csv") => {
+    const pick = only && only.size > 0 ? rows.filter((r) => only.has(r.lead.id)) : rows;
+    const byId = new Map(leads.map((l) => [l.id, l]));
+    const header = [
+      "Company", "Contact", "Job Title", "Email", "WhatsApp", "Phone", "LinkedIn",
+      "Country", "Industry", "Website", "Product", "Stage", "Source",
+    ];
+    const data: Cell[][] = [];
+    for (const r of pick) {
+      for (const id of r.ids) {
+        const l = byId.get(id);
+        if (!l) continue;
+        const product = (l.products_services ?? []).filter(Boolean).join(" · ") || r.productText;
+        data.push([
+          r.companyName, l.contact_person, l.job_title, l.contact_email,
+          l.whatsapp, l.phone, l.linkedin_url, r.country, r.industry, r.domain,
+          product, STAGE_LABEL[r.stage], l.source,
+        ]);
+      }
+    }
+    downloadSheet("leads-contacts", header, data, format, "Contacts");
+  };
+
   const bulkEmail = () => {
     const emails = rows
       .filter((r) => selected.has(r.lead.id) && r.lead.contact_email)
@@ -1341,7 +1368,12 @@ export function LeadsCommandCenter({
                 <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => exportContacts(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportContacts(null, "csv")}>CSV</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
               <DropdownMenuItem onSelect={() => exportRows(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => exportRows(null, "csv")}>CSV</DropdownMenuItem>
             </DropdownMenuContent>
@@ -1695,7 +1727,12 @@ export function LeadsCommandCenter({
                 <Download className="mr-1 h-3 w-3" /> Export <ChevronDown className="ml-1 h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => exportContacts(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => exportContacts(selected, "csv")}>CSV</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
               <DropdownMenuItem onSelect={() => exportRows(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => exportRows(selected, "csv")}>CSV</DropdownMenuItem>
             </DropdownMenuContent>
