@@ -45,3 +45,21 @@ export const MANAGER_ONLY_MODULES = new Set<string>([
   "competitors",
   "payments",
 ]);
+
+// The permission-gated sidebar modules, in display order — drives the per-user
+// "Module access" panel in User management. (Products, Learning, Notes and
+// Visual Match are always visible and intentionally not listed.)
+export const NAV_MODULES: { key: string; label: string }[] = [
+  { key: "prospects", label: "Prospects" },
+  { key: "qualifying", label: "Qualifying" },
+  { key: "leads", label: "Leads" },
+  { key: "inquiries", label: "Inquiries" },
+  { key: "competitors", label: "Competitor Analysis" },
+  { key: "payments", label: "Payment Follow-up" },
+  { key: "sales", label: "Sales" },
+  { key: "meetings", label: "Meetings" },
+];
+
+// A module's default visibility for a sales rep when no explicit permission row
+// exists: manager-only modules default off, everything else defaults on.
+export const moduleDefaultVisible = (key: string): boolean => !MANAGER_ONLY_MODULES.has(key);

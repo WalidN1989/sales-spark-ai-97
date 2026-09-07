@@ -9,7 +9,7 @@ import {
   setUserStatus,
   createTeamMember,
 } from "@/lib/users.functions";
-import { MODULES } from "@/lib/permissions";
+import { MODULES, NAV_MODULES, MANAGER_ONLY_MODULES, moduleDefaultVisible } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,9 +103,55 @@ function UsersPage() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-3 rounded-md border p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm font-medium">Module access</div>
+                  {role !== "sales_rep" && (
+                    <span className="text-xs text-muted-foreground">Sees all modules (role)</span>
+                  )}
+                </div>
+                {role === "sales_rep" ? (
+                  <>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {NAV_MODULES.map(({ key, label }) => {
+                        const p = u.permissions.find((x) => x.module === key && x.tab === "*");
+                        const enabled = p ? p.enabled : moduleDefaultVisible(key);
+                        return (
+                          <label
+                            key={key}
+                            className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              {label}
+                              {MANAGER_ONLY_MODULES.has(key) && (
+                                <span className="rounded bg-secondary px-1 text-[9px] font-semibold uppercase text-muted-foreground">
+                                  Manager
+                                </span>
+                              )}
+                            </span>
+                            <Switch
+                              checked={enabled}
+                              onCheckedChange={async (v) => {
+                                await setPerm({ data: { user_id: u.id, module: key, tab: "*", enabled: v } });
+                                refresh();
+                              }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Modules tagged <span className="font-medium">Manager</span> are hidden from reps by default —
+                      switch one on to grant this person access.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Managers and admins always see every module.</p>
+                )}
+              </div>
               <Accordion type="single" collapsible>
                 <AccordionItem value="perm">
-                  <AccordionTrigger className="text-sm">Module & tab permissions</AccordionTrigger>
+                  <AccordionTrigger className="text-sm">Advanced: tab-level permissions</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
                       {(Object.keys(MODULES) as (keyof typeof MODULES)[]).map((m) => {
