@@ -14,6 +14,11 @@ export const listReminders = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("reminders")
       .select(REMINDER_SELECT)
+      // Reminders are personal: the panel only ever shows the signed-in user's
+      // own follow-ups. Without this, a manager (is_admin) would see every
+      // staff member's reminders mixed into their own panel. Shared/"part of
+      // the conversation" reminders are a future, opt-in feature.
+      .eq("user_id", context.userId)
       .neq("status", "dismissed")
       .order("remind_at", { ascending: true })
       .limit(200);
