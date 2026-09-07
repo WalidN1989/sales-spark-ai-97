@@ -32,3 +32,16 @@ export const MODULES = {
 } as const;
 
 export type ModuleKey = keyof typeof MODULES;
+
+// Modules that belong to the manager/owner. A sales rep does NOT see these in
+// the sidebar by default — their view stays focused on the leads assigned to
+// them. A manager always sees them; a manager can still grant an individual rep
+// access by enabling that module for them in User management (an explicit
+// permission overrides this default). Managers/admins bypass it entirely.
+export const MANAGER_ONLY_MODULES = new Set<string>([
+  "prospects",
+  "qualifying",
+  "inquiries",
+  "competitors",
+  "payments",
+]);

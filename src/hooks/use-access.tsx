@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAccess, type PermissionMap } from "@/lib/permissions.functions";
+import { MANAGER_ONLY_MODULES } from "@/lib/permissions";
 
 export function useAccess() {
   const fn = useServerFn(getMyAccess);
@@ -13,12 +14,13 @@ export function useAccess() {
   const isManager = data?.isManager ?? false;
   const permissions: PermissionMap = data?.permissions ?? {};
   const can = (module: string, tab: string = "*") => {
-    if (isAdmin) return true;
+    if (isManager) return true; // managers/admins see every module
     const m = permissions[module];
-    if (!m) return true; // default-allow until admin disables
-    if (m[tab] !== undefined) return m[tab];
-    if (m["*"] !== undefined) return m["*"];
-    return true;
+    const explicit = m ? (m[tab] !== undefined ? m[tab] : m["*"]) : undefined;
+    // Manager-only modules are hidden from reps unless explicitly granted.
+    if (MANAGER_ONLY_MODULES.has(module)) return explicit === true;
+    // Everything else is allowed until a manager disables it for the user.
+    return explicit ?? true;
   };
   return { isLoading, isAdmin, isManager, roles: data?.roles ?? [], can };
 }

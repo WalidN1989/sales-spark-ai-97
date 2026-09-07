@@ -54,13 +54,13 @@ function AppShell() {
 
   const nav = [
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
-    { to: "/app/qualifying", label: "Qualifying", icon: Target, show: can("prospects") },
-    { to: "/app/leads", label: "Leads", icon: Flame, show: can("prospects") },
-    { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("prospects") },
-    { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("prospects") },
+    { to: "/app/qualifying", label: "Qualifying", icon: Target, show: can("qualifying") },
+    { to: "/app/leads", label: "Leads", icon: Flame, show: can("leads") },
+    { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("inquiries") },
+    { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("competitors") },
     { to: "/app/products", label: "Products", icon: Package, show: true },
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
-    { to: "/app/payments", label: "Payment Follow-up", icon: Wallet, show: can("prospects") },
+    { to: "/app/payments", label: "Payment Follow-up", icon: Wallet, show: can("payments") },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
     { to: "/app/notes", label: "Notes", icon: StickyNote, show: true },
