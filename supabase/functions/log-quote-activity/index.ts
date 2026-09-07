@@ -88,10 +88,16 @@ Deno.serve(async (req) => {
   if (coErr) return json({ error: coErr.message }, 500);
   if (!company) return json({ error: "Company not found for this account" }, 404);
 
+  // Best phone we have for this company, cleaned for storage.
+  const cleanPhone = (phone ?? company.mobile ?? company.phone ?? "")
+    .toString()
+    .replace(/[^0-9+\-\s()]/g, "")
+    .trim() || null;
+
   // 2) Get or create the primary lead for the company.
   const { data: leads, error: lErr } = await supabase
     .from("leads")
-    .select("id")
+    .select("id, whatsapp, phone, contact_person, contact_email, website")
     .or(`company_id.eq.${companyId},prospect_id.eq.${companyId}`)
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: true })
@@ -100,12 +106,25 @@ Deno.serve(async (req) => {
 
   let leadId: string;
   if (leads && leads.length) {
-    leadId = leads[0].id;
+    const lead = leads[0] as Record<string, unknown>;
+    leadId = lead.id as string;
+
+    // Back-fill contact details that are blank on the existing lead. We only
+    // fill empties — never overwrite what the user (or an earlier import)
+    // already put there. This is why a freshly-quoted lead now shows its
+    // WhatsApp number even though create-prospect only wrote to the company.
+    const blank = (v: unknown) => v == null || String(v).trim() === "";
+    const patch: Record<string, string> = {};
+    if (blank(lead.whatsapp) && cleanPhone) patch.whatsapp = cleanPhone;
+    if (blank(lead.phone) && cleanPhone) patch.phone = cleanPhone;
+    if (blank(lead.contact_person) && (contactName ?? company.contact_person))
+      patch.contact_person = (contactName ?? company.contact_person) as string;
+    if (blank(lead.contact_email) && company.email) patch.contact_email = company.email as string;
+    if (blank(lead.website) && company.domain) patch.website = company.domain as string;
+    if (Object.keys(patch).length) {
+      await supabase.from("leads").update(patch).eq("id", leadId);
+    }
   } else {
-    const cleanPhone = (phone ?? company.mobile ?? company.phone ?? "")
-      .toString()
-      .replace(/[^0-9+\-\s()]/g, "")
-      .trim() || null;
     const { data: newLead, error: insLeadErr } = await supabase
       .from("leads")
       .insert({
