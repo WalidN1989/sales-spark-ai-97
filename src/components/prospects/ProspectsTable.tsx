@@ -60,15 +60,44 @@ export function ProspectsTable({
   const [q, setQ] = useState("");
   const [industries, setIndustries] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
+  const [products, setProducts] = useState<string[]>([]);
   const [sort, setSort] = useState<SortState>({ key: "updated", dir: 1 });
   const [activeIdx, setActiveIdx] = useState(-1);
   const [importOpen, setImportOpen] = useState(false);
+
+  // Persist the filter selection so it survives navigating into a company and
+  // back — load after mount (SSR-safe), then save on every change.
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("prospects:filters");
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p.industries)) setIndustries(p.industries);
+        if (Array.isArray(p.countries)) setCountries(p.countries);
+        if (Array.isArray(p.products)) setProducts(p.products);
+        if (typeof p.q === "string") setQ(p.q);
+      }
+    } catch {
+      /* ignore */
+    }
+    setPrefsLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    try {
+      localStorage.setItem("prospects:filters", JSON.stringify({ q, industries, countries, products }));
+    } catch {
+      /* ignore */
+    }
+  }, [q, industries, countries, products, prefsLoaded]);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     let out = companies.filter((c) => {
       if (industries.length && !industries.includes(c.industry ?? "—")) return false;
       if (countries.length && !countries.includes(c.country ?? "—")) return false;
+      if (products.length && !products.includes(c.product_service ?? "—")) return false;
       if (needle) {
         const hay = [c.name, c.domain, c.industry, c.country, c.contact_person, c.email, c.product_service]
           .filter(Boolean)
@@ -88,7 +117,7 @@ export function ProspectsTable({
     const f = cmp[sort.key];
     if (f) out = [...out].sort((a, b) => dir * f(a, b));
     return out;
-  }, [companies, q, industries, countries, sort]);
+  }, [companies, q, industries, countries, products, sort]);
 
   const facets = useMemo(() => {
     const count = (get: (c: ProspectRow) => string) => {
@@ -96,7 +125,11 @@ export function ProspectsTable({
       for (const c of companies) m.set(get(c), (m.get(get(c)) ?? 0) + 1);
       return [...m.entries()].sort((a, b) => b[1] - a[1]);
     };
-    return { industries: count((c) => c.industry ?? "—"), countries: count((c) => c.country ?? "—") };
+    return {
+      industries: count((c) => c.industry ?? "—"),
+      countries: count((c) => c.country ?? "—"),
+      products: count((c) => c.product_service ?? "—"),
+    };
   }, [companies]);
 
   // Virtualization
@@ -144,7 +177,7 @@ export function ProspectsTable({
     }
   };
 
-  const filtersActive = q || industries.length || countries.length;
+  const filtersActive = q || industries.length || countries.length || products.length;
 
   return (
     <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col md:-m-6 md:h-[calc(100%+3rem)]">
@@ -185,6 +218,12 @@ export function ProspectsTable({
           selected={countries}
           onChange={setCountries}
         />
+        <FacetFilter
+          label="Product / Service"
+          options={facets.products.map(([v, n]) => ({ value: v, label: v, count: n }))}
+          selected={products}
+          onChange={setProducts}
+        />
         {filtersActive ? (
           <button
             type="button"
@@ -192,6 +231,7 @@ export function ProspectsTable({
               setQ("");
               setIndustries([]);
               setCountries([]);
+              setProducts([]);
             }}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >

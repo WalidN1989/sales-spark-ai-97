@@ -188,6 +188,8 @@ const CHECK_W = 36;
 const LS_WIDTHS = "leadscc:widths";
 const LS_HIDDEN = "leadscc:hidden";
 const LS_VIEWS = "leadscc:views";
+const LS_FILTERS = "leadscc:filters";
+const LS_TAB = "leadscc:tab";
 const LS_DENSITY = "leadscc:density";
 
 type SortState = { key: ColKey | "smart"; dir: 1 | -1 };
@@ -415,6 +417,20 @@ export function LeadsCommandCenter({
   const [tab, setTab] = useState<Tab>("direct");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortState>({ key: "smart", dir: 1 });
+
+  // Persist filters + tab so a product/industry selection survives navigating
+  // into a lead and back (load after mount to stay SSR-safe).
+  useEffect(() => {
+    setFilters(loadLS<Filters>(LS_FILTERS, EMPTY_FILTERS));
+    const t = loadLSRaw<Tab>(LS_TAB, "direct");
+    if (["direct", "resellers", "all", "won"].includes(t)) setTab(t);
+  }, []);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_FILTERS, JSON.stringify(filters));
+  }, [filters, prefsLoaded]);
+  useEffect(() => {
+    if (prefsLoaded) localStorage.setItem(LS_TAB, JSON.stringify(tab));
+  }, [tab, prefsLoaded]);
 
   // ----- Selection & keyboard -----
   const [selected, setSelected] = useState<Set<string>>(new Set());
