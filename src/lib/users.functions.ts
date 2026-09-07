@@ -13,6 +13,69 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin access required");
 }
 
+// org_members / organizations aren't in the generated types until Lovable
+// regenerates them, so reach them through an untyped handle.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminAny = supabaseAdmin as any;
+
+// Keep the org membership role in step with user_roles. Silently ignores the
+// case where the multi-user migration hasn't been applied yet.
+async function syncOrgRole(userId: string, role: string) {
+  try {
+    await adminAny.from("org_members").update({ role }).eq("user_id", userId);
+  } catch {
+    /* org_members table not present yet */
+  }
+}
+
+// Readable temp password: no ambiguous chars, guaranteed a digit + symbol.
+function genPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const arr = new Uint32Array(12);
+  globalThis.crypto.getRandomValues(arr);
+  let s = "";
+  for (const n of arr) s += chars[n % chars.length];
+  return `${s}#7`;
+}
+
+// Create a staff login. The signup triggers seed their profile, role and org
+// membership; we then align the requested role. Returns the temp password once
+// so the manager can hand it over — it is never stored in plain text elsewhere.
+export const createTeamMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        email: z.string().email().max(200),
+        full_name: z.string().trim().max(200).optional(),
+        role: z.enum(["admin", "manager", "sales_rep"]).default("sales_rep"),
+        password: z.string().min(8).max(72).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const password = data.password ?? genPassword();
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: data.full_name ?? null },
+    });
+    if (error) throw new Error(error.message);
+    const newId = created.user?.id;
+    if (!newId) throw new Error("User was not created");
+
+    // New users default to sales_rep via the signup trigger; promote if asked.
+    if (data.role !== "sales_rep") {
+      await supabaseAdmin.from("user_roles").delete().eq("user_id", newId);
+      await supabaseAdmin.from("user_roles").insert({ user_id: newId, role: data.role });
+    }
+    await syncOrgRole(newId, data.role);
+
+    return { ok: true, user_id: newId, email: data.email, temp_password: password };
+  });
+
 export const listUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -52,6 +115,7 @@ export const setUserRole = createServerFn({ method: "POST" })
       .from("user_roles")
       .insert({ user_id: data.user_id, role: data.role });
     if (error) throw new Error(error.message);
+    await syncOrgRole(data.user_id, data.role);
     return { ok: true };
   });
 
