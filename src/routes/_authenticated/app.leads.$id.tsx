@@ -128,6 +128,7 @@ function LeadDetail() {
   const [contact, setContact] = useState("");
   const [email, setEmail] = useState("");
   const [wa, setWa] = useState("");
+  const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -155,6 +156,7 @@ function LeadDetail() {
       setContact(lead.contact_person ?? "");
       setEmail(lead.contact_email ?? "");
       setWa(lead.whatsapp ?? "");
+      setPhone((lead as { phone?: string | null }).phone ?? "");
       setCompanyName(lead.company_name ?? "");
       setWebsite(lead.website ?? "");
       setJobTitle((lead as { job_title?: string | null }).job_title ?? "");
@@ -173,6 +175,7 @@ function LeadDetail() {
     contact_person?: string | null;
     contact_email?: string | null;
     whatsapp?: string | null;
+    phone?: string | null;
     pipeline_value_cents?: number;
     company_name?: string | null;
     website?: string | null;
@@ -309,6 +312,7 @@ function LeadDetail() {
       contact_person: contact || null,
       contact_email: email || null,
       whatsapp: wa || null,
+      phone: phone || null,
       company_name: companyName || null,
       website: website || (suggestedDomain ?? null),
       job_title: jobTitle || null,
@@ -456,6 +460,11 @@ function LeadDetail() {
                 <div>
                   <Label>WhatsApp number</Label>
                   <Input value={wa} onChange={(e) => setWa(e.target.value)} maxLength={30} placeholder="+971501234567" />
+                  <p className="mt-1 text-[11px] text-muted-foreground">One number only — it powers the WhatsApp link.</p>
+                </div>
+                <div>
+                  <Label>Phone / landline</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} placeholder="+97142288083" />
                 </div>
                 <div>
                   <Label>Email</Label>

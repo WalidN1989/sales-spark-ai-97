@@ -21,6 +21,27 @@ const str = (v: unknown): string | null => {
   const x = (v ?? "").toString().trim();
   return x.length ? x : null;
 };
+
+// Split a messy phone string ("+9715… / +9716… Ext.: 81") into individual
+// numbers — first (mobile) → WhatsApp, second → Phone. Drops extensions.
+const extractNumbers = (raw: string | null): string[] => {
+  if (!raw) return [];
+  let s = String(raw).replace(/\b(?:ext|extension|x)\b\.?:?\s*\d+/gi, " ");
+  s = s.replace(/(?!^)\s*\+/g, " |+");
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of s.split(/[|/,;\n]+|\s{2,}/)) {
+    const cleaned = part.replace(/[^\d+]/g, "");
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length < 8 || digits.length > 15) continue;
+    const val = (cleaned.startsWith("+") ? "+" : "") + digits;
+    if (!seen.has(val)) {
+      seen.add(val);
+      out.push(val);
+    }
+  }
+  return out;
+};
 const KINDS = ["note", "email", "call", "meeting", "log", "whatsapp", "quotation", "visit"];
 const OUTCOMES = [
   "interested", "waiting", "not_interested", "need_quotation", "need_followup",
@@ -88,11 +109,12 @@ Deno.serve(async (req) => {
   if (coErr) return json({ error: coErr.message }, 500);
   if (!company) return json({ error: "Company not found for this account" }, 404);
 
-  // Best phone we have for this company, cleaned for storage.
-  const cleanPhone = (phone ?? company.mobile ?? company.phone ?? "")
-    .toString()
-    .replace(/[^0-9+\-\s()]/g, "")
-    .trim() || null;
+  // Best phone(s) for this company. First is the mobile (→ WhatsApp), second
+  // the landline (→ Phone). Falls back to a plain clean if parsing finds none.
+  const nums = extractNumbers(phone ?? company.mobile ?? company.phone);
+  const waNum = nums[0] ??
+    ((phone ?? company.mobile ?? company.phone ?? "").toString().replace(/[^0-9+\-\s()]/g, "").trim() || null);
+  const altNum = nums[1] ?? null;
 
   // 2) Get or create the primary lead for the company.
   const { data: leads, error: lErr } = await supabase
@@ -115,8 +137,8 @@ Deno.serve(async (req) => {
     // WhatsApp number even though create-prospect only wrote to the company.
     const blank = (v: unknown) => v == null || String(v).trim() === "";
     const patch: Record<string, string> = {};
-    if (blank(lead.whatsapp) && cleanPhone) patch.whatsapp = cleanPhone;
-    if (blank(lead.phone) && cleanPhone) patch.phone = cleanPhone;
+    if (blank(lead.whatsapp) && waNum) patch.whatsapp = waNum;
+    if (blank(lead.phone) && altNum) patch.phone = altNum;
     if (blank(lead.contact_person) && (contactName ?? company.contact_person))
       patch.contact_person = (contactName ?? company.contact_person) as string;
     if (blank(lead.contact_email) && company.email) patch.contact_email = company.email as string;
@@ -134,8 +156,8 @@ Deno.serve(async (req) => {
         website: company.domain,
         contact_person: contactName ?? company.contact_person ?? company.name,
         contact_email: company.email,
-        whatsapp: cleanPhone,
-        phone: cleanPhone,
+        whatsapp: waNum,
+        phone: altNum ?? waNum,
         products_services: product ? [product.slice(0, 80)] : company.product_service ? [String(company.product_service).slice(0, 80)] : [],
         status: "warm",
         is_primary: true,

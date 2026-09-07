@@ -78,6 +78,28 @@ const cleanPhone = (v: string | null): string | null => {
   return s.length ? s : null;
 };
 
+// Split a messy phone string ("+9715… / +9716… Ext.: 81") into individual
+// numbers. Drops extensions; returns cleaned "+digits" entries in order, so the
+// first (mobile) can go to WhatsApp and the second to the Phone field.
+const extractNumbers = (raw: string | null): string[] => {
+  if (!raw) return [];
+  let s = String(raw).replace(/\b(?:ext|extension|x)\b\.?:?\s*\d+/gi, " ");
+  s = s.replace(/(?!^)\s*\+/g, " |+"); // each international "+" starts a new token
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of s.split(/[|/,;\n]+|\s{2,}/)) {
+    const cleaned = part.replace(/[^\d+]/g, "");
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length < 8 || digits.length > 15) continue;
+    const val = (cleaned.startsWith("+") ? "+" : "") + digits;
+    if (!seen.has(val)) {
+      seen.add(val);
+      out.push(val);
+    }
+  }
+  return out;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
@@ -136,10 +158,12 @@ Deno.serve(async (req) => {
     if (!leads || !leads.length) return false;
     const lead = leads[0] as Record<string, unknown>;
     const blank = (x: unknown) => x == null || String(x).trim() === "";
-    const phone = cleanPhone(f.phone ?? companyPhone);
+    const nums = extractNumbers(f.phone ?? companyPhone);
+    const wa = nums[0] ?? cleanPhone(f.phone ?? companyPhone); // mobile → WhatsApp
+    const alt = nums[1] ?? null; // second number → Phone
     const patch: Record<string, string> = {};
-    if (blank(lead.whatsapp) && phone) patch.whatsapp = phone;
-    if (blank(lead.phone) && phone) patch.phone = phone;
+    if (blank(lead.whatsapp) && wa) patch.whatsapp = wa;
+    if (blank(lead.phone) && alt) patch.phone = alt;
     if (blank(lead.contact_person) && f.contact_person) patch.contact_person = f.contact_person;
     if (blank(lead.contact_email) && f.email) patch.contact_email = f.email;
     if (blank(lead.website) && f.domain) patch.website = f.domain;
@@ -178,7 +202,7 @@ Deno.serve(async (req) => {
         industry: f.industry,
         contact_person: f.contact_person,
         email: f.email,
-        phone: f.phone,
+        phone: extractNumbers(f.phone).join(" / ") || f.phone,
         product_service: f.product_service,
       })
       .select("id")
@@ -189,7 +213,7 @@ Deno.serve(async (req) => {
     }
     const companyId = data.id as string;
     created.push(companyId);
-    byName.set(key, { id: companyId, phone: f.phone });
+    byName.set(key, { id: companyId, phone: extractNumbers(f.phone).join(" / ") || f.phone });
     // A lead rarely exists yet for a brand-new company, but if one does
     // (e.g. created manually first), fill its blanks too.
     if (await backfillLead(companyId, f, f.phone)) backfilled++;

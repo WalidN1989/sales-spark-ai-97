@@ -29,9 +29,27 @@ export const LEAD_STATUS_DOT: Record<LeadStatus, string> = {
   won: "bg-emerald-500",
 };
 
-export function waHref(num: string | null | undefined): string | null {
+// Return the first phone number from a possibly multi-number string
+// ("+9715… / +9716… Ext.: 81") as a clean "+digits" value. Guards against a
+// field that accidentally holds two numbers producing a mashed-together link.
+export function firstPhone(num: string | null | undefined): string | null {
   if (!num) return null;
-  const digits = num.replace(/\D+/g, "");
+  let s = String(num).replace(/\b(?:ext|extension|x)\b\.?:?\s*\d+/gi, " ");
+  s = s.replace(/(?!^)\s*\+/g, " |+");
+  for (const part of s.split(/[|/,;\n]+|\s{2,}/)) {
+    const cleaned = part.replace(/[^\d+]/g, "");
+    const digits = cleaned.replace(/\D/g, "");
+    if (digits.length >= 8 && digits.length <= 15) {
+      return (cleaned.startsWith("+") ? "+" : "") + digits;
+    }
+  }
+  return null;
+}
+
+export function waHref(num: string | null | undefined): string | null {
+  const first = firstPhone(num);
+  if (!first) return null;
+  const digits = first.replace(/\D+/g, "");
   return digits ? `https://wa.me/${digits}` : null;
 }
 
