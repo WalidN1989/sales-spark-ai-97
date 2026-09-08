@@ -399,7 +399,7 @@ export function LeadsCommandCenter({
   const canEdit = hasCommandColumns(leads as unknown as Array<Record<string, unknown>>);
 
   // Team roster (managers only) for assigning leads to staff.
-  const { isManager, userId } = useAccess();
+  const { isManager, isAdmin, userId } = useAccess();
   const { data: members = [] } = useQuery<TeamMember[]>({
     queryKey: ["team-members"],
     queryFn: () => membersFn(),
@@ -1449,22 +1449,24 @@ export function LeadsCommandCenter({
             <Rows3 className="h-3.5 w-3.5" />
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => exportContacts(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportContacts(null, "csv")}>CSV</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => exportRows(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportRows(null, "csv")}>CSV</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => exportContacts(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportContacts(null, "csv")}>CSV</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => exportRows(null, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportRows(null, "csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setImportOpen(true)}>
             <FileUp className="mr-1 h-3.5 w-3.5" /> Import
@@ -1855,22 +1857,24 @@ export function LeadsCommandCenter({
           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={bulkEmail}>
             <Mail className="mr-1 h-3 w-3" /> Email
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 text-xs">
-                <Download className="mr-1 h-3 w-3" /> Export <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-60">
-              <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => exportContacts(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportContacts(selected, "csv")}>CSV</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => exportRows(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportRows(selected, "csv")}>CSV</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs">
+                  <Download className="mr-1 h-3 w-3" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-60">
+                <DropdownMenuLabel className="text-xs">One row per contact (for outreach)</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => exportContacts(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportContacts(selected, "csv")}>CSV</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">One row per company (summary)</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => exportRows(selected, "xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportRows(selected, "csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="outline"
             size="sm"

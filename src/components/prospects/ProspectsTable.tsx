@@ -4,6 +4,7 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAccess } from "@/hooks/use-access";
 import { ChevronDown, Download, ExternalLink, FileUp, Flame, Mail, Phone, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ export function ProspectsTable({
   isLoading: boolean;
 }) {
   const navigate = useNavigate();
+  const { isAdmin } = useAccess();
   const [q, setQ] = useState("");
   const [industries, setIndustries] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
@@ -254,17 +256,19 @@ export function ProspectsTable({
           </button>
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => exportRows("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => exportRows("csv")}>CSV</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  <Download className="mr-1 h-3.5 w-3.5" /> Export <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => exportRows("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportRows("csv")}>CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setImportOpen(true)}>
             <FileUp className="mr-1 h-3.5 w-3.5" /> Import CSV
           </Button>
