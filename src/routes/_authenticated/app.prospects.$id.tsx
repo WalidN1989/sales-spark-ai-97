@@ -339,7 +339,7 @@ function CompanyProfile() {
         }
         secondary={
           <>
-            {can("prospects", "research") && (
+            {can("prospect_research") && (
               <Section title="AI Research" icon={<Sparkles className="h-4 w-4" />}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs text-muted-foreground">
@@ -380,7 +380,7 @@ function CompanyProfile() {
               </Section>
             )}
 
-            {can("prospects", "pitch") && (
+            {can("prospect_pitch") && (
               <Section title="Pitch Email" icon={<Mail className="h-4 w-4" />}>
                 <div className="mb-2 flex justify-end">
                   <Button size="sm" onClick={handlePitch} disabled={pitching}>
@@ -414,11 +414,14 @@ function CompanyProfile() {
               </Section>
             )}
 
-            <Section title="Respond" icon={<MessageCircle className="h-4 w-4" />}>
-              <RespondTab companyId={id} />
-            </Section>
+            {can("prospect_respond") && (
+              <Section title="Respond" icon={<MessageCircle className="h-4 w-4" />}>
+                <RespondTab companyId={id} />
+              </Section>
+            )}
 
-            <Section title="Market Insight" icon={<ScanSearch className="h-4 w-4" />}>
+            {can("prospect_market") && (
+              <Section title="Market Insight" icon={<ScanSearch className="h-4 w-4" />}>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-muted-foreground">
                   Last scan: {cm.market_insight_at ? new Date(cm.market_insight_at).toLocaleString() : "never"}
@@ -503,11 +506,14 @@ function CompanyProfile() {
                 <Textarea rows={3} placeholder={"https://competitor-1.com\nhttps://competitor-2.com"} value={seedsValue} onChange={(e) => setSeedDraft(e.target.value)} />
                 <p className="mt-1 text-xs text-muted-foreground">One URL per line. Saved with the next scan. Up to 5 are scraped.</p>
               </div>
-            </Section>
+              </Section>
+            )}
 
-            <Section title="Lookalikes" icon={<Users className="h-4 w-4" />}>
-              <LookalikesPanel companyId={id} companyName={c.name} />
-            </Section>
+            {can("prospect_lookalikes") && (
+              <Section title="Lookalikes" icon={<Users className="h-4 w-4" />}>
+                <LookalikesPanel companyId={id} companyName={c.name} />
+              </Section>
+            )}
           </>
         }
       />

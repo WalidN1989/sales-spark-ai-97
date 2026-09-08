@@ -76,6 +76,11 @@ export const FEATURE_FLAGS: { key: string; label: string }[] = [
   { key: "lead_documents", label: "Lead — Documents" },
   { key: "lead_inquiries", label: "Lead — Linked inquiries" },
   { key: "lead_ai", label: "Lead — AI Respond" },
+  { key: "prospect_research", label: "Prospect — AI Research" },
+  { key: "prospect_pitch", label: "Prospect — Pitch Email" },
+  { key: "prospect_respond", label: "Prospect — Respond" },
+  { key: "prospect_market", label: "Prospect — Market Insight" },
+  { key: "prospect_lookalikes", label: "Prospect — Lookalikes" },
 ];
 
 const MODULE_BY_KEY = new Map(APP_MODULES.map((m) => [m.key, m]));
