@@ -20,6 +20,7 @@ import {
   Columns3,
   Download,
   ExternalLink,
+  FileUp,
   Flag,
   Linkedin,
   Mail,
@@ -70,6 +71,7 @@ import {
   type TeamMember,
 } from "@/lib/leads.functions";
 import { useAccess } from "@/hooks/use-access";
+import { ImportLeadsDialog } from "./ImportLeadsDialog";
 import {
   fmtMoneyCents,
   waHref,
@@ -469,6 +471,7 @@ export function LeadsCommandCenter({
   const [activeIdx, setActiveIdx] = useState<number>(-1);
   const lastClickIdx = useRef<number>(-1);
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // ----- Mutations -----
   const patchLocal = useCallback(
@@ -1463,6 +1466,10 @@ export function LeadsCommandCenter({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setImportOpen(true)}>
+            <FileUp className="mr-1 h-3.5 w-3.5" /> Import
+          </Button>
+
           <Button size="sm" className="h-8 text-xs" onClick={onAddLead}>
             + Add Lead
           </Button>
@@ -1909,6 +1916,8 @@ export function LeadsCommandCenter({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportLeadsDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }

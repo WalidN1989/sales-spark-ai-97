@@ -81,6 +81,91 @@ export const listTeamMembers = createServerFn({ method: "GET" })
       }));
   });
 
+// Staff self-import: bulk-create leads from a filled template. The ONLY
+// requirement is a company name; everything else is optional. Each lead is
+// owned by and assigned to the importer, so the author is engraved (user_id +
+// assigned_to) and they see it immediately. Uses existing columns only.
+const IMPORT_STAGES = new Set([
+  "prospect", "qualified", "meeting", "quotation", "negotiation", "purchase_order", "won", "lost",
+]);
+const IMPORT_PRIORITIES = new Set(["critical", "high", "medium", "low"]);
+
+const importRow = z.object({
+  company: z.string().max(300).nullable().optional(),
+  contact: z.string().max(200).nullable().optional(),
+  job_title: z.string().max(200).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
+  whatsapp: z.string().max(60).nullable().optional(),
+  phone: z.string().max(60).nullable().optional(),
+  website: z.string().max(300).nullable().optional(),
+  product: z.string().max(500).nullable().optional(),
+  value: z.string().max(40).nullable().optional(),
+  stage: z.string().max(40).nullable().optional(),
+  priority: z.string().max(40).nullable().optional(),
+  notes: z.string().max(4000).nullable().optional(),
+});
+
+export const importMyLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ rows: z.array(importRow).min(1).max(5000) }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const clean = (v: string | null | undefined) => {
+      const s = (v ?? "").toString().trim();
+      return s.length ? s : null;
+    };
+    type LeadInsert = Record<string, unknown>;
+    const rows: LeadInsert[] = [];
+    let skipped = 0;
+    for (const r of data.rows) {
+      const company = clean(r.company);
+      if (!company) {
+        skipped++; // the one and only rule: a company name must exist
+        continue;
+      }
+      const productStr = clean(r.product);
+      const products = productStr
+        ? productStr.split(/[|,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 10)
+        : [];
+      const valNum = r.value ? Number(String(r.value).replace(/[^0-9.]/g, "")) : NaN;
+      const stage = clean(r.stage)?.toLowerCase().replace(/\s+/g, "_");
+      const priority = clean(r.priority)?.toLowerCase();
+      const lead: LeadInsert = {
+        user_id: userId,
+        assigned_to: userId,
+        source: "import",
+        status: "warm",
+        company_name: company,
+        contact_person: clean(r.contact),
+        job_title: clean(r.job_title),
+        contact_email: clean(r.email),
+        whatsapp: clean(r.whatsapp),
+        phone: clean(r.phone),
+        website: clean(r.website),
+        products_services: products,
+        notes: clean(r.notes),
+        pipeline_value_cents: Number.isFinite(valNum) ? Math.round(valNum * 100) : 0,
+      };
+      if (stage && IMPORT_STAGES.has(stage)) lead.pipeline_stage = stage;
+      if (priority && IMPORT_PRIORITIES.has(priority)) lead.priority = priority;
+      rows.push(lead);
+    }
+
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const batch = rows.slice(i, i + 500);
+      let res = await supabase.from("leads").insert(batch as never).select("id");
+      // Degrade gracefully if the command-center columns aren't present.
+      if (res.error && /pipeline_stage|priority/i.test(res.error.message)) {
+        const stripped = batch.map(({ pipeline_stage, priority, ...rest }) => rest);
+        res = await supabase.from("leads").insert(stripped as never).select("id");
+      }
+      if (res.error) throw new Error(res.error.message);
+      inserted += res.data?.length ?? batch.length;
+    }
+    return { inserted, skipped };
+  });
+
 export const getLead = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
