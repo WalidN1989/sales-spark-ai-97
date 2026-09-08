@@ -72,6 +72,50 @@ function normalize(row: Incoming): {
 
 type Normalized = ReturnType<typeof normalize>;
 
+// ---- Fuzzy company-name dedupe ----
+// Strip legal forms + punctuation so "ABC Trading LLC" == "ABC Trading", then
+// compare with a small edit-distance so a typo or one extra letter is caught.
+const COMPANY_STOPWORDS = new Set([
+  "llc", "fze", "fzc", "fzco", "fz", "llp", "wll", "dmcc", "difc", "pjsc", "psc", "jsc",
+  "spc", "est", "establishment", "ltd", "limited", "inc", "incorporated", "co", "company",
+  "corp", "corporation", "the", "and",
+]);
+
+function normalizeCompany(name: string): string {
+  const s = (name ?? "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9\s]/g, " ");
+  return s.split(/\s+/).filter((t) => t && !COMPANY_STOPWORDS.has(t)).join(" ").trim();
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const prev = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[n];
+}
+
+// Two names are the "same company" if their normalized forms are equal, or are
+// within a couple of edits (catches an extra letter / minor typo).
+function namesMatch(aNorm: string, bNorm: string): boolean {
+  if (!aNorm || !bNorm) return false;
+  if (aNorm === bNorm) return true;
+  if (Math.abs(aNorm.length - bNorm.length) > 3) return false;
+  const d = levenshtein(aNorm, bNorm);
+  const maxLen = Math.max(aNorm.length, bNorm.length);
+  return maxLen >= 5 && d <= 2 && d / maxLen <= 0.34;
+}
+
 // Strip a phone down to the characters we store; null if nothing is left.
 const cleanPhone = (v: string | null): string | null => {
   const s = (v ?? "").replace(/[^0-9+\-\s()]/g, "").trim();
@@ -140,10 +184,25 @@ Deno.serve(async (req) => {
     .select("id, name, phone")
     .eq("user_id", ownerId);
   if (exErr) return json({ error: exErr.message }, 500);
-  const byName = new Map<string, { id: string; phone: string | null }>();
+
+  type CoRef = { id: string; phone: string | null; name: string; norm: string };
+  const known: CoRef[] = [];
   for (const r of existing ?? []) {
-    byName.set((r.name ?? "").toLowerCase().trim(), { id: r.id as string, phone: (r.phone ?? null) as string | null });
+    const nm = (r.name ?? "") as string;
+    const norm = normalizeCompany(nm);
+    if (norm) known.push({ id: r.id as string, phone: (r.phone ?? null) as string | null, name: nm, norm });
   }
+  // Return the existing company that matches (exact or fuzzy), or null.
+  const findDupe = (name: string): CoRef | null => {
+    const norm = normalizeCompany(name);
+    if (!norm) return null;
+    for (const c of known) if (namesMatch(norm, c.norm)) return c;
+    return null;
+  };
+  const remember = (id: string, name: string, phone: string | null) => {
+    const norm = normalizeCompany(name);
+    if (norm) known.push({ id, phone, name, norm });
+  };
 
   // Fill blank contact fields on a company's primary lead. Only empties are
   // touched — never overwrite what's already there. Returns true if it wrote.
@@ -183,13 +242,16 @@ Deno.serve(async (req) => {
       skipped.push({ company: null, reason: "missing company name" });
       continue;
     }
-    const key = f.name.toLowerCase().trim();
-    const dupe = byName.get(key);
+    const dupe = findDupe(f.name);
     if (dupe) {
-      // Company already exists — still back-fill its lead with any new details
-      // (e.g. a phone number the lead was missing).
+      // Company already exists (exact or close match) — skip it, but still
+      // back-fill its lead with any new details (e.g. a missing phone number).
       if (await backfillLead(dupe.id, f, dupe.phone)) backfilled++;
-      skipped.push({ company: f.name, reason: "duplicate" });
+      const reason =
+        normalizeCompany(f.name) === dupe.norm
+          ? `duplicate of "${dupe.name}"`
+          : `near-duplicate of "${dupe.name}"`;
+      skipped.push({ company: f.name, reason });
       continue;
     }
     const { data, error } = await supabase
@@ -213,7 +275,7 @@ Deno.serve(async (req) => {
     }
     const companyId = data.id as string;
     created.push(companyId);
-    byName.set(key, { id: companyId, phone: extractNumbers(f.phone).join(" / ") || f.phone });
+    remember(companyId, f.name, extractNumbers(f.phone).join(" / ") || f.phone);
     // A lead rarely exists yet for a brand-new company, but if one does
     // (e.g. created manually first), fill its blanks too.
     if (await backfillLead(companyId, f, f.phone)) backfilled++;

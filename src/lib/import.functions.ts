@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeCompany, namesMatch } from "@/lib/company-match";
 
 // ---------- helpers ----------
 
@@ -139,9 +140,13 @@ export const importProspects = createServerFn({ method: "POST" })
       .from("companies")
       .select("name")
       .eq("user_id", userId);
-    const existingNames = new Set(
-      (existing ?? []).map((r) => (r.name ?? "").toLowerCase().trim()),
-    );
+    // Fuzzy dedupe: keep the normalized form of every known company name and
+    // block exact + close matches (a typo or one extra letter is a duplicate).
+    const knownNorms: { norm: string; name: string }[] = [];
+    for (const r of existing ?? []) {
+      const norm = normalizeCompany(r.name ?? "");
+      if (norm) knownNorms.push({ norm, name: (r.name ?? "") as string });
+    }
 
     const toInsert: any[] = [];
     data.rows.forEach((row, idx) => {
@@ -150,12 +155,16 @@ export const importProspects = createServerFn({ method: "POST" })
         skipped.push({ index: idx, reason: "missing name" });
         return;
       }
-      const key = name.toLowerCase().trim();
-      if (existingNames.has(key)) {
-        skipped.push({ index: idx, reason: `duplicate name: ${name}` });
+      const norm = normalizeCompany(name);
+      const hit = knownNorms.find((k) => namesMatch(norm, k.norm));
+      if (hit) {
+        skipped.push({
+          index: idx,
+          reason: norm === hit.norm ? `duplicate of "${hit.name}"` : `near-duplicate of "${hit.name}"`,
+        });
         return;
       }
-      existingNames.add(key);
+      knownNorms.push({ norm, name });
       const newId = crypto.randomUUID();
       const oldId = emptyToNull(row.id);
       if (oldId) prospectIdMap[oldId] = newId;
