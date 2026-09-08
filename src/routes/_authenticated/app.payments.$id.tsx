@@ -180,7 +180,7 @@ function FollowupDetail() {
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <Field label="Due" value={fmtDubaiDate(it.due_date)} />
             <Field label="Sent" value={fmtDubaiDate(it.sent_date)} />
-            <Field label="Owner" value={it.owner ?? "—"} />
+            <Field label="Sales agent" value={data.salesAgent ?? it.owner ?? "—"} />
             <Field label="Priority" value={it.priority} />
           </div>
           {it.notes && <div className="mt-3 rounded-lg bg-muted/40 p-3 text-sm">{it.notes}</div>}

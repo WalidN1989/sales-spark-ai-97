@@ -1,6 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+// Resolve a user id to a display name (profile name, else email local-part).
+async function displayName(userId: string | null | undefined): Promise<string | null> {
+  if (!userId) return null;
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!data) return null;
+  return data.full_name || (data.email ? data.email.split("@")[0] : null);
+}
 
 const CATEGORY = z.enum([
   "pending_pdc",
@@ -57,7 +70,8 @@ export const getPaymentFollowup = createServerFn({ method: "GET" })
       .eq("followup_id", data.id)
       .order("activity_at", { ascending: false })
       .limit(500);
-    return { item, activities: activities ?? [] };
+    const salesAgent = await displayName((item as { created_by?: string | null }).created_by);
+    return { item, activities: activities ?? [], salesAgent };
   });
 
 // ---------- Writes ----------

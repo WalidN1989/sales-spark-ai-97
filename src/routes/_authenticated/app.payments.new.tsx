@@ -52,7 +52,8 @@ function NewFollowup() {
           sent_date: sentDate || null,
           priority: priority as "low" | "normal" | "high",
           status: "open",
-          owner: "Walid",
+          // Ownership comes from the signed-in account (created_by), shown as
+          // the "Sales agent" — no hardcoded owner label.
           notes: notes.trim() || null,
         },
       });
