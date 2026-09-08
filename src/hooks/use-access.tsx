@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAccess, type PermissionMap } from "@/lib/permissions.functions";
-import { MANAGER_ONLY_MODULES } from "@/lib/permissions";
+import { moduleDefaultVisible } from "@/lib/permissions";
 
 export function useAccess() {
   const fn = useServerFn(getMyAccess);
@@ -17,10 +17,10 @@ export function useAccess() {
     if (isManager) return true; // managers/admins see every module
     const m = permissions[module];
     const explicit = m ? (m[tab] !== undefined ? m[tab] : m["*"]) : undefined;
-    // Manager-only modules are hidden from reps unless explicitly granted.
-    if (MANAGER_ONLY_MODULES.has(module)) return explicit === true;
-    // Everything else is allowed until a manager disables it for the user.
-    return explicit ?? true;
+    // An explicit permission set by a manager always wins; otherwise fall back
+    // to the module's registry default (new modules default to hidden).
+    if (explicit !== undefined) return explicit;
+    return moduleDefaultVisible(module);
   };
   return { isLoading, isAdmin, isManager, roles: data?.roles ?? [], can };
 }

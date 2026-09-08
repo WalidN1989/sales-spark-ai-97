@@ -33,33 +33,41 @@ export const MODULES = {
 
 export type ModuleKey = keyof typeof MODULES;
 
-// Modules that belong to the manager/owner. A sales rep does NOT see these in
-// the sidebar by default — their view stays focused on the leads assigned to
-// them. A manager always sees them; a manager can still grant an individual rep
-// access by enabling that module for them in User management (an explicit
-// permission overrides this default). Managers/admins bypass it entirely.
-export const MANAGER_ONLY_MODULES = new Set<string>([
-  "prospects",
-  "qualifying",
-  "inquiries",
-  "competitors",
-  "payments",
-]);
+// ─── Central module registry ───────────────────────────────────────────────
+// The single source of truth for every gated app module. It drives BOTH the
+// sidebar and the per-user "Module access" panel in User management, so adding
+// one entry here automatically:
+//   • adds the module to the sidebar (gated by can()),
+//   • adds a toggle for it to every user's access panel,
+//   • enforces it at the route level.
+//
+// `defaultRep` is what a sales rep sees when no explicit permission is set.
+// CONVENTION: give every NEW module `defaultRep: false` so it is hidden from
+// reps until a manager explicitly grants access. `path` must match the route.
+export type AppModule = { key: string; label: string; path: string; defaultRep: boolean };
 
-// The permission-gated sidebar modules, in display order — drives the per-user
-// "Module access" panel in User management. (Products, Learning, Notes and
-// Visual Match are always visible and intentionally not listed.)
-export const NAV_MODULES: { key: string; label: string }[] = [
-  { key: "prospects", label: "Prospects" },
-  { key: "qualifying", label: "Qualifying" },
-  { key: "leads", label: "Leads" },
-  { key: "inquiries", label: "Inquiries" },
-  { key: "competitors", label: "Competitor Analysis" },
-  { key: "payments", label: "Payment Follow-up" },
-  { key: "sales", label: "Sales" },
-  { key: "meetings", label: "Meetings" },
+export const APP_MODULES: AppModule[] = [
+  { key: "prospects", label: "Prospects", path: "/app/prospects", defaultRep: false },
+  { key: "qualifying", label: "Qualifying", path: "/app/qualifying", defaultRep: false },
+  { key: "leads", label: "Leads", path: "/app/leads", defaultRep: true },
+  { key: "inquiries", label: "Inquiries", path: "/app/inquiries", defaultRep: false },
+  { key: "competitors", label: "Competitor Analysis", path: "/app/competitors", defaultRep: false },
+  { key: "products", label: "Products", path: "/app/products", defaultRep: true },
+  { key: "learning", label: "Learning", path: "/app/learning", defaultRep: true },
+  { key: "payments", label: "Payment Follow-up", path: "/app/payments", defaultRep: false },
+  { key: "sales", label: "Sales", path: "/app/sales", defaultRep: true },
+  { key: "meetings", label: "Meetings", path: "/app/meetings", defaultRep: true },
+  { key: "notes", label: "Notes", path: "/app/notes", defaultRep: true },
+  { key: "visual_match", label: "Visual Match", path: "/app/visual-match", defaultRep: true },
 ];
 
-// A module's default visibility for a sales rep when no explicit permission row
-// exists: manager-only modules default off, everything else defaults on.
-export const moduleDefaultVisible = (key: string): boolean => !MANAGER_ONLY_MODULES.has(key);
+const MODULE_BY_KEY = new Map(APP_MODULES.map((m) => [m.key, m]));
+
+// A module's default visibility for a sales rep with no explicit permission.
+// Unknown/brand-new keys default to hidden — so nothing is exposed by accident.
+export const moduleDefaultVisible = (key: string): boolean => MODULE_BY_KEY.get(key)?.defaultRep ?? false;
+
+// Modules hidden from reps by default (shown with a "Manager" tag in the panel).
+export const MANAGER_ONLY_MODULES = new Set<string>(
+  APP_MODULES.filter((m) => !m.defaultRep).map((m) => m.key),
+);

@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAccess } from "@/hooks/use-access";
+import { APP_MODULES } from "@/lib/permissions";
 import { NotificationCenter } from "@/components/reminders/NotificationCenter";
 import { APP_HEADER_SLOT_ID, HeaderActionsContext } from "@/components/layout/HeaderPortal";
 import { cn } from "@/lib/utils";
@@ -34,9 +35,24 @@ export const Route = createFileRoute("/_authenticated/app")({
 });
 
 function AppShell() {
-  const { isAdmin, can } = useAccess();
+  const { isAdmin, can, isLoading: accessLoading } = useAccess();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Route-level enforcement: if the current page belongs to a module this user
+  // can't access (e.g. a rep typing the URL of a hidden module), bounce them to
+  // the first module they can see. RLS already blocks the data; this keeps them
+  // out of the empty page too.
+  useEffect(() => {
+    if (accessLoading) return;
+    const mod = APP_MODULES.find((m) => location.pathname.startsWith(m.path));
+    if (mod && !can(mod.key)) {
+      const landing = APP_MODULES.find((m) => can(m.key))?.path ?? "/app/settings/my-company";
+      navigate({ to: landing });
+    }
+    // `can` is stable per access-data load; re-run on path or load changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, accessLoading]);
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hydrated, setHydrated] = useState(false);
@@ -58,13 +74,13 @@ function AppShell() {
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("leads") },
     { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("inquiries") },
     { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("competitors") },
-    { to: "/app/products", label: "Products", icon: Package, show: true },
-    { to: "/app/learning", label: "Learning", icon: GraduationCap, show: true },
+    { to: "/app/products", label: "Products", icon: Package, show: can("products") },
+    { to: "/app/learning", label: "Learning", icon: GraduationCap, show: can("learning") },
     { to: "/app/payments", label: "Payment Follow-up", icon: Wallet, show: can("payments") },
     { to: "/app/sales", label: "Sales", icon: BarChart3, show: can("sales") },
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
-    { to: "/app/notes", label: "Notes", icon: StickyNote, show: true },
-    { to: "/app/visual-match", label: "Visual Match", icon: Camera, show: true },
+    { to: "/app/notes", label: "Notes", icon: StickyNote, show: can("notes") },
+    { to: "/app/visual-match", label: "Visual Match", icon: Camera, show: can("visual_match") },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },
   ].filter((n) => n.show);
 

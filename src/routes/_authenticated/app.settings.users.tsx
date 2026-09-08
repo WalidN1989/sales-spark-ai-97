@@ -9,7 +9,7 @@ import {
   setUserStatus,
   createTeamMember,
 } from "@/lib/users.functions";
-import { MODULES, NAV_MODULES, MANAGER_ONLY_MODULES, moduleDefaultVisible } from "@/lib/permissions";
+import { MODULES, APP_MODULES, MANAGER_ONLY_MODULES, moduleDefaultVisible } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -113,7 +113,7 @@ function UsersPage() {
                 {role === "sales_rep" ? (
                   <>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {NAV_MODULES.map(({ key, label }) => {
+                      {APP_MODULES.map(({ key, label }) => {
                         const p = u.permissions.find((x) => x.module === key && x.tab === "*");
                         const enabled = p ? p.enabled : moduleDefaultVisible(key);
                         return (
