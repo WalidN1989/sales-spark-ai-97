@@ -56,8 +56,10 @@ export const APP_MODULES: AppModule[] = [
   { key: "products", label: "Products", path: "/app/products", defaultRep: true },
   { key: "learning", label: "Learning", path: "/app/learning", defaultRep: true },
   { key: "payments", label: "Payment Follow-up", path: "/app/payments", defaultRep: false },
-  { key: "sales", label: "Sales", path: "/app/sales", defaultRep: true },
-  { key: "meetings", label: "Meetings", path: "/app/meetings", defaultRep: true },
+  // Sales is company-wide revenue analytics; Meetings is a nearby-company
+  // scanner over manager-owned companies — both are manager tools.
+  { key: "sales", label: "Sales", path: "/app/sales", defaultRep: false },
+  { key: "meetings", label: "Meetings", path: "/app/meetings", defaultRep: false },
   { key: "notes", label: "Notes", path: "/app/notes", defaultRep: true },
   { key: "visual_match", label: "Visual Match", path: "/app/visual-match", defaultRep: true },
   // Settings holds manager tools (company profile, import, user management), so
