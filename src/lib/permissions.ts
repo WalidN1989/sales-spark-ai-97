@@ -68,6 +68,16 @@ export const APP_MODULES: AppModule[] = [
   { key: "settings", label: "Settings", path: "/app/settings", defaultRep: false },
 ];
 
+// Feature-level access — sub-sections inside a page, not sidebar modules. These
+// are hidden from reps by default (unknown permission keys default to hidden)
+// and appear as toggles in User management so a manager can grant them per
+// person. Managers/admins always see them.
+export const FEATURE_FLAGS: { key: string; label: string }[] = [
+  { key: "lead_documents", label: "Lead — Documents" },
+  { key: "lead_inquiries", label: "Lead — Linked inquiries" },
+  { key: "lead_ai", label: "Lead — AI Respond" },
+];
+
 const MODULE_BY_KEY = new Map(APP_MODULES.map((m) => [m.key, m]));
 
 // A module's default visibility for a sales rep with no explicit permission.

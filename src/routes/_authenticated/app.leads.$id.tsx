@@ -81,6 +81,7 @@ import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 
 import { cn } from "@/lib/utils";
+import { useAccess } from "@/hooks/use-access";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/leads/$id")({
@@ -109,6 +110,7 @@ function Section({ title, icon, children, defaultOpen = false }: { title: string
 
 function LeadDetail() {
   const { id } = Route.useParams();
+  const { can } = useAccess();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -541,17 +543,23 @@ function LeadDetail() {
               </div>
             </Section>
 
-            <Section title="Documents" icon={<FileText className="h-4 w-4" />}>
-              <DocumentsCard leadId={id} />
-            </Section>
+            {can("lead_documents") && (
+              <Section title="Documents" icon={<FileText className="h-4 w-4" />}>
+                <DocumentsCard leadId={id} />
+              </Section>
+            )}
 
-            <Section title="Linked inquiries" icon={<Target className="h-4 w-4" />}>
-              <InquiriesCard leadId={id} />
-            </Section>
+            {can("lead_inquiries") && (
+              <Section title="Linked inquiries" icon={<Target className="h-4 w-4" />}>
+                <InquiriesCard leadId={id} />
+              </Section>
+            )}
 
-            <Section title="AI Respond" icon={<Globe className="h-4 w-4" />}>
-              <RespondTab leadId={id} />
-            </Section>
+            {can("lead_ai") && (
+              <Section title="AI Respond" icon={<Globe className="h-4 w-4" />}>
+                <RespondTab leadId={id} />
+              </Section>
+            )}
           </>
         }
         notesEntityType={notesEntityType}
