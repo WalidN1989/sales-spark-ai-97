@@ -288,21 +288,10 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
       }
       created++;
       leadIds.push(row.id);
-      const summary = [
-        c.full_name,
-        c.position,
-        c.department,
-        c.linkedin ? "LinkedIn ✓" : null,
-        c.confidence != null ? `conf ${c.confidence}%` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      await context.supabase.from("lead_activities").insert({
-        lead_id: row.id,
-        user_id: context.userId,
-        kind: "log",
-        body: `Imported from Hunter: ${summary}`,
-      });
+      // Note: Hunter contact imports are a backend process and are intentionally
+      // NOT written to the Activity Journal — the journal is for real sales
+      // touches (manual entries, follow-ups), not API bookkeeping. The imported
+      // people still appear in the Contacts panel.
     }
 
     return { created, skipped, leadIds };
@@ -346,12 +335,8 @@ export const hunterVerifyEmail = createServerFn({ method: "POST" })
     const { error: uErr } = await context.supabase.from("leads").update(update).eq("id", data.leadId);
     if (uErr) throw new Error(uErr.message);
 
-    await context.supabase.from("lead_activities").insert({
-      lead_id: data.leadId,
-      user_id: context.userId,
-      kind: "log",
-      body: `Email verified via Hunter: ${email_status}${email_score != null ? ` (${email_score})` : ""}`,
-    });
+    // Email verification is an API call, not a sales activity — not journaled.
+    // The verified status is stored on the lead and shown in the UI.
 
     return { email_status, email_score, lead_score, status: lead.lead_score_manual_override ? lead.status : bucket.status };
   });
