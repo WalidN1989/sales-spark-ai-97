@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { TrendingUp } from "lucide-react";
+import { RotateCcw, Sliders, TrendingUp } from "lucide-react";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listLeads, listTeamMembers, type TeamMember } from "@/lib/leads.functions";
 import { fmtMoneyCents } from "@/lib/leads-ui";
 import {
@@ -21,7 +24,8 @@ export const Route = createFileRoute("/_authenticated/app/forecast")({
 });
 
 // Default win-probability per stage — the weighting behind the forecast.
-const WIN_PROB: Record<PipelineStage, number> = {
+// Editable by the manager and persisted in the browser.
+const DEFAULT_WEIGHTS: Record<PipelineStage, number> = {
   prospect: 0.1,
   qualified: 0.2,
   meeting: 0.35,
@@ -31,6 +35,8 @@ const WIN_PROB: Record<PipelineStage, number> = {
   won: 1,
   lost: 0,
 };
+
+const LS_WEIGHTS = "forecast:weights";
 
 // The open (still-forecastable) stages, in order.
 const OPEN_STAGES = PIPELINE_STAGES.filter((s) => s !== "won" && s !== "lost");
@@ -84,6 +90,31 @@ function ForecastPage() {
     return m;
   }, [members]);
 
+  // Editable stage win-rates (persisted in the browser). won=100%, lost=0% fixed.
+  const [weights, setWeights] = useState<Record<PipelineStage, number>>(DEFAULT_WEIGHTS);
+  const [wLoaded, setWLoaded] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_WEIGHTS);
+      if (raw) setWeights({ ...DEFAULT_WEIGHTS, ...JSON.parse(raw) });
+    } catch {
+      /* ignore */
+    }
+    setWLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (wLoaded) {
+      try {
+        localStorage.setItem(LS_WEIGHTS, JSON.stringify(weights));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [weights, wLoaded]);
+  const prob = (s: PipelineStage) => (s === "won" ? 1 : s === "lost" ? 0 : weights[s] ?? DEFAULT_WEIGHTS[s]);
+  const setStageWeight = (s: PipelineStage, pct: number) =>
+    setWeights((w) => ({ ...w, [s]: Math.max(0, Math.min(100, pct)) / 100 }));
+
   // One deal per company: sum value, take the most-advanced stage.
   const deals = useMemo<Deal[]>(() => {
     const map = new Map<string, Deal>();
@@ -118,7 +149,7 @@ function ForecastPage() {
   const won = deals.filter((d) => d.stage === "won");
 
   const openCents = open.reduce((a, d) => a + d.valueCents, 0);
-  const weightedCents = open.reduce((a, d) => a + d.valueCents * WIN_PROB[d.stage], 0);
+  const weightedCents = open.reduce((a, d) => a + d.valueCents * prob(d.stage), 0);
   const wonCents = won.reduce((a, d) => a + d.valueCents, 0);
 
   // Funnel per open stage.
@@ -126,9 +157,9 @@ function ForecastPage() {
     return OPEN_STAGES.map((s) => {
       const items = open.filter((d) => d.stage === s);
       const value = items.reduce((a, d) => a + d.valueCents, 0);
-      return { stage: s, count: items.length, value, weighted: value * WIN_PROB[s] };
+      return { stage: s, count: items.length, value, weighted: value * prob(s) };
     });
-  }, [open]);
+  }, [open, weights]);
   const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
 
   // Weighted forecast per rep.
@@ -140,11 +171,11 @@ function ForecastPage() {
       const cur = m.get(id) ?? { name, count: 0, open: 0, weighted: 0 };
       cur.count += 1;
       cur.open += d.valueCents;
-      cur.weighted += d.valueCents * WIN_PROB[d.stage];
+      cur.weighted += d.valueCents * prob(d.stage);
       m.set(id, cur);
     }
     return [...m.values()].sort((a, b) => b.weighted - a.weighted);
-  }, [open, memberName]);
+  }, [open, memberName, weights]);
 
   // Weighted forecast per product (top 6).
   const byProduct = useMemo(() => {
@@ -153,14 +184,14 @@ function ForecastPage() {
       const p = d.product || "Unspecified";
       const cur = m.get(p) ?? { count: 0, weighted: 0 };
       cur.count += 1;
-      cur.weighted += d.valueCents * WIN_PROB[d.stage];
+      cur.weighted += d.valueCents * prob(d.stage);
       m.set(p, cur);
     }
     return [...m.entries()]
       .map(([product, v]) => ({ product, ...v }))
       .sort((a, b) => b.weighted - a.weighted)
       .slice(0, 6);
-  }, [open]);
+  }, [open, weights]);
 
   const topDeals = useMemo(
     () => [...open].sort((a, b) => b.valueCents - a.valueCents).slice(0, 8),
@@ -183,6 +214,47 @@ function ForecastPage() {
             <TrendingUp className="h-5 w-5 text-primary" /> Forecast
           </h1>
           <span className="text-xs text-muted-foreground">{open.length} open deals</span>
+          <div className="ml-auto">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  <Sliders className="mr-1 h-3.5 w-3.5" /> Stage weights
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm font-semibold">Stage win-rates</div>
+                  <button
+                    type="button"
+                    onClick={() => setWeights(DEFAULT_WEIGHTS)}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reset
+                  </button>
+                </div>
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  The probability applied to each stage's value. Won is 100%, Lost 0%.
+                </p>
+                <div className="space-y-1.5">
+                  {OPEN_STAGES.map((s) => (
+                    <div key={s} className="flex items-center gap-2">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${STAGE_DOT[s]}`} />
+                      <span className="flex-1 text-[13px]">{STAGE_LABEL[s]}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={Math.round(prob(s) * 100)}
+                        onChange={(e) => setStageWeight(s, Number(e.target.value))}
+                        className="h-7 w-16 text-right text-xs"
+                      />
+                      <span className="w-3 text-xs text-muted-foreground">%</span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </HeaderPortal>
 
@@ -214,7 +286,7 @@ function ForecastPage() {
                         <span className={`h-2 w-2 rounded-full ${STAGE_DOT[f.stage]}`} />
                         {STAGE_LABEL[f.stage]}
                         <span className="text-muted-foreground">· {f.count}</span>
-                        <span className="text-muted-foreground/70">({Math.round(WIN_PROB[f.stage] * 100)}%)</span>
+                        <span className="text-muted-foreground/70">({Math.round(prob(f.stage) * 100)}%)</span>
                       </span>
                       <span className="tabular-nums font-medium">{fmtMoneyCents(f.value)}</span>
                     </div>
