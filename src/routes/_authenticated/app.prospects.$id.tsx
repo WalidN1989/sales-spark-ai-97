@@ -83,6 +83,7 @@ function CompanyProfile() {
   const setStatus = useServerFn(setCompanyStatus);
   const getOrCreateLead = useServerFn(getOrCreatePrimaryLeadForCompany);
   const listLeadsFn = useServerFn(listLeadsByCompany);
+  const convertProspectFn = useServerFn(convertProspectToLead);
 
   const research = useServerFn(researchCompany);
   const pitch = useServerFn(generatePitchEmail);
@@ -94,6 +95,22 @@ function CompanyProfile() {
   const { data: leadsData } = useQuery({
     queryKey: ["leads-group", id],
     queryFn: () => listLeadsFn({ data: { companyId: id } }),
+  });
+
+  // Convert prospect → lead. Defined here (before any early return) so the hook
+  // order stays stable; reads the query data directly.
+  const convert = useMutation({
+    mutationFn: async () => {
+      if (((leadsData ?? []) as unknown[]).length > 0) return convertProspectFn({ data: { companyId: id } });
+      await getOrCreateLead({ data: { companyId: id } });
+      return { ok: true, converted: 1 };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads-group", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Converted to Lead 🔥");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [researching, setResearching] = useState(false);
@@ -116,21 +133,6 @@ function CompanyProfile() {
     is_converted?: boolean | null;
   })[];
   const isConvertedToLead = leads.some((l) => l.is_converted);
-  const convertProspectFn = useServerFn(convertProspectToLead);
-  const convert = useMutation({
-    mutationFn: async () => {
-      if (leads.length > 0) return convertProspectFn({ data: { companyId: id } });
-      // No contacts captured yet — create the primary lead directly.
-      await getOrCreateLead({ data: { companyId: id } });
-      return { ok: true, converted: 1 };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["leads-group", id] });
-      qc.invalidateQueries({ queryKey: ["leads"] });
-      toast.success("Converted to Lead 🔥");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
   const anchorId =
     leads.find((l) => l.is_primary)?.id ??
     [...leads].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))[0]?.id ??
