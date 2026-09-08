@@ -259,7 +259,9 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
       // NOTE: company_id intentionally omitted — the (user_id, company_id) unique
       // index allows only one lead per prospect. We link via prospect_id instead
       // so multiple Hunter contacts can be imported for the same prospect.
-      const { data: row, error } = await context.supabase
+      // is_converted isn't in the generated types yet — cast to reach it.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: row, error } = await (context.supabase as any)
         .from("leads")
         .insert({
           user_id: context.userId,
@@ -276,6 +278,9 @@ export const hunterImportLeads = createServerFn({ method: "POST" })
           status: bucket.status,
           source: "hunter.io",
           lead_score,
+          // Research contact on the prospect — NOT an active lead until someone
+          // deliberately converts the prospect. Stays out of the Leads pipeline.
+          is_converted: false,
         })
         .select("id")
         .single();

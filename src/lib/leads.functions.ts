@@ -38,12 +38,37 @@ const LEAD_SELECT =
 export const listLeads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    // is_converted isn't in the generated types yet — cast to filter on it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (context.supabase as any)
       .from("leads")
       .select(LEAD_SELECT)
+      // Only converted leads belong in the Leads pipeline. Prospect research
+      // contacts (e.g. Hunter-captured) are excluded until intentionally
+      // converted, so Leads stays smaller and meaningful than Prospects.
+      .eq("is_converted", true)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
+  });
+
+// Intentional conversion: mark a prospect's captured contacts as real leads so
+// they enter the Leads pipeline. Nothing is duplicated — it just flips the flag
+// on the leads already linked to this company/prospect.
+export const convertProspectToLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ companyId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    // is_converted isn't in the generated types yet — cast to update it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rows, error } = await (context.supabase as any)
+      .from("leads")
+      .update({ is_converted: true })
+      .or(`company_id.eq.${data.companyId},prospect_id.eq.${data.companyId}`)
+      .eq("is_converted", false)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { ok: true, converted: (rows as unknown[])?.length ?? 0 };
   });
 
 // Active org members a manager can assign leads to. Reps get an empty list

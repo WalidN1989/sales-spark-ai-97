@@ -19,7 +19,14 @@ function ProspectsList() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["companies"], queryFn: () => fn() });
   const { data: leads } = useQuery({ queryKey: ["leads"], queryFn: () => leadsFn() });
-  const promotedSet = new Set((leads ?? []).map((l) => l.company_id));
+  // A prospect counts as "in Leads" (🔥) if a converted lead links to it by
+  // either company_id or prospect_id. listLeads already returns only converted.
+  const promotedSet = new Set<string | null>(
+    ((leads ?? []) as { company_id: string | null; prospect_id?: string | null }[]).flatMap((l) => [
+      l.company_id,
+      l.prospect_id ?? null,
+    ]),
+  );
 
   const promote = useMutation({
     mutationFn: (companyId: string) => promoteFn({ data: { companyId } }),

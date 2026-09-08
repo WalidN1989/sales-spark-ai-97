@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type ReactNode } from "react";
 import {
@@ -20,13 +20,14 @@ import {
   MessageCircle,
   Users,
   ChevronDown,
+  Flame,
 } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { getCompany, deleteCompany, setCompanyStatus } from "@/lib/companies.functions";
-import { getOrCreatePrimaryLeadForCompany, listLeadsByCompany } from "@/lib/leads.functions";
+import { getOrCreatePrimaryLeadForCompany, listLeadsByCompany, convertProspectToLead } from "@/lib/leads.functions";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
 import { StatusFunnel, companyToUnified, unifiedToCompany } from "@/components/leads/StatusFunnel";
 
@@ -109,7 +110,27 @@ function CompanyProfile() {
   if (!data) return null;
   const c = data.company;
 
-  const leads = (leadsData ?? []) as unknown as (WorkspaceContact & { is_primary?: boolean | null; created_at?: string | null })[];
+  const leads = (leadsData ?? []) as unknown as (WorkspaceContact & {
+    is_primary?: boolean | null;
+    created_at?: string | null;
+    is_converted?: boolean | null;
+  })[];
+  const isConvertedToLead = leads.some((l) => l.is_converted);
+  const convertProspectFn = useServerFn(convertProspectToLead);
+  const convert = useMutation({
+    mutationFn: async () => {
+      if (leads.length > 0) return convertProspectFn({ data: { companyId: id } });
+      // No contacts captured yet — create the primary lead directly.
+      await getOrCreateLead({ data: { companyId: id } });
+      return { ok: true, converted: 1 };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads-group", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Converted to Lead 🔥");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const anchorId =
     leads.find((l) => l.is_primary)?.id ??
     [...leads].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))[0]?.id ??
@@ -221,6 +242,25 @@ function CompanyProfile() {
         <Button variant="ghost" size="sm" onClick={() => setFindOpen(true)}>
           <Search className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Find Contacts</span>
         </Button>
+        {isConvertedToLead ? (
+          <Link
+            to="/app/leads"
+            className="inline-flex items-center gap-1 rounded-md bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-200 dark:bg-orange-950/40 dark:text-orange-400"
+            title="This prospect has been converted — open in Leads"
+          >
+            <Flame className="h-3.5 w-3.5" /> In Leads
+          </Link>
+        ) : (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => convert.mutate()}
+            disabled={convert.isPending}
+            title="Move this prospect into the active Leads pipeline"
+          >
+            <Flame className="mr-1 h-4 w-4" /> {convert.isPending ? "Converting…" : "Convert to Lead"}
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
           <Pencil className="mr-1 h-4 w-4" /> Edit
         </Button>
