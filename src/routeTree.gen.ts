@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as AuthenticatedAppTasksRouteImport } from './routes/_authenticated/app.tasks'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
 import { Route as AuthenticatedAppQualifyingRouteImport } from './routes/_authenticated/app.qualifying'
@@ -75,6 +76,11 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppTasksRoute = AuthenticatedAppTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
 const AuthenticatedAppSettingsRoute =
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/tasks': typeof AuthenticatedAppTasksRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
@@ -316,6 +323,7 @@ export interface FileRoutesByTo {
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/app/tasks': typeof AuthenticatedAppTasksRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/_authenticated/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
+  '/_authenticated/app/tasks': typeof AuthenticatedAppTasksRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/_authenticated/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/app/qualifying'
     | '/app/sales'
     | '/app/settings'
+    | '/app/tasks'
     | '/app/'
     | '/app/competitors/$id'
     | '/app/competitors/new'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/app/qualifying'
     | '/app/sales'
     | '/app/settings'
+    | '/app/tasks'
     | '/app'
     | '/app/competitors/$id'
     | '/app/competitors/new'
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/qualifying'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
+    | '/_authenticated/app/tasks'
     | '/_authenticated/app/'
     | '/_authenticated/app/competitors/$id'
     | '/_authenticated/app/competitors/new'
@@ -553,6 +565,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/tasks': {
+      id: '/_authenticated/app/tasks'
+      path: '/tasks'
+      fullPath: '/app/tasks'
+      preLoaderRoute: typeof AuthenticatedAppTasksRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/settings': {
@@ -857,6 +876,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppQualifyingRoute: typeof AuthenticatedAppQualifyingRoute
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
+  AuthenticatedAppTasksRoute: typeof AuthenticatedAppTasksRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppCompetitorsIdRoute: typeof AuthenticatedAppCompetitorsIdRoute
   AuthenticatedAppCompetitorsNewRoute: typeof AuthenticatedAppCompetitorsNewRoute
@@ -885,6 +905,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppQualifyingRoute: AuthenticatedAppQualifyingRoute,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
+  AuthenticatedAppTasksRoute: AuthenticatedAppTasksRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppCompetitorsIdRoute: AuthenticatedAppCompetitorsIdRoute,
   AuthenticatedAppCompetitorsNewRoute: AuthenticatedAppCompetitorsNewRoute,

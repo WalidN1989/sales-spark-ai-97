@@ -50,6 +50,7 @@ export const APP_MODULES: AppModule[] = [
   { key: "prospects", label: "Prospects", path: "/app/prospects", defaultRep: false },
   { key: "qualifying", label: "Qualifying", path: "/app/qualifying", defaultRep: false },
   { key: "leads", label: "Leads", path: "/app/leads", defaultRep: true },
+  { key: "tasks", label: "Tasks", path: "/app/tasks", defaultRep: true },
   { key: "inquiries", label: "Inquiries", path: "/app/inquiries", defaultRep: false },
   { key: "competitors", label: "Competitor Analysis", path: "/app/competitors", defaultRep: false },
   { key: "products", label: "Products", path: "/app/products", defaultRep: true },

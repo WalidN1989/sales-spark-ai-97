@@ -19,6 +19,7 @@ import {
   Search,
   Swords,
   Wallet,
+  ListChecks,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +75,7 @@ function AppShell() {
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
     { to: "/app/qualifying", label: "Qualifying", icon: Target, show: can("qualifying") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("leads") },
+    { to: "/app/tasks", label: "Tasks", icon: ListChecks, show: can("tasks") },
     { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("inquiries") },
     { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("competitors") },
     { to: "/app/products", label: "Products", icon: Package, show: can("products") },
