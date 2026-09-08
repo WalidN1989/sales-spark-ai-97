@@ -13,6 +13,31 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin access required");
 }
 
+async function isUserAdmin(userId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  return Boolean(data);
+}
+
+async function adminCount(): Promise<number> {
+  const { count } = await supabaseAdmin
+    .from("user_roles")
+    .select("*", { count: "exact", head: true })
+    .eq("role", "admin");
+  return count ?? 0;
+}
+
+// Guard: refuse an action that would remove the final admin from the workspace.
+async function assertNotLastAdmin(targetUserId: string, action: string) {
+  if ((await isUserAdmin(targetUserId)) && (await adminCount()) <= 1) {
+    throw new Error(`This is the last admin — promote another admin before you ${action}.`);
+  }
+}
+
 // org_members / organizations aren't in the generated types until Lovable
 // regenerates them, so reach them through an untyped handle.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +91,12 @@ export const createTeamMember = createServerFn({ method: "POST" })
     const newId = created.user?.id;
     if (!newId) throw new Error("User was not created");
 
+    // Defensive: guarantee a profile row (the signup trigger normally creates
+    // it, but we've seen it miss for some accounts).
+    await supabaseAdmin
+      .from("profiles")
+      .upsert({ id: newId, email: data.email, full_name: data.full_name ?? null }, { onConflict: "id" });
+
     // New users default to sales_rep via the signup trigger; promote if asked.
     if (data.role !== "sales_rep") {
       await supabaseAdmin.from("user_roles").delete().eq("user_id", newId);
@@ -80,21 +111,32 @@ export const listUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { data: profiles, error } = await supabaseAdmin
-      .from("profiles")
-      .select("id, full_name, email, status, created_at")
-      .order("created_at", { ascending: false });
+    // Source of truth is auth.users so an account always appears even if its
+    // profile row was never created; profiles/roles/permissions merge in when
+    // present. Banned users are flagged so the UI can show "revoked".
+    const { data: authList, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
     if (error) throw new Error(error.message);
-    const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
-    const { data: perms } = await supabaseAdmin
-      .from("user_permissions")
-      .select("user_id, module, tab, enabled");
+    const authUsers = authList?.users ?? [];
+    const [{ data: profiles }, { data: roles }, { data: perms }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, full_name, email, status"),
+      supabaseAdmin.from("user_roles").select("user_id, role"),
+      supabaseAdmin.from("user_permissions").select("user_id, module, tab, enabled"),
+    ]);
+    const profById = new Map((profiles ?? []).map((p) => [p.id, p]));
     return {
-      users: (profiles ?? []).map((p) => ({
-        ...p,
-        roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
-        permissions: (perms ?? []).filter((q) => q.user_id === p.id),
-      })),
+      users: authUsers.map((u) => {
+        const p = profById.get(u.id);
+        const banned = Boolean((u as { banned_until?: string | null }).banned_until);
+        return {
+          id: u.id,
+          full_name: p?.full_name ?? ((u.user_metadata?.full_name as string | undefined) ?? null),
+          email: p?.email ?? u.email ?? null,
+          status: (banned ? "inactive" : (p?.status ?? "active")) as "active" | "inactive",
+          created_at: u.created_at,
+          roles: (roles ?? []).filter((r) => r.user_id === u.id).map((r) => r.role),
+          permissions: (perms ?? []).filter((q) => q.user_id === u.id),
+        };
+      }),
     };
   });
 
@@ -110,6 +152,8 @@ export const setUserRole = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
+    // Can't demote the last admin (whether it's you or the only other admin).
+    if (data.role !== "admin") await assertNotLastAdmin(data.user_id, "change this role");
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin
       .from("user_roles")
@@ -148,10 +192,21 @@ export const setUserStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertAdmin(context.userId);
+    if (data.status === "inactive") {
+      if (data.user_id === context.userId) throw new Error("You can't revoke your own access.");
+      await assertNotLastAdmin(data.user_id, "revoke this account");
+    }
+    // Reflect status on the profile…
     const { error } = await supabaseAdmin
       .from("profiles")
       .update({ status: data.status })
       .eq("id", data.user_id);
     if (error) throw new Error(error.message);
+    // …and actually block/allow sign-in by banning/unbanning the auth user, so
+    // "revoke" truly locks them out rather than just flagging a column.
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      ban_duration: data.status === "inactive" ? "876000h" : "none",
+    });
+    if (banErr) throw new Error(banErr.message);
     return { ok: true };
   });
