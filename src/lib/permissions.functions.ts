@@ -19,5 +19,5 @@ export const getMyAccess = createServerFn({ method: "GET" })
       map[p.module] = map[p.module] ?? {};
       map[p.module][p.tab] = p.enabled;
     }
-    return { roles: roleList, isAdmin, isManager, permissions: map };
+    return { userId, roles: roleList, isAdmin, isManager, permissions: map };
   });

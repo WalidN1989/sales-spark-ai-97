@@ -4,8 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { BellRing, Plus, Search, Wallet } from "lucide-react";
 import { listPaymentFollowups } from "@/lib/payments.functions";
+import { listTeamMembers, type TeamMember } from "@/lib/leads.functions";
+import { useAccess } from "@/hooks/use-access";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import {
   CATEGORY_META,
@@ -35,6 +38,7 @@ type Item = {
   status: string;
   priority: string;
   last_activity_at: string | null;
+  created_by: string | null;
 };
 
 const OPEN_STATUSES = new Set(["open", "waiting", "partially_resolved"]);
@@ -42,13 +46,27 @@ const OPEN_STATUSES = new Set(["open", "waiting", "partially_resolved"]);
 function PaymentsList() {
   const navigate = useNavigate();
   const listFn = useServerFn(listPaymentFollowups);
+  const membersFn = useServerFn(listTeamMembers);
+  const { isManager } = useAccess();
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["payment-followups"],
     queryFn: () => listFn() as unknown as Promise<Item[]>,
   });
+  const { data: members = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: () => membersFn(),
+    enabled: isManager,
+    staleTime: 60_000,
+  });
+  const memberName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const x of members) m.set(x.id, x.full_name || x.email || "Member");
+    return m;
+  }, [members]);
 
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [owner, setOwner] = useState<string>("all");
   const [showResolved, setShowResolved] = useState(false);
   const [needsReminder, setNeedsReminder] = useState(false);
 
@@ -66,6 +84,7 @@ function PaymentsList() {
     return items.filter((i) => {
       if (!showResolved && (i.status === "resolved" || i.status === "cancelled")) return false;
       if (category !== "all" && i.category !== category) return false;
+      if (isManager && owner !== "all" && (i.created_by ?? "") !== owner) return false;
       if (needsReminder && !(OPEN_STATUSES.has(i.status) && (!i.last_activity_at || i.last_activity_at < weekStart)))
         return false;
       if (n) {
@@ -77,7 +96,7 @@ function PaymentsList() {
       }
       return true;
     });
-  }, [items, q, category, showResolved, needsReminder, weekStart]);
+  }, [items, q, category, owner, isManager, showResolved, needsReminder, weekStart]);
 
   const totalOpen = useMemo(
     () => rows.filter((i) => OPEN_STATUSES.has(i.status)).reduce((a, i) => a + (i.amount_aed ?? 0), 0),
@@ -150,6 +169,23 @@ function PaymentsList() {
           <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} />
           Show resolved
         </label>
+        {isManager && members.length > 0 && (
+          <div className="ml-1 w-44">
+            <Select value={owner} onValueChange={setOwner}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="Everyone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Everyone</SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.full_name || m.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {totalOpen > 0 && (
           <span className="ml-auto text-xs text-muted-foreground">
             Open value: <span className="font-semibold text-foreground">{fmtAmount(totalOpen)}</span>
@@ -192,6 +228,11 @@ function PaymentsList() {
                         {i.priority === "high" && <span className="rounded bg-rose-100 px-1 text-[9px] font-bold uppercase text-rose-700">High</span>}
                       </div>
                       <div className="text-xs text-muted-foreground">{i.title}</div>
+                      {isManager && i.created_by && (
+                        <div className="text-[10px] text-muted-foreground/70">
+                          {memberName.get(i.created_by) ?? "—"}
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", cm?.className)}>{cm?.label ?? i.category}</span>

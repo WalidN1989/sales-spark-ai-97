@@ -22,5 +22,5 @@ export function useAccess() {
     if (explicit !== undefined) return explicit;
     return moduleDefaultVisible(module);
   };
-  return { isLoading, isAdmin, isManager, roles: data?.roles ?? [], can };
+  return { isLoading, isAdmin, isManager, userId: data?.userId ?? null, roles: data?.roles ?? [], can };
 }

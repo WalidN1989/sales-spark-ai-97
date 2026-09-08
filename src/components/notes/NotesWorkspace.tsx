@@ -3,7 +3,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listNotes, upsertNote } from "@/lib/notes.functions";
+import { listTeamMembers, type TeamMember } from "@/lib/leads.functions";
+import { useAccess } from "@/hooks/use-access";
 import { NoteListRail } from "./NoteListRail";
 import { NoteDetailView } from "./NoteDetailView";
 import { toast } from "sonner";
@@ -27,17 +30,31 @@ export function NotesWorkspace() {
   const qc = useQueryClient();
   const list = useServerFn(listNotes);
   const save = useServerFn(upsertNote);
+  const membersFn = useServerFn(listTeamMembers);
+  const { isManager, userId } = useAccess();
 
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [owner, setOwner] = useState<string>("mine");
 
   const { data: notes = [], isLoading } = useQuery({
     queryKey: ["notes", "standalone", null, search],
     queryFn: () =>
       list({ data: { entityType: "standalone", search: search || undefined } }),
   });
+  const { data: members = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: () => membersFn(),
+    enabled: isManager,
+    staleTime: 60_000,
+  });
 
-  const typed = notes as NoteRow[];
+  const all = notes as NoteRow[];
+  const typed = useMemo(() => {
+    if (!isManager || owner === "all") return all;
+    if (owner === "mine") return userId ? all.filter((n) => n.user_id === userId) : all;
+    return all.filter((n) => n.user_id === owner);
+  }, [all, isManager, owner, userId]);
   const selected = useMemo(
     () => typed.find((n) => n.id === selectedId) ?? typed[0] ?? null,
     [typed, selectedId],
@@ -74,6 +91,26 @@ export function NotesWorkspace() {
         selectedId={selected?.id ?? null}
         onSelect={setSelectedId}
         onNew={handleNew}
+        filterSlot={
+          isManager && members.length > 0 ? (
+            <Select value={owner} onValueChange={setOwner}>
+              <SelectTrigger className="h-9 rounded-xl text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mine">My notes</SelectItem>
+                <SelectItem value="all">Everyone</SelectItem>
+                {members
+                  .filter((m) => m.id !== userId)
+                  .map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.full_name || m.email}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          ) : null
+        }
       />
       <div className="flex flex-1 flex-col bg-background/40">
         {selected ? (

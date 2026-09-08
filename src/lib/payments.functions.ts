@@ -24,7 +24,7 @@ const ACTIVITY_TYPE = z.enum([
 ]);
 
 const SELECT =
-  "id, company_name, prospect_id, category, reference, title, description, amount_aed, currency, quantity, unit_sku, due_date, sent_date, status, priority, owner, last_activity_at, resolved_at, notes, created_at, updated_at";
+  "id, company_name, prospect_id, category, reference, title, description, amount_aed, currency, quantity, unit_sku, due_date, sent_date, status, priority, owner, created_by, last_activity_at, resolved_at, notes, created_at, updated_at";
 
 // ---------- Reads ----------
 

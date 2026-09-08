@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Plus, Search, Pin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ export function NoteListRail({
   selectedId,
   onSelect,
   onNew,
+  filterSlot,
 }: {
   notes: NoteRow[];
   loading: boolean;
@@ -20,6 +22,7 @@ export function NoteListRail({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  filterSlot?: ReactNode;
 }) {
   const pinned = notes.filter((n) => n.pinned);
   const rest = notes.filter((n) => !n.pinned);
@@ -42,6 +45,7 @@ export function NoteListRail({
             className="h-11 rounded-2xl border-border/60 bg-background pl-9"
           />
         </div>
+        {filterSlot && <div className="mt-3">{filterSlot}</div>}
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-6">
