@@ -397,7 +397,7 @@ export function LeadsCommandCenter({
   const canEdit = hasCommandColumns(leads as unknown as Array<Record<string, unknown>>);
 
   // Team roster (managers only) for assigning leads to staff.
-  const { isManager } = useAccess();
+  const { isManager, userId } = useAccess();
   const { data: members = [] } = useQuery<TeamMember[]>({
     queryKey: ["team-members"],
     queryFn: () => membersFn(),
@@ -409,6 +409,9 @@ export function LeadsCommandCenter({
     for (const x of members) m.set(x.id, x.full_name || x.email || "Member");
     return m;
   }, [members]);
+  // You delegate work to your staff, not yourself — an unassigned lead is
+  // already yours. So the Assign list excludes the current user.
+  const assignableMembers = useMemo(() => members.filter((m) => m.id !== userId), [members, userId]);
 
   // ----- Persistent UI prefs -----
   // Defaults on first render (matches SSR output — reading localStorage during
@@ -1099,14 +1102,14 @@ export function LeadsCommandCenter({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuLabel className="text-xs">Assign to</DropdownMenuLabel>
-          {members.map((m) => (
+          {assignableMembers.map((m) => (
             <DropdownMenuItem key={m.id} onSelect={() => patchRow(r, { assigned_to: m.id })}>
               <UserCircle2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
               <span className="truncate">{m.full_name || m.email}</span>
               {r.assignedTo === m.id && !r.mixedAssignee && <Check className="ml-auto h-3.5 w-3.5" />}
             </DropdownMenuItem>
           ))}
-          {members.length === 0 && (
+          {assignableMembers.length === 0 && (
             <div className="px-2 py-1.5 text-xs text-muted-foreground">No team members yet</div>
           )}
           <DropdownMenuSeparator />
@@ -1753,7 +1756,7 @@ export function LeadsCommandCenter({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuLabel className="text-xs">Assign {selected.size} to</DropdownMenuLabel>
-                {members.map((m) => (
+                {assignableMembers.map((m) => (
                   <DropdownMenuItem
                     key={m.id}
                     onSelect={() => bulkUpdate.mutate({ ids: selectedGroupIds, patch: { assigned_to: m.id } })}
@@ -1762,7 +1765,7 @@ export function LeadsCommandCenter({
                     <span className="truncate">{m.full_name || m.email}</span>
                   </DropdownMenuItem>
                 ))}
-                {members.length === 0 && (
+                {assignableMembers.length === 0 && (
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">No team members yet</div>
                 )}
                 <DropdownMenuSeparator />
