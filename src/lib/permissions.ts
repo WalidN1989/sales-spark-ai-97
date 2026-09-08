@@ -59,6 +59,9 @@ export const APP_MODULES: AppModule[] = [
   { key: "meetings", label: "Meetings", path: "/app/meetings", defaultRep: true },
   { key: "notes", label: "Notes", path: "/app/notes", defaultRep: true },
   { key: "visual_match", label: "Visual Match", path: "/app/visual-match", defaultRep: true },
+  // Settings holds manager tools (company profile, import, user management), so
+  // it is manager-only by default. Reps can be granted it explicitly.
+  { key: "settings", label: "Settings", path: "/app/settings", defaultRep: false },
 ];
 
 const MODULE_BY_KEY = new Map(APP_MODULES.map((m) => [m.key, m]));

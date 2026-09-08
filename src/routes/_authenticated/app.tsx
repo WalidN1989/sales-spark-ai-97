@@ -47,8 +47,10 @@ function AppShell() {
     if (accessLoading) return;
     const mod = APP_MODULES.find((m) => location.pathname.startsWith(m.path));
     if (mod && !can(mod.key)) {
-      const landing = APP_MODULES.find((m) => can(m.key))?.path ?? "/app/settings/my-company";
-      navigate({ to: landing });
+      // Send them to the first module they can access. If somehow none, stay put
+      // rather than risk a redirect loop.
+      const landing = APP_MODULES.find((m) => can(m.key))?.path;
+      if (landing && !location.pathname.startsWith(landing)) navigate({ to: landing });
     }
     // `can` is stable per access-data load; re-run on path or load changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,7 +83,7 @@ function AppShell() {
     { to: "/app/meetings", label: "Meetings", icon: MapPin, show: can("meetings") },
     { to: "/app/notes", label: "Notes", icon: StickyNote, show: can("notes") },
     { to: "/app/visual-match", label: "Visual Match", icon: Camera, show: can("visual_match") },
-    { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: true },
+    { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: can("settings") },
   ].filter((n) => n.show);
 
   const signOut = async () => {
