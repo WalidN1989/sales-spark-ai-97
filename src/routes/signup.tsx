@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,13 +36,6 @@ function SignupPage() {
     navigate({ to: "/app/prospects" });
   };
 
-  const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) return toast.error(result.error.message);
-    if (result.redirected) return;
-    navigate({ to: "/app/prospects" });
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
@@ -69,9 +61,6 @@ function SignupPage() {
               {loading ? "Creating…" : "Create account"}
             </Button>
           </form>
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continue with Google
-          </Button>
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link to="/login" className="text-primary underline">Sign in</Link>
