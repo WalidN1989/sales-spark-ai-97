@@ -10,7 +10,10 @@ import {
   setPaymentFollowupStatus,
   updatePaymentFollowup,
   deletePaymentFollowup,
+  assignPaymentFollowup,
 } from "@/lib/payments.functions";
+import { listTeamMembers, type TeamMember } from "@/lib/leads.functions";
+import { UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,19 +48,37 @@ function FollowupDetail() {
   const statusFn = useServerFn(setPaymentFollowupStatus);
   const updateFn = useServerFn(updatePaymentFollowup);
   const delFn = useServerFn(deletePaymentFollowup);
+  const assignFn = useServerFn(assignPaymentFollowup);
+  const membersFn = useServerFn(listTeamMembers);
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-followup", id],
     queryFn: () => getFn({ data: { id } }),
   });
+  const { data: members = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: () => membersFn(),
+    staleTime: 60_000,
+  });
 
   const [logOpen, setLogOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["payment-followup", id] });
     qc.invalidateQueries({ queryKey: ["payment-followups"] });
   };
+
+  const assign = useMutation({
+    mutationFn: (userId: string) => assignFn({ data: { id, userId } }),
+    onSuccess: (r: { ownerName: string | null }) => {
+      invalidate();
+      setAssignOpen(false);
+      toast.success(`Assigned to ${r.ownerName ?? "team member"}`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const log = useMutation({
     mutationFn: (v: { activity_type: string; summary: string; activity_at?: string }) =>
@@ -197,6 +218,9 @@ function FollowupDetail() {
           <Button size="sm" variant="outline" onClick={() => setLogOpen(true)}>
             <Plus className="mr-1 h-3.5 w-3.5" /> Log activity
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
+            <UserCircle2 className="mr-1 h-3.5 w-3.5" /> Assign
+          </Button>
           {it.status !== "resolved" && (
             <Button size="sm" onClick={() => setStatus.mutate("resolved")}>
               <Check className="mr-1 h-3.5 w-3.5" /> Mark resolved
@@ -251,6 +275,15 @@ function FollowupDetail() {
       </div>
 
       <LogActivityDialog open={logOpen} onClose={() => setLogOpen(false)} onSubmit={(v) => { log.mutate(v); setLogOpen(false); }} />
+
+      <AssignDialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        members={members}
+        current={data.salesAgent ?? it.owner ?? null}
+        busy={assign.isPending}
+        onAssign={(uid) => assign.mutate(uid)}
+      />
       <EditDialog
         open={editOpen}
         onClose={() => setEditOpen(false)}
@@ -272,6 +305,66 @@ function Field({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="capitalize">{value}</div>
     </div>
+  );
+}
+
+function AssignDialog({
+  open,
+  onClose,
+  members,
+  current,
+  busy,
+  onAssign,
+}: {
+  open: boolean;
+  onClose: () => void;
+  members: TeamMember[];
+  current: string | null;
+  busy: boolean;
+  onAssign: (userId: string) => void;
+}) {
+  const [choice, setChoice] = useState("");
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Assign follow-up</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {current && (
+            <p className="text-xs text-muted-foreground">
+              Currently: <span className="font-medium text-foreground">{current}</span>
+            </p>
+          )}
+          <div>
+            <Label>Assign to</Label>
+            <Select value={choice} onValueChange={setChoice}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a team member" />
+              </SelectTrigger>
+              <SelectContent>
+                {members.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.full_name || m.email}
+                  </SelectItem>
+                ))}
+                {members.length === 0 && (
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">No team members yet</div>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={() => choice && onAssign(choice)} disabled={!choice || busy}>
+            {busy ? "Assigning…" : "Assign"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

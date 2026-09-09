@@ -74,6 +74,32 @@ export const getPaymentFollowup = createServerFn({ method: "GET" })
     return { item, activities: activities ?? [], salesAgent };
   });
 
+// Assign (reassign) a follow-up to a team member. Sets the real owner
+// (created_by) so it moves into that person's book AND updates the owner label,
+// then logs a short "Assigned to …" note so the reminder logic sees movement.
+export const assignPaymentFollowup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), userId: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    const name = await displayName(data.userId);
+    // created_by isn't in the generated types until Lovable regenerates them.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = context.supabase as any;
+    const { error } = await sb
+      .from("payment_followups")
+      .update({ created_by: data.userId, owner: name, updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await sb.from("payment_followup_activities").insert({
+      followup_id: data.id,
+      activity_type: "note",
+      summary: `Assigned to ${name ?? "a team member"}`,
+      created_by: "ui",
+      source: "ui",
+    });
+    return { ok: true, ownerName: name };
+  });
+
 // ---------- Writes ----------
 
 const upsertSchema = z.object({
