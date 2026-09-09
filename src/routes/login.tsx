@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -48,9 +48,8 @@ function LoginPage() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-          <p className="text-center text-sm text-muted-foreground">
-            No account?{" "}
-            <Link to="/signup" className="text-primary underline">Sign up</Link>
+          <p className="text-center text-xs text-muted-foreground">
+            Access is by invitation. Contact your administrator for an account.
           </p>
         </CardContent>
       </Card>
