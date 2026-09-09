@@ -10,6 +10,11 @@ verify_jwt = false
 [functions.log-quote-activity]
 verify_jwt = false
 
+# Read-only ICP cards for the research agent (same PROSPECT_WEBHOOK_KEY /
+# PROSPECT_WEBHOOK_USER_ID as create-prospect).
+[functions.list-icp-profiles]
+verify_jwt = false
+
 # Competitor research ingest + list — auth via x-api-key
 # (COMPETITOR_RESEARCH_API_KEY).
 [functions.create-competitor-research]
