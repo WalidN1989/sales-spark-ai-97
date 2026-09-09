@@ -587,6 +587,68 @@ export type Database = {
           },
         ]
       }
+      icp_profiles: {
+        Row: {
+          category: string | null
+          competitors: Json
+          created_at: string
+          customers: Json
+          headcount: string | null
+          id: string
+          industries: string[]
+          name: string
+          notes: string | null
+          org_id: string | null
+          personas: Json
+          summary: string | null
+          updated_at: string
+          use_cases: Json
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          competitors?: Json
+          created_at?: string
+          customers?: Json
+          headcount?: string | null
+          id?: string
+          industries?: string[]
+          name: string
+          notes?: string | null
+          org_id?: string | null
+          personas?: Json
+          summary?: string | null
+          updated_at?: string
+          use_cases?: Json
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          competitors?: Json
+          created_at?: string
+          customers?: Json
+          headcount?: string | null
+          id?: string
+          industries?: string[]
+          name?: string
+          notes?: string | null
+          org_id?: string | null
+          personas?: Json
+          summary?: string | null
+          updated_at?: string
+          use_cases?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "icp_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inquiries: {
         Row: {
           created_at: string
@@ -888,6 +950,7 @@ export type Database = {
           end_user_project: string | null
           hunter_confidence: number | null
           id: string
+          is_converted: boolean
           is_primary: boolean
           job_title: string | null
           last_activity_at: string | null
@@ -901,6 +964,7 @@ export type Database = {
           next_action: string | null
           next_action_due: string | null
           notes: string | null
+          org_id: string | null
           phone: string | null
           pipeline_stage: string | null
           pipeline_value_cents: number
@@ -931,6 +995,7 @@ export type Database = {
           end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
+          is_converted?: boolean
           is_primary?: boolean
           job_title?: string | null
           last_activity_at?: string | null
@@ -944,6 +1009,7 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           notes?: string | null
+          org_id?: string | null
           phone?: string | null
           pipeline_stage?: string | null
           pipeline_value_cents?: number
@@ -974,6 +1040,7 @@ export type Database = {
           end_user_project?: string | null
           hunter_confidence?: number | null
           id?: string
+          is_converted?: boolean
           is_primary?: boolean
           job_title?: string | null
           last_activity_at?: string | null
@@ -987,6 +1054,7 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           notes?: string | null
+          org_id?: string | null
           phone?: string | null
           pipeline_stage?: string | null
           pipeline_value_cents?: number
@@ -1008,6 +1076,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -1243,6 +1318,65 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visibility?: Database["public"]["Enums"]["note_visibility"]
+        }
+        Relationships: []
+      }
+      org_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: Database["public"]["Enums"]["user_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
         }
         Relationships: []
       }
@@ -1695,6 +1829,72 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          company_name: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          due_date: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          org_id: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          company_name?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          due_date?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permissions: {
         Row: {
           enabled: boolean
@@ -1848,6 +2048,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_lead: { Args: { _lead_id: string }; Returns: boolean }
+      can_access_payment: { Args: { _id: string }; Returns: boolean }
+      current_org_id: { Args: never; Returns: string }
       has_permission: {
         Args: { _module: string; _tab?: string; _user_id: string }
         Returns: boolean
@@ -1860,6 +2063,11 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_org_manager: { Args: { _uid: string }; Returns: boolean }
+      shares_org: {
+        Args: { _target: string; _viewer: string }
+        Returns: boolean
+      }
     }
     Enums: {
       activity_type: "note" | "call" | "visit" | "email"
