@@ -28,6 +28,7 @@ import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedAppProductsIndexRouteImport } from './routes/_authenticated/app.products.index'
 import { Route as AuthenticatedAppPaymentsIndexRouteImport } from './routes/_authenticated/app.payments.index'
 import { Route as AuthenticatedAppLearningIndexRouteImport } from './routes/_authenticated/app.learning.index'
+import { Route as AuthenticatedAppIcpIndexRouteImport } from './routes/_authenticated/app.icp.index'
 import { Route as AuthenticatedAppCompetitorsIndexRouteImport } from './routes/_authenticated/app.competitors.index'
 import { Route as AuthenticatedAppVisualMatchSearchIdRouteImport } from './routes/_authenticated/app.visual-match.$searchId'
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
@@ -43,6 +44,8 @@ import { Route as AuthenticatedAppLearningNewRouteImport } from './routes/_authe
 import { Route as AuthenticatedAppLearningIdRouteImport } from './routes/_authenticated/app.learning.$id'
 import { Route as AuthenticatedAppLeadsIdRouteImport } from './routes/_authenticated/app.leads.$id'
 import { Route as AuthenticatedAppInquiriesIdRouteImport } from './routes/_authenticated/app.inquiries.$id'
+import { Route as AuthenticatedAppIcpNewRouteImport } from './routes/_authenticated/app.icp.new'
+import { Route as AuthenticatedAppIcpIdRouteImport } from './routes/_authenticated/app.icp.$id'
 import { Route as AuthenticatedAppCompetitorsNewRouteImport } from './routes/_authenticated/app.competitors.new'
 import { Route as AuthenticatedAppCompetitorsIdRouteImport } from './routes/_authenticated/app.competitors.$id'
 import { Route as AuthenticatedAppLeadsResellerResellerIdRouteImport } from './routes/_authenticated/app.leads.reseller.$resellerId'
@@ -153,6 +156,12 @@ const AuthenticatedAppLearningIndexRoute =
     path: '/learning/',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppIcpIndexRoute =
+  AuthenticatedAppIcpIndexRouteImport.update({
+    id: '/icp/',
+    path: '/icp/',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppCompetitorsIndexRoute =
   AuthenticatedAppCompetitorsIndexRouteImport.update({
     id: '/competitors/',
@@ -242,6 +251,16 @@ const AuthenticatedAppInquiriesIdRoute =
     path: '/$id',
     getParentRoute: () => AuthenticatedAppInquiriesRoute,
   } as any)
+const AuthenticatedAppIcpNewRoute = AuthenticatedAppIcpNewRouteImport.update({
+  id: '/icp/new',
+  path: '/icp/new',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppIcpIdRoute = AuthenticatedAppIcpIdRouteImport.update({
+  id: '/icp/$id',
+  path: '/icp/$id',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppCompetitorsNewRoute =
   AuthenticatedAppCompetitorsNewRouteImport.update({
     id: '/competitors/new',
@@ -289,6 +308,8 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
+  '/app/icp/$id': typeof AuthenticatedAppIcpIdRoute
+  '/app/icp/new': typeof AuthenticatedAppIcpNewRoute
   '/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
   '/app/learning/$id': typeof AuthenticatedAppLearningIdRoute
@@ -304,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/app/competitors/': typeof AuthenticatedAppCompetitorsIndexRoute
+  '/app/icp/': typeof AuthenticatedAppIcpIndexRoute
   '/app/learning/': typeof AuthenticatedAppLearningIndexRoute
   '/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
@@ -328,6 +350,8 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
+  '/app/icp/$id': typeof AuthenticatedAppIcpIdRoute
+  '/app/icp/new': typeof AuthenticatedAppIcpNewRoute
   '/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
   '/app/learning/$id': typeof AuthenticatedAppLearningIdRoute
@@ -343,6 +367,7 @@ export interface FileRoutesByTo {
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsIndexRoute
+  '/app/icp': typeof AuthenticatedAppIcpIndexRoute
   '/app/learning': typeof AuthenticatedAppLearningIndexRoute
   '/app/payments': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
@@ -370,6 +395,8 @@ export interface FileRoutesById {
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/competitors/$id': typeof AuthenticatedAppCompetitorsIdRoute
   '/_authenticated/app/competitors/new': typeof AuthenticatedAppCompetitorsNewRoute
+  '/_authenticated/app/icp/$id': typeof AuthenticatedAppIcpIdRoute
+  '/_authenticated/app/icp/new': typeof AuthenticatedAppIcpNewRoute
   '/_authenticated/app/inquiries/$id': typeof AuthenticatedAppInquiriesIdRoute
   '/_authenticated/app/leads/$id': typeof AuthenticatedAppLeadsIdRoute
   '/_authenticated/app/learning/$id': typeof AuthenticatedAppLearningIdRoute
@@ -385,6 +412,7 @@ export interface FileRoutesById {
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/_authenticated/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
   '/_authenticated/app/competitors/': typeof AuthenticatedAppCompetitorsIndexRoute
+  '/_authenticated/app/icp/': typeof AuthenticatedAppIcpIndexRoute
   '/_authenticated/app/learning/': typeof AuthenticatedAppLearningIndexRoute
   '/_authenticated/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
@@ -412,6 +440,8 @@ export interface FileRouteTypes {
     | '/app/'
     | '/app/competitors/$id'
     | '/app/competitors/new'
+    | '/app/icp/$id'
+    | '/app/icp/new'
     | '/app/inquiries/$id'
     | '/app/leads/$id'
     | '/app/learning/$id'
@@ -427,6 +457,7 @@ export interface FileRouteTypes {
     | '/app/settings/users'
     | '/app/visual-match/$searchId'
     | '/app/competitors/'
+    | '/app/icp/'
     | '/app/learning/'
     | '/app/payments/'
     | '/app/products/'
@@ -451,6 +482,8 @@ export interface FileRouteTypes {
     | '/app'
     | '/app/competitors/$id'
     | '/app/competitors/new'
+    | '/app/icp/$id'
+    | '/app/icp/new'
     | '/app/inquiries/$id'
     | '/app/leads/$id'
     | '/app/learning/$id'
@@ -466,6 +499,7 @@ export interface FileRouteTypes {
     | '/app/settings/users'
     | '/app/visual-match/$searchId'
     | '/app/competitors'
+    | '/app/icp'
     | '/app/learning'
     | '/app/payments'
     | '/app/products'
@@ -492,6 +526,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/'
     | '/_authenticated/app/competitors/$id'
     | '/_authenticated/app/competitors/new'
+    | '/_authenticated/app/icp/$id'
+    | '/_authenticated/app/icp/new'
     | '/_authenticated/app/inquiries/$id'
     | '/_authenticated/app/leads/$id'
     | '/_authenticated/app/learning/$id'
@@ -507,6 +543,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/settings/users'
     | '/_authenticated/app/visual-match/$searchId'
     | '/_authenticated/app/competitors/'
+    | '/_authenticated/app/icp/'
     | '/_authenticated/app/learning/'
     | '/_authenticated/app/payments/'
     | '/_authenticated/app/products/'
@@ -658,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppLearningIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/icp/': {
+      id: '/_authenticated/app/icp/'
+      path: '/icp'
+      fullPath: '/app/icp/'
+      preLoaderRoute: typeof AuthenticatedAppIcpIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/competitors/': {
       id: '/_authenticated/app/competitors/'
       path: '/competitors'
@@ -762,6 +806,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/inquiries/$id'
       preLoaderRoute: typeof AuthenticatedAppInquiriesIdRouteImport
       parentRoute: typeof AuthenticatedAppInquiriesRoute
+    }
+    '/_authenticated/app/icp/new': {
+      id: '/_authenticated/app/icp/new'
+      path: '/icp/new'
+      fullPath: '/app/icp/new'
+      preLoaderRoute: typeof AuthenticatedAppIcpNewRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/icp/$id': {
+      id: '/_authenticated/app/icp/$id'
+      path: '/icp/$id'
+      fullPath: '/app/icp/$id'
+      preLoaderRoute: typeof AuthenticatedAppIcpIdRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/competitors/new': {
       id: '/_authenticated/app/competitors/new'
@@ -881,6 +939,8 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppCompetitorsIdRoute: typeof AuthenticatedAppCompetitorsIdRoute
   AuthenticatedAppCompetitorsNewRoute: typeof AuthenticatedAppCompetitorsNewRoute
+  AuthenticatedAppIcpIdRoute: typeof AuthenticatedAppIcpIdRoute
+  AuthenticatedAppIcpNewRoute: typeof AuthenticatedAppIcpNewRoute
   AuthenticatedAppLearningIdRoute: typeof AuthenticatedAppLearningIdRoute
   AuthenticatedAppLearningNewRoute: typeof AuthenticatedAppLearningNewRoute
   AuthenticatedAppPaymentsIdRoute: typeof AuthenticatedAppPaymentsIdRoute
@@ -891,6 +951,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppProspectsNewRoute: typeof AuthenticatedAppProspectsNewRoute
   AuthenticatedAppVisualMatchSearchIdRoute: typeof AuthenticatedAppVisualMatchSearchIdRoute
   AuthenticatedAppCompetitorsIndexRoute: typeof AuthenticatedAppCompetitorsIndexRoute
+  AuthenticatedAppIcpIndexRoute: typeof AuthenticatedAppIcpIndexRoute
   AuthenticatedAppLearningIndexRoute: typeof AuthenticatedAppLearningIndexRoute
   AuthenticatedAppPaymentsIndexRoute: typeof AuthenticatedAppPaymentsIndexRoute
   AuthenticatedAppProductsIndexRoute: typeof AuthenticatedAppProductsIndexRoute
@@ -911,6 +972,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppCompetitorsIdRoute: AuthenticatedAppCompetitorsIdRoute,
   AuthenticatedAppCompetitorsNewRoute: AuthenticatedAppCompetitorsNewRoute,
+  AuthenticatedAppIcpIdRoute: AuthenticatedAppIcpIdRoute,
+  AuthenticatedAppIcpNewRoute: AuthenticatedAppIcpNewRoute,
   AuthenticatedAppLearningIdRoute: AuthenticatedAppLearningIdRoute,
   AuthenticatedAppLearningNewRoute: AuthenticatedAppLearningNewRoute,
   AuthenticatedAppPaymentsIdRoute: AuthenticatedAppPaymentsIdRoute,
@@ -923,6 +986,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppVisualMatchSearchIdRoute:
     AuthenticatedAppVisualMatchSearchIdRoute,
   AuthenticatedAppCompetitorsIndexRoute: AuthenticatedAppCompetitorsIndexRoute,
+  AuthenticatedAppIcpIndexRoute: AuthenticatedAppIcpIndexRoute,
   AuthenticatedAppLearningIndexRoute: AuthenticatedAppLearningIndexRoute,
   AuthenticatedAppPaymentsIndexRoute: AuthenticatedAppPaymentsIndexRoute,
   AuthenticatedAppProductsIndexRoute: AuthenticatedAppProductsIndexRoute,

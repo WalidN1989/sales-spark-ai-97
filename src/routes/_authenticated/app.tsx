@@ -21,6 +21,7 @@ import {
   Wallet,
   ListChecks,
   TrendingUp,
+  Crosshair,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,6 +81,7 @@ function AppShell() {
     { to: "/app/tasks", label: "Tasks", icon: ListChecks, show: can("tasks") },
     { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("inquiries") },
     { to: "/app/competitors", label: "Competitor Analysis", icon: Swords, show: can("competitors") },
+    { to: "/app/icp", label: "Product ICP", icon: Crosshair, show: can("icp") },
     { to: "/app/products", label: "Products", icon: Package, show: can("products") },
     { to: "/app/learning", label: "Learning", icon: GraduationCap, show: can("learning") },
     { to: "/app/payments", label: "Payment Follow-up", icon: Wallet, show: can("payments") },

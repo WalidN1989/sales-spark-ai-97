@@ -54,6 +54,7 @@ export const APP_MODULES: AppModule[] = [
   { key: "tasks", label: "Tasks", path: "/app/tasks", defaultRep: true },
   { key: "inquiries", label: "Inquiries", path: "/app/inquiries", defaultRep: false },
   { key: "competitors", label: "Competitor Analysis", path: "/app/competitors", defaultRep: false },
+  { key: "icp", label: "Product ICP", path: "/app/icp", defaultRep: false },
   { key: "products", label: "Products", path: "/app/products", defaultRep: true },
   { key: "learning", label: "Learning", path: "/app/learning", defaultRep: true },
   { key: "payments", label: "Payment Follow-up", path: "/app/payments", defaultRep: false },
