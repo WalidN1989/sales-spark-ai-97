@@ -187,6 +187,18 @@ shared RLS) and seeds the current open set. Four Edge Functions —
 `payments-ui.ts` (incl. Dubai Monday-10:00 week-start calc). Full details +
 curl in `PAYMENT_FOLLOWUP.md`.
 
+### ICP cards: one owner for the UI and the agent (2026-09-11)
+
+`list-icp-profiles` filters on `user_id = PROSPECT_WEBHOOK_USER_ID`. The three
+seeded cards carry that id; a card created from `+ New ICP` carried the
+logged-in user's id, so the UI showed four cards and the agent saw three.
+Migration `20260911100000_icp_owner.sql` adds `icp_owner_id()` (the owner of the
+seeded cards, falling back to the earliest admin), a BEFORE INSERT trigger that
+stamps every new card with it, and a backfill that moves stray cards under it
+without touching their content. **Run the migration's diagnostic SELECT first**
+and confirm `owner` equals the `PROSPECT_WEBHOOK_USER_ID` secret before running
+the rest. `list-icp-profiles` itself is unchanged: same key, same owner filter.
+
 ## 4. ✅ DB migrations — all applied (confirmed 2026-07-23)
 
 All four migrations have been run in Lovable Cloud, so every feature is fully live:

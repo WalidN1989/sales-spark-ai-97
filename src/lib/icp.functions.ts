@@ -91,6 +91,10 @@ export const upsertIcpProfile = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       return { ok: true, id };
     }
+    // user_id here is only a placeholder that satisfies NOT NULL. The
+    // icp_profiles_set_owner trigger (20260911100000_icp_owner.sql) replaces it
+    // with the single ICP owner, the account list-icp-profiles filters on, so a
+    // card created by any manager is visible to the research agent at once.
     const { data: created, error } = await sb(context)
       .from("icp_profiles")
       .insert({ ...row, user_id: context.userId })
