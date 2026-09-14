@@ -23,6 +23,7 @@ import { Route as AuthenticatedAppMeetingsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppLeadsRouteImport } from './routes/_authenticated/app.leads'
 import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authenticated/app.inquiries'
 import { Route as AuthenticatedAppForecastRouteImport } from './routes/_authenticated/app.forecast'
+import { Route as AuthenticatedAppWhatsappIndexRouteImport } from './routes/_authenticated/app.whatsapp.index'
 import { Route as AuthenticatedAppVisualMatchIndexRouteImport } from './routes/_authenticated/app.visual-match.index'
 import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_authenticated/app.prospects.index'
 import { Route as AuthenticatedAppProductsIndexRouteImport } from './routes/_authenticated/app.products.index'
@@ -124,6 +125,12 @@ const AuthenticatedAppForecastRoute =
   AuthenticatedAppForecastRouteImport.update({
     id: '/forecast',
     path: '/forecast',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppWhatsappIndexRoute =
+  AuthenticatedAppWhatsappIndexRouteImport.update({
+    id: '/whatsapp/',
+    path: '/whatsapp/',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppVisualMatchIndexRoute =
@@ -331,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
   '/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
+  '/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
   '/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
@@ -373,6 +381,7 @@ export interface FileRoutesByTo {
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
   '/app/visual-match': typeof AuthenticatedAppVisualMatchIndexRoute
+  '/app/whatsapp': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
   '/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
@@ -418,6 +427,7 @@ export interface FileRoutesById {
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
   '/_authenticated/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
+  '/_authenticated/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/_authenticated/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
   '/_authenticated/app/leads/reseller/$resellerId': typeof AuthenticatedAppLeadsResellerResellerIdRoute
   '/_authenticated/app/prospects/$id/competitor/$slug': typeof AuthenticatedAppProspectsIdCompetitorSlugRoute
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/app/products/'
     | '/app/prospects/'
     | '/app/visual-match/'
+    | '/app/whatsapp/'
     | '/app/leads/group/$companyId'
     | '/app/leads/reseller/$resellerId'
     | '/app/prospects/$id/competitor/$slug'
@@ -505,6 +516,7 @@ export interface FileRouteTypes {
     | '/app/products'
     | '/app/prospects'
     | '/app/visual-match'
+    | '/app/whatsapp'
     | '/app/leads/group/$companyId'
     | '/app/leads/reseller/$resellerId'
     | '/app/prospects/$id/competitor/$slug'
@@ -549,6 +561,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/products/'
     | '/_authenticated/app/prospects/'
     | '/_authenticated/app/visual-match/'
+    | '/_authenticated/app/whatsapp/'
     | '/_authenticated/app/leads/group/$companyId'
     | '/_authenticated/app/leads/reseller/$resellerId'
     | '/_authenticated/app/prospects/$id/competitor/$slug'
@@ -658,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/forecast'
       fullPath: '/app/forecast'
       preLoaderRoute: typeof AuthenticatedAppForecastRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/whatsapp/': {
+      id: '/_authenticated/app/whatsapp/'
+      path: '/whatsapp'
+      fullPath: '/app/whatsapp/'
+      preLoaderRoute: typeof AuthenticatedAppWhatsappIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/visual-match/': {
@@ -957,6 +977,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppProductsIndexRoute: typeof AuthenticatedAppProductsIndexRoute
   AuthenticatedAppProspectsIndexRoute: typeof AuthenticatedAppProspectsIndexRoute
   AuthenticatedAppVisualMatchIndexRoute: typeof AuthenticatedAppVisualMatchIndexRoute
+  AuthenticatedAppWhatsappIndexRoute: typeof AuthenticatedAppWhatsappIndexRoute
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
@@ -992,6 +1013,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppProductsIndexRoute: AuthenticatedAppProductsIndexRoute,
   AuthenticatedAppProspectsIndexRoute: AuthenticatedAppProspectsIndexRoute,
   AuthenticatedAppVisualMatchIndexRoute: AuthenticatedAppVisualMatchIndexRoute,
+  AuthenticatedAppWhatsappIndexRoute: AuthenticatedAppWhatsappIndexRoute,
 }
 
 const AuthenticatedAppRouteWithChildren =

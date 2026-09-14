@@ -15,6 +15,10 @@ verify_jwt = false
 [functions.list-icp-profiles]
 verify_jwt = false
 
+# Twilio WhatsApp inbound webhook — auth via ?token=WHATSAPP_INBOUND_TOKEN.
+[functions.whatsapp-inbound]
+verify_jwt = false
+
 # Competitor research ingest + list — auth via x-api-key
 # (COMPETITOR_RESEARCH_API_KEY).
 [functions.create-competitor-research]
