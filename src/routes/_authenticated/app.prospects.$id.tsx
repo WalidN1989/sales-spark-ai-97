@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useChildMatches, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Mail,
@@ -121,6 +121,19 @@ function CompanyProfile() {
   const [findOpen, setFindOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [purchaseDialog, setPurchaseDialog] = useState<null | { leadId: string; trigger: "won" | "hot" | "warm" }>(null);
+
+  // Seed the pitch editor from the pitch saved on the company (written by
+  // Generate/Regenerate or shipped by create-prospect). Runs once per prospect
+  // so it never clobbers a just-generated draft; switching prospects re-seeds.
+  const seededPitchFor = useRef<string | null>(null);
+  useEffect(() => {
+    const co = data?.company as { id?: string; pitch_subject?: string | null; pitch_body?: string | null } | undefined;
+    if (!co?.id || seededPitchFor.current === co.id) return;
+    seededPitchFor.current = co.id;
+    if (co.pitch_subject || co.pitch_body) {
+      setEmail({ subject: co.pitch_subject ?? "", body: co.pitch_body ?? "" });
+    }
+  }, [data?.company]);
 
   if (childMatches.length > 0) return <Outlet />;
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -430,7 +443,12 @@ function CompanyProfile() {
                     {email ? "Regenerate" : "Generate"}
                   </Button>
                 </div>
-                {!c.research_data && <p className="text-xs text-muted-foreground">Tip: run AI research first for a more tailored email.</p>}
+                {!(c as { product_service?: string | null }).product_service && (
+                  <p className="text-xs text-muted-foreground">Tip: set the prospect's product/service so the pitch leads with the right line (Wacom STU, T&amp;A, canteen, visitor…).</p>
+                )}
+                {(c as { pitch_at?: string | null }).pitch_at && (
+                  <p className="mb-2 text-xs text-muted-foreground">Saved draft from {new Date((c as { pitch_at?: string }).pitch_at!).toLocaleString()}. Edits above are local; Regenerate overwrites.</p>
+                )}
                 {email && (
                   <div className="space-y-2">
                     <div>

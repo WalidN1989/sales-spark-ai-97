@@ -108,74 +108,86 @@ export const researchCompany = createServerFn({ method: "POST" })
     return { ok: true, research_data, geo };
   });
 
+// Product-aware pitch email for an eTOP / Wacom ME prospect. Leads with the
+// prospect's product_service (Wacom STU/BSU, Creative/Cintiq, T&A + access
+// control, meal/canteen, visitor management, Emirates ID) — NEVER generic
+// logistics/supply-chain fluff. Written by Claude, 60–100 words, and saved on
+// the company so it persists until the user regenerates.
+const PITCH_SYSTEM = `You write the Pitch Email for a CRM prospect for eTOP / Wacom ME (UAE). The product is NOT fixed — use the prospect's product_service (and notes) to choose the angle.
+
+Product families (pick the one that matches the prospect):
+- Wacom BSU / signature pads (STU) — paperless signing for traders or end-users
+- Creative (Cintiq / creative displays) — design, education, agencies
+- Time & attendance + access control — workforce / door / turnstile
+- Meal / canteen management — hotels, catering, campuses
+- Visitor management — lobby/reception, Emirates ID capture where relevant
+- Emirates ID / HID visitor — Emirates ID readers + visitor workflows
+
+Rules:
+1. Output ONLY:
+Subject: <one line>
+Body: <email>
+2. Body 60–100 words. Short, plain, sales-ready. No fluff, no "I was impressed…", no fake logistics/supply-chain pitches.
+3. Lead with the correct product for THIS prospect. If product_service is blank, infer from industry/notes; if still unclear, ask which line in one short question instead of inventing.
+4. Personalize with the company name + one concrete detail (district, vertical, or trading vs end-user).
+5. One CTA: short call or WhatsApp for models/pricing (or a demo for software lines).
+6. Sign-off blank (no invented name).
+7. Vary wording slightly per prospect; keep the same tight structure.
+
+Structure:
+Hi {FirstName or there},
+{1 sentence why relevant to their business}. {1 sentence what we offer for that product line — UAE stock/support where true}. {CTA}.
+Best regards,`;
+
 export const generatePitchEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => idInput.parse(d))
   .handler(async ({ context, data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY missing");
 
-    const [{ data: company }, { data: mine }] = await Promise.all([
-      context.supabase.from("companies").select("*").eq("id", data.id).single(),
-      context.supabase.from("my_company").select("*").eq("user_id", context.userId).maybeSingle(),
-    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = context.supabase as any;
+    const { data: company } = await sb.from("companies").select("*").eq("id", data.id).single();
     if (!company) throw new Error("Company not found");
 
-    const research = (company.research_data ?? {}) as { summary?: string; markdown?: string };
-
-    const system = `You write concise, warm B2B outreach emails. Output JSON via the tool. Keep body under 160 words. Reference 1-2 specific facts from the prospect's research. Avoid fluff and generic phrasing.`;
-
-    const user = `MY COMPANY:
-${mine ? JSON.stringify(mine, null, 2) : "(not yet set in Settings → My Company)"}
-
-PROSPECT:
-Name: ${company.name}
-Industry: ${company.industry ?? "n/a"}
-Contact: ${company.contact_person ?? "there"}
+    const research = (company.research_data ?? {}) as { summary?: string };
+    const firstName = (company.contact_person ?? "").toString().trim().split(/\s+/)[0] || "";
+    const userContent = `PROSPECT
+Company: ${company.name}
 Website: ${company.domain ?? "n/a"}
+Industry: ${company.industry ?? "n/a"}
+Country/City: ${[company.country, (company as { city?: string }).city].filter(Boolean).join(" / ") || "UAE"}
+product_service: ${company.product_service ?? "(blank — infer from industry/notes)"}
+Contact first name: ${firstName || "(unknown)"}
+Notes: ${research.summary ? research.summary.slice(0, 800) : (company.address ? String(company.address) : "(none)")}`;
 
-RESEARCH SUMMARY:
-${research.summary ?? "(no research yet — write a short cold intro)"}
-
-RESEARCH EXCERPT:
-${(research.markdown ?? "").slice(0, 4000)}`;
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "write_email",
-              parameters: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  subject: { type: "string" },
-                  body: { type: "string" },
-                },
-                required: ["subject", "body"],
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "write_email" } },
+        model: "claude-sonnet-5",
+        max_tokens: 500,
+        system: PITCH_SYSTEM,
+        messages: [{ role: "user", content: userContent }],
       }),
     });
     if (res.status === 429) throw new Error("Rate limit. Try again shortly.");
-    if (res.status === 402) throw new Error("AI credits exhausted.");
-    if (!res.ok) throw new Error(`AI error ${res.status}: ${await res.text()}`);
-    const json = (await res.json()) as {
-      choices: Array<{ message: { tool_calls?: Array<{ function: { arguments: string } }> } }>;
-    };
-    const args = json.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!args) throw new Error("AI did not return an email");
-    return JSON.parse(args) as { subject: string; body: string };
+    if (!res.ok) throw new Error(`AI error ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const json = (await res.json()) as { content?: Array<{ text?: string }> };
+    const text = (json.content ?? []).map((c) => c.text ?? "").join("").trim();
+    if (!text) throw new Error("AI did not return an email");
+
+    const subjMatch = text.match(/Subject:\s*(.+)/i);
+    const bodyMatch = text.match(/Body:\s*([\s\S]+)/i);
+    const subject = (subjMatch?.[1] ?? "").trim() || `${company.name} — a quick note`;
+    const body = (bodyMatch?.[1] ?? text).trim();
+
+    // Persist on the company so it survives and is only overwritten on regenerate.
+    await sb
+      .from("companies")
+      .update({ pitch_subject: subject, pitch_body: body, pitch_at: new Date().toISOString() })
+      .eq("id", data.id);
+
+    return { subject, body };
   });

@@ -4,7 +4,9 @@
 // Owner:  created rows belong to PROSPECT_WEBHOOK_USER_ID
 // Body:   a single prospect object, or { "prospects": [ ... ] }
 //         fields: company (required), contact_name, industry, country,
-//                 product_service, email, phone, website, notes
+//                 product_service, email, phone, website, notes,
+//                 pitch_subject, pitch_body (a ready-made pitch email shipped
+//                 with the lead — saved on the company, shown in the Pitch tab)
 // Dedupe: skips a company whose (case-insensitive, trimmed) name the owner
 //         already has. Phone is never required. `notes` is ignored (the
 //         companies table has no notes column).
@@ -47,6 +49,8 @@ function normalize(row: Incoming): {
   email: string | null;
   phone: string | null;
   product_service: string | null;
+  pitch_subject: string | null;
+  pitch_body: string | null;
 } {
   const pick = (...keys: string[]) => {
     for (const k of keys) {
@@ -67,6 +71,8 @@ function normalize(row: Incoming): {
     email: pick("email", "e-mail"),
     phone: pick("phone", "whatsapp", "mobile", "tel"),
     product_service: pick("product_service", "product/service", "product / service", "product", "service", "interest"),
+    pitch_subject: pick("pitch_subject", "pitch subject", "subject", "email_subject"),
+    pitch_body: pick("pitch_body", "pitch body", "pitch", "email_body", "body"),
   };
 }
 
@@ -233,6 +239,30 @@ Deno.serve(async (req) => {
     return true;
   }
 
+  // Ship a ready-made pitch onto an existing company only if it has none yet.
+  // A pitch already on the company (from Generate/Regenerate or an earlier push)
+  // is never overwritten — the user regenerates when they want a fresh one.
+  async function backfillPitch(companyId: string, f: Normalized): Promise<boolean> {
+    if (!f.pitch_subject && !f.pitch_body) return false;
+    const { data: co } = await supabase
+      .from("companies")
+      .select("pitch_subject, pitch_body")
+      .eq("id", companyId)
+      .single();
+    if (!co) return false;
+    const blank = (x: unknown) => x == null || String(x).trim() === "";
+    if (!blank(co.pitch_subject) || !blank(co.pitch_body)) return false;
+    await supabase
+      .from("companies")
+      .update({
+        pitch_subject: f.pitch_subject,
+        pitch_body: f.pitch_body,
+        pitch_at: new Date().toISOString(),
+      })
+      .eq("id", companyId);
+    return true;
+  }
+
   const created: string[] = [];
   const skipped: { company: string | null; reason: string }[] = [];
   const failed: { company: string | null; error: string }[] = [];
@@ -249,6 +279,7 @@ Deno.serve(async (req) => {
       // Company already exists (exact or close match) — skip it, but still
       // back-fill its lead with any new details (e.g. a missing phone number).
       if (await backfillLead(dupe.id, f, dupe.phone)) backfilled++;
+      await backfillPitch(dupe.id, f);
       const reason =
         normalizeCompany(f.name) === dupe.norm
           ? `duplicate of "${dupe.name}"`
@@ -268,6 +299,9 @@ Deno.serve(async (req) => {
         email: f.email,
         phone: extractNumbers(f.phone).join(" / ") || f.phone,
         product_service: f.product_service,
+        pitch_subject: f.pitch_subject,
+        pitch_body: f.pitch_body,
+        pitch_at: f.pitch_subject || f.pitch_body ? new Date().toISOString() : null,
       })
       .select("id")
       .single();
