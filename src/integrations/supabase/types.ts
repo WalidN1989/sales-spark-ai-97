@@ -49,6 +49,45 @@ export type Database = {
           },
         ]
       }
+      agent_modules: {
+        Row: {
+          capabilities: string[]
+          edge_functions: Json
+          id: string
+          key_header: string
+          legacy_key_name: string | null
+          notes: string | null
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          capabilities?: string[]
+          edge_functions?: Json
+          id: string
+          key_header?: string
+          legacy_key_name?: string | null
+          notes?: string | null
+          sort_order?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          capabilities?: string[]
+          edge_functions?: Json
+          id?: string
+          key_header?: string
+          legacy_key_name?: string | null
+          notes?: string | null
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -2062,6 +2101,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      icp_owner_id: { Args: never; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _uid: string }; Returns: boolean }
       shares_org: {
