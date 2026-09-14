@@ -112,6 +112,9 @@ export type Database = {
           mobile: string | null
           name: string
           phone: string | null
+          pitch_at: string | null
+          pitch_body: string | null
+          pitch_subject: string | null
           product_service: string | null
           research_data: Json | null
           status: string
@@ -142,6 +145,9 @@ export type Database = {
           mobile?: string | null
           name: string
           phone?: string | null
+          pitch_at?: string | null
+          pitch_body?: string | null
+          pitch_subject?: string | null
           product_service?: string | null
           research_data?: Json | null
           status?: string
@@ -172,6 +178,9 @@ export type Database = {
           mobile?: string | null
           name?: string
           phone?: string | null
+          pitch_at?: string | null
+          pitch_body?: string | null
+          pitch_subject?: string | null
           product_service?: string | null
           research_data?: Json | null
           status?: string
