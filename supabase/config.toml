@@ -43,3 +43,41 @@ verify_jwt = false
 # Edit / delete a payment follow-up (same PAYMENT_FOLLOWUP_API_KEY).
 [functions.manage-payment-followup]
 verify_jwt = false
+
+# Agent Access Layer — auth via x-api-key (AGENT_API_KEY, or the module's own
+# key). Discovery: agent-describe. Contract: docs/agent-api.md.
+[functions.agent-describe]
+verify_jwt = false
+
+[functions.list-prospects]
+verify_jwt = false
+
+[functions.get-prospect]
+verify_jwt = false
+
+[functions.update-prospect]
+verify_jwt = false
+
+[functions.log-prospect-activity]
+verify_jwt = false
+
+[functions.prospect-activity-summary]
+verify_jwt = false
+
+[functions.promote-prospect-to-lead]
+verify_jwt = false
+
+[functions.list-leads]
+verify_jwt = false
+
+[functions.get-lead]
+verify_jwt = false
+
+[functions.update-lead]
+verify_jwt = false
+
+[functions.get-competitor-research]
+verify_jwt = false
+
+[functions.list-competitor-catalog]
+verify_jwt = false

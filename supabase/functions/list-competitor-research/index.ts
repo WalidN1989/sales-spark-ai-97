@@ -21,7 +21,9 @@ Deno.serve(async (req) => {
   if (!expected || !url || !serviceKey) return json({ error: "Function not fully configured" }, 500);
 
   const key = req.headers.get("x-api-key") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (key !== expected) return json({ error: "Unauthorized" }, 401);
+  // AGENT_API_KEY is the shared agent credential; this module's own key keeps working.
+  const agentKey = Deno.env.get("AGENT_API_KEY");
+  if (key !== expected && !(agentKey && key === agentKey)) return json({ error: "Unauthorized" }, 401);
 
   const params = new URL(req.url).searchParams;
   const category = params.get("category");

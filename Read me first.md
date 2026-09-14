@@ -187,6 +187,20 @@ shared RLS) and seeds the current open set. Four Edge Functions —
 `payments-ui.ts` (incl. Dubai Monday-10:00 week-start calc). Full details +
 curl in `PAYMENT_FOLLOWUP.md`.
 
+### Agent Access Layer (2026-09-14)
+
+Grok and other agents read and write every module over Edge Functions with one
+key, `AGENT_API_KEY`; the older module keys keep working. Discovery is
+`agent-describe`, served from the `agent_modules` table (migration
+`20260914100000_agent_modules.sql`). Shared auth lives in
+`supabase/functions/_shared/agent.ts`. New routes: `list-prospects`,
+`get-prospect`, `update-prospect`, `log-prospect-activity`,
+`prospect-activity-summary`, `promote-prospect-to-lead`, `list-leads`,
+`get-lead`, `update-lead`, `get-competitor-research`,
+`list-competitor-catalog`. Full contract and the **future-module checklist**:
+`docs/agent-api.md`. Rule: a new module is not done until it has a row in
+`agent_modules` and list/get/write routes.
+
 ### ICP cards: one owner for the UI and the agent (2026-09-11)
 
 `list-icp-profiles` filters on `user_id = PROSPECT_WEBHOOK_USER_ID`. The three
