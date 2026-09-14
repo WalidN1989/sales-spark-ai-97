@@ -15,6 +15,10 @@
 //         filled from this payload — so a quoted lead shows the number that
 //         only used to reach the company. Existing values are never overwritten.
 //         Response includes a `backfilled` count.
+// Pitch:  a pushed pitch_subject/pitch_body is saved on the company (new OR
+//         duplicate). On a duplicate the agent's latest pitch WINS — it
+//         overwrites the saved pitch so the Pitch tab shows the freshest draft.
+//         Response includes a `pitched` count.
 //
 // No SQL migration is required — this inserts into the existing companies table.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -239,19 +243,13 @@ Deno.serve(async (req) => {
     return true;
   }
 
-  // Ship a ready-made pitch onto an existing company only if it has none yet.
-  // A pitch already on the company (from Generate/Regenerate or an earlier push)
-  // is never overwritten — the user regenerates when they want a fresh one.
+  // Ship the agent's pitch onto an existing company. Per Walid's rule the
+  // agent's latest pitch WINS on a duplicate — it overwrites whatever pitch was
+  // there, so the Pitch tab always shows the freshest agent-written draft.
+  // (Only runs when the payload actually carries a pitch; an in-app draft is
+  // only clobbered when a fresh pitch is pushed for that company.)
   async function backfillPitch(companyId: string, f: Normalized): Promise<boolean> {
     if (!f.pitch_subject && !f.pitch_body) return false;
-    const { data: co } = await supabase
-      .from("companies")
-      .select("pitch_subject, pitch_body")
-      .eq("id", companyId)
-      .single();
-    if (!co) return false;
-    const blank = (x: unknown) => x == null || String(x).trim() === "";
-    if (!blank(co.pitch_subject) || !blank(co.pitch_body)) return false;
     await supabase
       .from("companies")
       .update({
@@ -267,6 +265,7 @@ Deno.serve(async (req) => {
   const skipped: { company: string | null; reason: string }[] = [];
   const failed: { company: string | null; error: string }[] = [];
   let backfilled = 0;
+  let pitched = 0; // companies that got a pitch saved (new or overwritten on a dupe)
 
   for (const raw of list) {
     const f = normalize(raw);
@@ -279,7 +278,7 @@ Deno.serve(async (req) => {
       // Company already exists (exact or close match) — skip it, but still
       // back-fill its lead with any new details (e.g. a missing phone number).
       if (await backfillLead(dupe.id, f, dupe.phone)) backfilled++;
-      await backfillPitch(dupe.id, f);
+      if (await backfillPitch(dupe.id, f)) pitched++;
       const reason =
         normalizeCompany(f.name) === dupe.norm
           ? `duplicate of "${dupe.name}"`
@@ -311,6 +310,7 @@ Deno.serve(async (req) => {
     }
     const companyId = data.id as string;
     created.push(companyId);
+    if (f.pitch_subject || f.pitch_body) pitched++;
     remember(companyId, f.name, extractNumbers(f.phone).join(" / ") || f.phone);
     // A lead rarely exists yet for a brand-new company, but if one does
     // (e.g. created manually first), fill its blanks too.
@@ -323,6 +323,7 @@ Deno.serve(async (req) => {
     skipped: skipped.length,
     failed: failed.length,
     backfilled,
+    pitched,
     ids: created,
     details: { skipped, failed },
   });
