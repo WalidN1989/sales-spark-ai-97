@@ -91,13 +91,23 @@ export const listTeamMembers = createServerFn({ method: "GET" })
       .select("user_id, role, status");
     if (error || !members) return [];
     const ids: string[] = members.map((m: { user_id: string }) => m.user_id);
-    const { data: profiles } = await supabaseAdmin
+    // Pull profile status too: a deactivated user is flagged on the profile
+    // (setUserStatus sets profiles.status = 'inactive' + bans auth) even when
+    // their org_members row still says 'active'. Exclude them so a revoked
+    // account can't be picked in the assign dropdown.
+    const { data: profiles } = await (supabaseAdmin as any)
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name, email, status")
       .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-    const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const byId = new Map(
+      ((profiles ?? []) as Array<{ id: string; full_name: string | null; email: string | null; status?: string | null }>).map((p) => [p.id, p]),
+    );
     return members
-      .filter((m: { status: string }) => m.status === "active")
+      .filter((m: { user_id: string; status: string }) => {
+        if (m.status !== "active") return false;
+        const p = byId.get(m.user_id) as { status?: string | null } | undefined;
+        return (p?.status ?? "active") !== "inactive"; // drop deactivated profiles
+      })
       .map((m: { user_id: string; role: string }) => ({
         id: m.user_id,
         role: m.role,
