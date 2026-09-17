@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { notify } from "@/lib/notifications.server";
 
 const entityTypeEnum = z.enum(["lead", "prospect", "general"]);
 
@@ -14,11 +15,11 @@ export const listReminders = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("reminders")
       .select(REMINDER_SELECT)
-      // Reminders are personal: the panel only ever shows the signed-in user's
-      // own follow-ups. Without this, a manager (is_admin) would see every
-      // staff member's reminders mixed into their own panel. Shared/"part of
-      // the conversation" reminders are a future, opt-in feature.
-      .eq("user_id", context.userId)
+      // Visibility is enforced by RLS: your own reminders (any type) PLUS
+      // reminders on a LEAD you can access (assignee / owner / manager), so a
+      // follow-up set on a shared lead shows for both people. Personal
+      // ('general') and prospect reminders stay private to their owner. We no
+      // longer filter by user_id here — that would hide the shared ones.
       .neq("status", "dismissed")
       .order("remind_at", { ascending: true })
       .limit(200);
@@ -61,6 +62,36 @@ export const createReminder = createServerFn({ method: "POST" })
       .select(REMINDER_SELECT)
       .single();
     if (error) throw new Error(error.message);
+
+    // If this reminder is on a lead assigned to someone else, tell them now so
+    // they know a follow-up/meeting was scheduled (the reminder itself is
+    // already shared and will flash for them at remind_at via RLS).
+    if (data.entity_type === "lead" && data.entity_id) {
+      const { data: lead } = await context.supabase
+        .from("leads")
+        .select("assigned_to, company_name, companies!leads_company_id_fkey(name)")
+        .eq("id", data.entity_id)
+        .single();
+      const assignedTo = (lead as { assigned_to?: string | null } | null)?.assigned_to ?? null;
+      if (assignedTo && assignedTo !== context.userId) {
+        const name =
+          (lead as { company_name?: string | null })?.company_name ||
+          (lead as { companies?: { name?: string | null } | null })?.companies?.name ||
+          data.entity_label ||
+          "a lead";
+        const when = new Date(data.remind_at).toLocaleString();
+        await notify([
+          {
+            user_id: assignedTo,
+            actor_id: context.userId,
+            type: "reminder",
+            title: `Follow-up scheduled: ${data.title}`,
+            body: `${name} · ${when}`,
+            lead_id: data.entity_id,
+          },
+        ]);
+      }
+    }
     return row;
   });
 

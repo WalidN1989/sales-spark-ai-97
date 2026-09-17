@@ -2,26 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { notify } from "@/lib/notifications.server";
 
 export type TeamMember = { id: string; role: string; full_name: string | null; email: string | null };
-
-// Write in-app notifications (service role → can address other users). The
-// recipient's browser gets them over Realtime and flashes a toast. Never
-// notifies the actor about their own action. Best-effort: failures are logged,
-// never thrown (a notification must not break the assignment itself).
-async function notify(
-  rows: Array<{ user_id: string; actor_id: string; type: string; title: string; body?: string | null; lead_id?: string | null }>,
-) {
-  const clean = rows.filter((r) => r.user_id && r.user_id !== r.actor_id);
-  if (!clean.length) return;
-  try {
-    // notifications isn't in the generated types yet — cast.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin as any).from("notifications").insert(clean);
-  } catch (e) {
-    console.error("notify failed", e);
-  }
-}
 
 const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
 const activityKindEnum = z.enum([
