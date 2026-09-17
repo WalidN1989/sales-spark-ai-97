@@ -5,6 +5,24 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export type TeamMember = { id: string; role: string; full_name: string | null; email: string | null };
 
+// Write in-app notifications (service role → can address other users). The
+// recipient's browser gets them over Realtime and flashes a toast. Never
+// notifies the actor about their own action. Best-effort: failures are logged,
+// never thrown (a notification must not break the assignment itself).
+async function notify(
+  rows: Array<{ user_id: string; actor_id: string; type: string; title: string; body?: string | null; lead_id?: string | null }>,
+) {
+  const clean = rows.filter((r) => r.user_id && r.user_id !== r.actor_id);
+  if (!clean.length) return;
+  try {
+    // notifications isn't in the generated types yet — cast.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin as any).from("notifications").insert(clean);
+  } catch (e) {
+    console.error("notify failed", e);
+  }
+}
+
 const statusEnum = z.enum(["hot", "warm", "cold", "frozen", "dead", "won"]);
 const activityKindEnum = z.enum([
   "note",
@@ -636,6 +654,30 @@ export const updateLead = createServerFn({ method: "POST" })
       .update(data.patch)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
+    // Flash the new assignee when a lead is handed to someone else.
+    const assignedTo = (data.patch as { assigned_to?: string | null }).assigned_to;
+    if (assignedTo && assignedTo !== context.userId) {
+      const { data: lead } = await context.supabase
+        .from("leads")
+        .select("company_name, companies!leads_company_id_fkey(name)")
+        .eq("id", data.id)
+        .single();
+      const name =
+        (lead as { company_name?: string | null })?.company_name ||
+        (lead as { companies?: { name?: string | null } | null })?.companies?.name ||
+        "a lead";
+      await notify([
+        {
+          user_id: assignedTo,
+          actor_id: context.userId,
+          type: "lead_assigned",
+          title: "New lead assigned to you",
+          body: name,
+          lead_id: data.id,
+        },
+      ]);
+    }
     return { ok: true };
   });
 
@@ -710,6 +752,22 @@ export const bulkUpdateLeads = createServerFn({ method: "POST" })
       .update(data.patch)
       .in("id", data.ids);
     if (error) throw new Error(error.message);
+
+    // One summary flash when a batch is assigned to someone else.
+    const assignedTo = (data.patch as { assigned_to?: string | null }).assigned_to;
+    if (assignedTo && assignedTo !== context.userId) {
+      const n = data.ids.length;
+      await notify([
+        {
+          user_id: assignedTo,
+          actor_id: context.userId,
+          type: "lead_assigned",
+          title: n === 1 ? "New lead assigned to you" : `${n} leads assigned to you`,
+          body: n === 1 ? "Open Leads to see it." : "Open Leads to see them.",
+          lead_id: data.ids.length === 1 ? data.ids[0] : null,
+        },
+      ]);
+    }
     return { ok: true, count: data.ids.length };
   });
 

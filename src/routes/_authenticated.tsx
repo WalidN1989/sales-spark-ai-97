@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { CommandPalette } from "@/components/CommandPalette";
+import { NotificationsListener } from "@/components/NotificationsListener";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_authenticated")({
     <>
       <Outlet />
       <CommandPalette />
+      <NotificationsListener />
     </>
   ),
 });
