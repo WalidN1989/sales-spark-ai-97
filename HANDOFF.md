@@ -144,6 +144,16 @@ UI via `groupKeyFor`). A lead links to its company by `company_id` or
   Import: **"Import"** button (`ImportLeadsDialog` + `importMyLeads`) — CSV/Excel,
   company name is the ONLY required field; stamps `user_id + assigned_to = importer`.
   **Export is admin-only.**
+  **Creator = assignee:** every lead-creation path stamps
+  `assigned_to = context.userId` at insert so a new lead is owned by whoever
+  made it (never lands Unassigned). Paths: `createQuickLead` + `importMyLeads`
+  + `getOrCreatePrimaryLeadForCompany` (prospect→lead convert) in
+  `leads.functions.ts`, and `saveMatchAsLead` in `visual-match.functions.ts`.
+  If you add a new lead-insert path, set `assigned_to` too. Reassign an
+  account's leads with `UPDATE leads SET assigned_to = <new> WHERE assigned_to
+  = <old>`. NOTE: most owner FKs are `ON DELETE CASCADE` — deleting an
+  auth user deletes their owned rows; **deactivate** (org_members.status /
+  Active toggle) instead of deleting unless you first move `user_id` ownership.
 - **WhatsApp** — `app.whatsapp.index.tsx`, `whatsapp.functions.ts`,
   `whatsapp-inbound` edge fn, table `whatsapp_messages`. Twilio. Two-pane chat.
   Inbound webhook matches sender to a lead by last ~9 digits, stores + logs to
