@@ -387,6 +387,7 @@ export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" 
       .from("leads")
       .insert({
         user_id: context.userId,
+        assigned_to: context.userId, // whoever converts the prospect owns the lead
         company_id: data.companyId,
         company_name: company.name,
         website: company.domain,
@@ -1075,6 +1076,7 @@ export const createQuickLead = createServerFn({ method: "POST" })
       .from("leads")
       .insert({
         user_id: context.userId,
+        assigned_to: context.userId, // creator owns the lead
         company_id: null,
         contact_person: data.contact_person || null,
         contact_email: data.contact_email || null,

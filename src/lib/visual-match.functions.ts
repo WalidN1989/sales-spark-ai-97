@@ -242,6 +242,7 @@ export const saveMatchAsLead = createServerFn({ method: "POST" })
       .from("leads")
       .insert({
         user_id: context.userId,
+        assigned_to: context.userId, // creator owns the lead
         contact_person: data.name,
         company_name: match.source_domain ?? match.source ?? null,
         website: match.source_domain ? `https://${match.source_domain}` : null,
