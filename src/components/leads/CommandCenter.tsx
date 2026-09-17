@@ -177,6 +177,7 @@ type ColDef = { key: ColKey; label: string; width: number; min: number; sortable
 const COLUMNS: ColDef[] = [
   { key: "company", label: "Company", width: 210, min: 140, sortable: true },
   { key: "contact", label: "Contact", width: 140, min: 100, sortable: true },
+  { key: "value", label: "Value", width: 100, min: 80, sortable: true },
   { key: "assignee", label: "Assigned to", width: 132, min: 100, sortable: true },
   { key: "product", label: "Product", width: 180, min: 110 },
   { key: "stage", label: "Stage", width: 128, min: 110, sortable: true },
@@ -186,7 +187,6 @@ const COLUMNS: ColDef[] = [
   { key: "activity", label: "Last Activity", width: 150, min: 110, sortable: true },
   { key: "next", label: "Next Action", width: 168, min: 120 },
   { key: "summary", label: "Summary", width: 240, min: 140, defaultHidden: false },
-  { key: "value", label: "Value", width: 100, min: 80, sortable: true },
   { key: "source", label: "Source", width: 88, min: 70, defaultHidden: true },
   { key: "country", label: "Country", width: 100, min: 80, defaultHidden: true },
   { key: "industry", label: "Industry", width: 120, min: 90, defaultHidden: true },
