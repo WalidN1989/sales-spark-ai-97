@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,6 +21,7 @@ type NotificationRow = {
 export function NotificationsListener() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -30,6 +32,8 @@ export function NotificationsListener() {
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (payload) => {
           const n = payload.new as NotificationRow;
+          // Refresh the bell badge/list immediately.
+          qc.invalidateQueries({ queryKey: ["notifications"] });
           toast.success(n.title, {
             description: n.body ?? undefined,
             action: n.lead_id
@@ -43,7 +47,7 @@ export function NotificationsListener() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, navigate]);
+  }, [user?.id, navigate, qc]);
 
   return null;
 }

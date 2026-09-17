@@ -470,6 +470,16 @@ function LeadDetail() {
         anchorId={id}
         reminderEntity={{ type: "lead", id, label: companyDisplay }}
         header={header}
+        asideTop={
+          <div className="rounded-xl border bg-card">
+            <div className="flex items-center gap-2 border-b p-3 text-sm font-semibold">
+              <MessageCircle className="h-4 w-4" /> Team Chat
+            </div>
+            <div className="p-3">
+              <LeadChat leadId={id} />
+            </div>
+          </div>
+        }
         onChanged={() => {
           qc.invalidateQueries({ queryKey: ["lead", id] });
           qc.invalidateQueries({ queryKey: ["leads"] });
@@ -507,9 +517,6 @@ function LeadDetail() {
         }
         secondary={
           <>
-            <Section title="Team Chat" icon={<MessageCircle className="h-4 w-4" />} defaultOpen>
-              <LeadChat leadId={id} />
-            </Section>
             <Section title="Edit lead details" icon={<Save className="h-4 w-4" />}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

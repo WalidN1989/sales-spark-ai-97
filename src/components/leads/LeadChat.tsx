@@ -62,7 +62,7 @@ export function LeadChat({ leadId }: { leadId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2">
+      <div className="max-h-56 min-h-[7rem] space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2">
         {messages.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted-foreground">
             No messages yet. Ask a teammate what&apos;s happening on this lead.

@@ -16,7 +16,9 @@ import {
   Check,
   Clock,
   Flame,
+  MessageCircle,
   Trash2,
+  UserPlus,
   X,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,6 +29,11 @@ import {
   snoozeReminder,
   deleteReminder,
 } from "@/lib/reminders.functions";
+import {
+  listNotifications,
+  markNotificationsRead,
+  type AppNotification,
+} from "@/lib/notifications.functions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -88,6 +95,26 @@ export function NotificationCenter() {
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
+
+  // In-app notifications (lead assigned, shared reminder, chat message).
+  const listNotifsFn = useServerFn(listNotifications);
+  const markReadFn = useServerFn(markNotificationsRead);
+  const { data: notifications = [] } = useQuery<AppNotification[]>({
+    queryKey: ["notifications"],
+    queryFn: () => listNotifsFn(),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const unreadNotifs = useMemo(() => notifications.filter((n) => !n.read_at), [notifications]);
+  const markRead = useMutation({
+    mutationFn: (ids?: string[]) => markReadFn({ data: ids ? { ids } : {} }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+  const openNotif = (n: AppNotification) => {
+    if (!n.read_at) markRead.mutate([n.id]);
+    if (n.lead_id) navigate({ to: "/app/leads/$id", params: { id: n.lead_id } });
+    setOpen(false);
+  };
 
   // Tick a clock (client-only) so due detection and relative labels update.
   const [now, setNow] = useState(0);
@@ -165,7 +192,7 @@ export function NotificationCenter() {
     else if (r.entity_type === "prospect" && r.entity_id) navigate({ to: "/app/prospects/$id", params: { id: r.entity_id } });
   };
 
-  const badge = due.length;
+  const badge = due.length + unreadNotifs.length;
 
   return (
     <>
@@ -190,21 +217,36 @@ export function NotificationCenter() {
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Bell className="h-4 w-4" /> Notifications
             </div>
-            {pending.length > 0 && (
+            {unreadNotifs.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => markRead.mutate(undefined)}
+                className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Mark all read
+              </button>
+            ) : pending.length > 0 ? (
               <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
                 {pending.length} pending
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="max-h-[70vh] overflow-y-auto">
-            {pending.length === 0 && doneRecent.length === 0 ? (
+            {notifications.length === 0 && pending.length === 0 && doneRecent.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                 <Bell className="mx-auto mb-2 h-6 w-6 opacity-40" />
                 You&apos;re all caught up.
               </div>
             ) : (
               <>
+                {notifications.length > 0 && (
+                  <Group label="Messages & alerts">
+                    {notifications.slice(0, 20).map((n) => (
+                      <NotifRow key={n.id} n={n} onOpen={() => openNotif(n)} />
+                    ))}
+                  </Group>
+                )}
                 {due.length > 0 && (
                   <Group label="Due now">
                     {due.map((r) => (
@@ -341,6 +383,40 @@ export function NotificationCenter() {
         </div>
       )}
     </>
+  );
+}
+
+function NotifIcon({ type }: { type: string }) {
+  if (type === "chat") return <MessageCircle className="h-3.5 w-3.5 text-sky-500" />;
+  if (type === "lead_assigned") return <UserPlus className="h-3.5 w-3.5 text-emerald-500" />;
+  return <AlarmClock className="h-3.5 w-3.5 text-orange-500" />;
+}
+
+function NotifRow({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
+  const unread = !n.read_at;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        "flex w-full gap-2.5 border-b px-3 py-2.5 text-left transition-colors hover:bg-accent/60",
+        unread && "bg-sky-50/50 dark:bg-sky-950/20",
+      )}
+    >
+      <div className="mt-0.5">
+        <NotifIcon type={n.type} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className={cn("truncate text-sm", unread ? "font-semibold" : "font-medium")}>{n.title}</div>
+          {unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sky-500" />}
+        </div>
+        {n.body && <div className="truncate text-xs text-muted-foreground">{n.body}</div>}
+        <div className="mt-0.5 text-[10px] text-muted-foreground/70">
+          {new Date(n.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+        </div>
+      </div>
+    </button>
   );
 }
 

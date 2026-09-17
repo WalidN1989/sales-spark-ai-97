@@ -138,6 +138,7 @@ export function LeadWorkspace({
   header,
   companyInfo,
   secondary,
+  asideTop,
   notesEntityType,
   notesEntityId,
   onChanged,
@@ -158,6 +159,8 @@ export function LeadWorkspace({
   header?: ReactNode;
   companyInfo?: ReactNode;
   secondary?: ReactNode;
+  // Slot rendered in the right rail just above the Contacts card.
+  asideTop?: ReactNode;
   // Company/lead notes are blended into the Activity Journal (one history).
   notesEntityType?: "prospect" | "lead";
   notesEntityId?: string | null;
@@ -534,6 +537,8 @@ export function LeadWorkspace({
             <p className="mt-1 text-muted-foreground">{rec.suggestion}</p>
           </div>
         )}
+
+        {asideTop}
 
         {/* WHO TO TALK TO — Contacts drawer */}
         <ContactsDrawer
