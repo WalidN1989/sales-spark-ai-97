@@ -411,9 +411,13 @@ export function LeadsCommandCenter({
     for (const x of members) m.set(x.id, x.full_name || x.email || "Member");
     return m;
   }, [members]);
-  // You delegate work to your staff, not yourself — an unassigned lead is
-  // already yours. So the Assign list excludes the current user.
-  const assignableMembers = useMemo(() => members.filter((m) => m.id !== userId), [members, userId]);
+  // Assign to anyone active, including yourself (you first), so a manager can
+  // take a lead as well as delegate it.
+  const assignableMembers = useMemo(() => {
+    const me = members.filter((m) => m.id === userId);
+    const others = members.filter((m) => m.id !== userId);
+    return [...me, ...others];
+  }, [members, userId]);
 
   // ----- Persistent UI prefs -----
   // Defaults on first render (matches SSR output — reading localStorage during
