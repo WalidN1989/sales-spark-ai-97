@@ -19,6 +19,7 @@ import {
   X,
   Target,
   Building2,
+  UserCircle2,
   ChevronDown,
 } from "lucide-react";
 import {
@@ -40,6 +41,8 @@ import {
   getLeadDocumentDownloadUrl,
   deleteLeadDocument,
   createProspectFromLead,
+  listTeamMembers,
+  type TeamMember,
 } from "@/lib/leads.functions";
 import { listResellerCompanies, setCompanyStatus } from "@/lib/companies.functions";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -110,7 +113,7 @@ function Section({ title, icon, children, defaultOpen = false }: { title: string
 
 function LeadDetail() {
   const { id } = Route.useParams();
-  const { can } = useAccess();
+  const { can, isManager } = useAccess();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -125,6 +128,23 @@ function LeadDetail() {
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
     queryFn: () => getFn({ data: { id } }),
+  });
+
+  // Team members for the "Assigned to" control. Managers/admins get the list;
+  // reps get [] (they can see who owns the lead but not reassign it).
+  const membersFn = useServerFn(listTeamMembers);
+  const { data: teamMembers = [] } = useQuery<TeamMember[]>({
+    queryKey: ["team-members"],
+    queryFn: () => membersFn(),
+  });
+  const reassign = useMutation({
+    mutationFn: (assigned_to: string | null) => updateFn({ data: { id, patch: { assigned_to } } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Assignee updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const [contact, setContact] = useState("");
@@ -361,6 +381,43 @@ function LeadDetail() {
         <span className="font-medium text-foreground">{companyDisplay}</span>
       </nav>
       <div className="flex flex-wrap items-center gap-1">
+        {/* Assigned to — visible inside the lead, not just the list. Managers
+            can reassign here; reps see who owns it (read-only). */}
+        {(() => {
+          const assignedId = (l as { assigned_to?: string | null }).assigned_to ?? null;
+          const assignee = teamMembers.find((m) => m.id === assignedId);
+          const label = assignee
+            ? assignee.full_name || assignee.email || "Assigned"
+            : assignedId
+              ? "Assigned"
+              : "Unassigned";
+          if (isManager && teamMembers.length > 0) {
+            return (
+              <Select
+                value={assignedId ?? "__unassigned__"}
+                onValueChange={(v) => reassign.mutate(v === "__unassigned__" ? null : v)}
+              >
+                <SelectTrigger className="h-8 w-auto gap-1 text-xs">
+                  <UserCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.full_name || m.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          }
+          return (
+            <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground">
+              <UserCircle2 className="h-3.5 w-3.5" /> {label}
+            </span>
+          );
+        })()}
         {/* Unified funnel (drives scoring + purchase capture) */}
         <StatusFunnel status={l.status} onChange={(s) => requestStatusChange(s)} />
 
