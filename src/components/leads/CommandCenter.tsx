@@ -624,9 +624,9 @@ export function LeadsCommandCenter({
 
     if (sort.key === "smart") {
       // Freshly created or freshly-touched leads (momentum) float to the very
-      // top for the first 24h so a new prospect + logged activity is visible
-      // without searching. After that they rejoin the work order below.
-      const FRESH_MS = 24 * 60 * 60 * 1000;
+      // top for 48h so a new prospect + logged activity — including yesterday's
+      // — is visible without searching. After that they rejoin the work order.
+      const FRESH_MS = 48 * 60 * 60 * 1000;
       const now = Date.now();
       const momentumTs = (r: RowVM) => {
         const a = r.lead.last_activity_at ? Date.parse(r.lead.last_activity_at) : 0;
@@ -662,10 +662,12 @@ export function LeadsCommandCenter({
         // Tier 2: the work order.
         const d = dueRank(a) - dueRank(b);
         if (d !== 0) return d;
-        // Ascending by due date inside each band.
+        // Ascending by due date inside each band — except overdue, where the
+        // most recently slipped follow-up comes first: 1 day overdue is still
+        // actionable, 5 months overdue is stale and should sink.
         const da = a.lead.next_action_due ?? "";
         const db = b.lead.next_action_due ?? "";
-        if (da !== db) return da.localeCompare(db);
+        if (da !== db) return dueRank(a) === 3 ? db.localeCompare(da) : da.localeCompare(db);
         const p = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
         if (p !== 0) return p;
         return (b.lead.last_activity_at ?? "").localeCompare(a.lead.last_activity_at ?? "");
@@ -1609,7 +1611,7 @@ export function LeadsCommandCenter({
             type="button"
             onClick={() => setSort({ key: "smart", dir: 1 })}
             className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-            title="Back to smart order: new & active first, then due today → this week → later → overdue"
+            title="Back to smart order: new & active (48h) first, then due today → this week → later → overdue (most recent first)"
           >
             ↺ Smart sort
           </button>
