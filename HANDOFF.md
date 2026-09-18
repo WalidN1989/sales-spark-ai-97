@@ -78,16 +78,28 @@ Key tables & helpers (migrations `20260907140000_multiuser_foundation.sql`,
   `can_access_lead(lead_id)`.
 - `handle_new_user` trigger: first signup → `admin`, others → `sales_rep`;
   a second trigger `add_member_on_signup` adds new users to the single org.
-- `leads.assigned_to` (uuid) + `leads.org_id`. Lead RLS: `is_org_manager OR
-  assigned_to = auth.uid() OR user_id = auth.uid()`. Children
-  (`lead_activities`, `lead_documents`, `lead_purchases`, `whatsapp_messages`)
-  gate on `can_access_lead(lead_id)`.
+- `leads.assigned_to` (uuid) + `leads.org_id`. Lead RLS (select/update/delete)
+  and `can_access_lead`: **`is_org_manager OR assigned_to = auth.uid()`** —
+  the owner (`user_id`) clause was dropped in
+  `20260917150000_assignment_is_visibility.sql` so **assignment is the only
+  thing that grants a rep access**. Insert still checks `user_id = auth.uid()`.
+  Children (`lead_activities`, `lead_documents`, `lead_purchases`,
+  `whatsapp_messages`, `lead_messages`, shared lead `reminders`) gate on
+  `can_access_lead(lead_id)`.
+- **Revoke = reassign.** Assigning a lead back to the manager removes it — and
+  all its activity/chat/docs/reminders — from the rep's screens. Nothing is
+  deleted; managers still see the full history. A lead with `assigned_to IS
+  NULL` is manager-only. That migration backfilled `assigned_to = user_id` on
+  unassigned rows first so no rep lost access; every lead-insert path stamps
+  `assigned_to` (see §7 Leads) so this stays true.
 
 **Visibility model** (per-user with manager oversight):
 | Data | Rep sees | Manager/admin |
 |---|---|---|
-| Leads | assigned to them (or own) | all; filter by assignee |
-| Reminders | **only own** (personal — `listReminders` filters `user_id = me`) | only own |
+| Leads | **assigned to them only** | all; filter by assignee |
+| Reminders | own (any type) **+ reminders on leads they can access** | own + all lead reminders |
+| Team chat (`lead_messages`) | leads assigned to them | all |
+| Notifications | own only | own only |
 | Payments | own (`created_by`) | all; "view by user" filter |
 | Notes | own (private) | read all; "view by user" filter |
 | Tasks | assigned/created by them | all |
@@ -97,8 +109,43 @@ Key tables & helpers (migrations `20260907140000_multiuser_foundation.sql`,
 admin-only tab): `listUsers` reads **auth.users** (not profiles) and merges
 profiles/roles/permissions so accounts always show. `createTeamMember` makes a
 login (email + temp password, no OAuth). Guardrails: cannot demote/deactivate the
-**last admin** or yourself; `setUserStatus` off = real Twilio-style **ban**
-(auth ban), not just a flag. `setUserRole` syncs `org_members.role`.
+**last admin** or yourself; `setUserStatus` off = real **auth ban** plus
+`profiles.status = 'inactive'`, not just a flag — it does NOT touch
+`org_members.status`, so `listTeamMembers` (feeds every Assign dropdown)
+filters on BOTH `org_members.status = 'active'` AND `profiles.status !=
+'inactive'`. **Deactivate, don't delete:** most owner FKs are `ON DELETE
+CASCADE`, so deleting an auth user deletes their rows. `setUserRole` syncs
+`org_members.role`.
+
+**Notifications + team chat** (migrations `20260917120000_notifications.sql`,
+`20260917130000_shared_lead_reminders.sql`, `20260917140000_lead_messages.sql`):
+- `notifications(user_id=recipient, actor_id, type, title, body, lead_id,
+  read_at)`. RLS: recipient reads/updates own; **no INSERT policy** — rows are
+  written with the service role via `notify()` in
+  `src/lib/notifications.server.ts` (so an actor can address another user;
+  skips self; best-effort, never throws). Types: `lead_assigned`, `reminder`,
+  `chat`.
+- Writers: `updateLead` / `bulkUpdateLeads` (assigned to someone else →
+  `lead_assigned`), `createReminder` (lead reminder on a lead assigned to
+  someone else → `reminder`), `sendLeadMessage` (→ `chat` to assignee + owner).
+- Realtime: `notifications` and `lead_messages` are in the
+  `supabase_realtime` publication. `src/components/NotificationsListener.tsx`
+  (mounted in `_authenticated.tsx`) subscribes to the user's inserts → toast
+  with "Open" + invalidates `["notifications"]`.
+- Bell: `src/components/reminders/NotificationCenter.tsx` — badge = due
+  reminders + unread notifications; "Messages & alerts" group; click → lead +
+  mark read; "Mark all read". Server fns in `src/lib/notifications.functions.ts`.
+- Shared reminders: extra SELECT policy `reminders_shared_lead_select`
+  (`entity_type='lead' AND can_access_lead(entity_id)`); `listReminders` no
+  longer filters `user_id` (RLS decides). Write stays owner-only. General /
+  prospect reminders stay private.
+- Team chat: `lead_messages(lead_id, sender_id, body)`; RLS read + post via
+  `can_access_lead`. `src/lib/lead-chat.functions.ts` (names resolved via
+  service role), `src/components/leads/LeadChat.tsx` (live via Realtime),
+  rendered in the lead detail right rail above Contacts through
+  `LeadWorkspace`'s `asideTop` slot.
+- **Toasts fire only while the app is open.** Closed-app push (Web Push +
+  service worker / PWA) is not built.
 
 ## 6. Access control — the module registry (`src/lib/permissions.ts`)
 
@@ -140,7 +187,16 @@ UI via `groupKeyFor`). A lead links to its company by `company_id` or
 - **Leads** — `app.leads.tsx` + `CommandCenter.tsx` (dense virtualized grid,
   one row per company), `app.leads.$id.tsx` (detail), `leads.functions.ts`.
   `listLeads` returns only `is_converted = true` (research contacts stay on the
-  prospect). "Assigned to" column/filter + bulk assign (managers; excludes self).
+  prospect). "Assigned to" column/filter + bulk assign (managers; the list
+  **includes yourself, listed first** — a manager takes a lead back / revokes by
+  assigning to self). The lead detail header also shows the assignee
+  (managers get a reassign Select; reps see it read-only). Column order puts
+  **Value right after Contact** so deal size is in the viewport.
+  **Smart order** (default sort, `sort.key === "smart"` in CommandCenter):
+  tier 1 = created or touched in the last **48h**, newest first; tier 2 = due
+  today → this week → later → overdue → no date. Inside overdue the **most
+  recently slipped comes first** (stale months-old overdue sinks). A lead that
+  "disappeared" is usually just sorted down — not deleted.
   Import: **"Import"** button (`ImportLeadsDialog` + `importMyLeads`) — CSV/Excel,
   company name is the ONLY required field; stamps `user_id + assigned_to = importer`.
   **Export is admin-only.**
@@ -152,8 +208,8 @@ UI via `groupKeyFor`). A lead links to its company by `company_id` or
   If you add a new lead-insert path, set `assigned_to` too. Reassign an
   account's leads with `UPDATE leads SET assigned_to = <new> WHERE assigned_to
   = <old>`. NOTE: most owner FKs are `ON DELETE CASCADE` — deleting an
-  auth user deletes their owned rows; **deactivate** (org_members.status /
-  Active toggle) instead of deleting unless you first move `user_id` ownership.
+  auth user deletes their owned rows; **deactivate** (User management Active
+  toggle) instead of deleting unless you first move `user_id` ownership.
 - **WhatsApp** — `app.whatsapp.index.tsx`, `whatsapp.functions.ts`,
   `whatsapp-inbound` edge fn, table `whatsapp_messages`. Twilio. Two-pane chat.
   Inbound webhook matches sender to a lead by last ~9 digits, stores + logs to
@@ -251,6 +307,16 @@ Referenced by code: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
   `NOTIFY pgrst, 'reload schema';`.
 - Auth is **email/password only** — Google OAuth and self-signup were removed
   (`/signup` route deleted; onboarding is admin-invite only).
+- **Leads grid prefs live in localStorage** (`leadscc:filters`, `:views`,
+  `:tab`, `:hidden`, `:widths`, `:density`). A saved filter re-applies silently
+  on reload — when a user says "lead missing", check the header for "N of M"
+  and the **Clear** button, then the smart-order rules above, before touching
+  data.
+- **Changing an RLS visibility rule = backfill first.** When dropping the
+  `user_id` clause from lead access we ran `assigned_to = user_id` on NULL rows
+  in the same migration; otherwise reps silently lose leads.
+- **Deactivation lives on `profiles.status` + auth ban, not
+  `org_members.status`.** Any "active members" query must check profiles too.
 
 ## 12. Outstanding / next
 
@@ -263,4 +329,10 @@ Referenced by code: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
   endpoint for Grok to enrich cards back.
 - Confirm all pending migrations are applied in the live DB (several were added
   across sessions; the newest are `…_icp_owner`, `…_agent_modules`,
-  `…_whatsapp_messages`).
+  `…_whatsapp_messages`, `…_prospect_pitch`, `…_notifications`,
+  `…_shared_lead_reminders`, `…_lead_messages`, `…_assignment_is_visibility` —
+  the last four were applied by Walid on 2026-09-17/18).
+- **Closed-app notifications**: toasts/bell work only while the app is open.
+  Real OS/phone push needs Web Push + a service worker (PWA) + a scheduled
+  server trigger for reminder times. Deferred (option B, several days).
+- Notifications have no cleanup/retention job yet; fine at current volume.
