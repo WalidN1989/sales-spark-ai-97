@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { productKey } from "@/lib/pricebook-import";
 
 const productSchema = z.object({
   brand: z.string().max(200).optional().nullable(),
@@ -128,4 +129,109 @@ export const matchProductsByText = createServerFn({ method: "POST" })
     const matchedSet = new Set(matched.map((p) => (p.part_number ?? "").toUpperCase()));
     const detected = candidates.filter((c) => matchedSet.has(c));
     return { detected, products: matched };
+  });
+
+// Bulk import from an uploaded price book. De-duplicates against the caller's
+// existing products by (part_number + name); inserts new rows, updates only rows
+// whose mapped fields actually changed, and skips identical rows — so re-uploading
+// the same file is a no-op. RLS keeps everything scoped to the caller.
+const importRowSchema = z.object({
+  part_number: z.string().max(120).nullable().optional(),
+  name: z.string().min(1).max(300),
+  brand: z.string().max(200).nullable().optional(),
+  category: z.string().max(120).nullable().optional(),
+  cost_price_cents: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
+  selling_price_cents: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
+  currency: z.string().min(1).max(8).default("AED"),
+  stock_status: z.string().max(80).nullable().optional(),
+  notes: z.string().max(4000).nullable().optional(),
+});
+
+const COMPARE_FIELDS = [
+  "part_number",
+  "name",
+  "brand",
+  "category",
+  "cost_price_cents",
+  "selling_price_cents",
+  "currency",
+  "stock_status",
+  "notes",
+] as const;
+
+function norm(v: unknown): string {
+  return v == null ? "" : String(v);
+}
+
+export const importProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ rows: z.array(importRowSchema).min(1).max(5000) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: existing, error: exErr } = await context.supabase
+      .from("products")
+      .select(
+        "id, part_number, name, brand, category, cost_price_cents, selling_price_cents, currency, stock_status, notes",
+      );
+    if (exErr) throw new Error(exErr.message);
+
+    const byKey = new Map<string, (typeof existing)[number]>();
+    for (const p of existing ?? []) byKey.set(productKey(p), p);
+
+    // Collapse duplicate rows WITHIN the upload (the same part#+name can appear on
+    // more than one sheet) so we never insert a duplicate — last occurrence wins.
+    const uniqueRows = Array.from(
+      data.rows
+        .reduce((m, r) => m.set(productKey(r), r), new Map<string, (typeof data.rows)[number]>())
+        .values(),
+    );
+
+    const toInsert: Record<string, unknown>[] = [];
+    const toUpdate: { id: string; patch: Record<string, unknown> }[] = [];
+    let skipped = 0;
+
+    for (const row of uniqueRows) {
+      const key = productKey(row);
+      const current = byKey.get(key);
+      const mapped: Record<string, unknown> = {
+        part_number: row.part_number ?? null,
+        name: row.name,
+        brand: row.brand ?? null,
+        category: row.category ?? null,
+        cost_price_cents: row.cost_price_cents ?? null,
+        selling_price_cents: row.selling_price_cents ?? null,
+        currency: row.currency ?? "AED",
+        stock_status: row.stock_status ?? null,
+        notes: row.notes ?? null,
+      };
+      if (!current) {
+        toInsert.push({ ...mapped, user_id: context.userId });
+        continue;
+      }
+      const patch: Record<string, unknown> = {};
+      for (const f of COMPARE_FIELDS) {
+        if (norm(mapped[f]) !== norm((current as Record<string, unknown>)[f])) {
+          patch[f] = mapped[f];
+        }
+      }
+      if (Object.keys(patch).length > 0) toUpdate.push({ id: current.id, patch });
+      else skipped++;
+    }
+
+    // Rows are built dynamically, so use the loosely-typed client for writes.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = context.supabase as any;
+    // Insert in chunks to stay well within request limits.
+    for (let i = 0; i < toInsert.length; i += 200) {
+      const chunk = toInsert.slice(i, i + 200);
+      const { error } = await sb.from("products").insert(chunk);
+      if (error) throw new Error(error.message);
+    }
+    for (const u of toUpdate) {
+      const { error } = await sb.from("products").update(u.patch).eq("id", u.id);
+      if (error) throw new Error(error.message);
+    }
+
+    return { created: toInsert.length, updated: toUpdate.length, skipped };
   });

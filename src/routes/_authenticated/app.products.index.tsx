@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
-import { listProducts, deleteProduct } from "@/lib/products.functions";
+import { useRef, useState } from "react";
+import { Plus, Search, Pencil, Trash2, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
+import { listProducts, deleteProduct, importProducts } from "@/lib/products.functions";
+import { normalizeWorkbook } from "@/lib/pricebook-import";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -22,6 +24,43 @@ function ProductsPage() {
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["products"], queryFn: () => fn() });
   const [q, setQ] = useState("");
+
+  const importFn = useServerFn(importProducts);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  async function onPriceBookFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-uploading the same file
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheets = wb.SheetNames.map((name) => ({
+        name,
+        rows: XLSX.utils.sheet_to_json(wb.Sheets[name], {
+          header: 1,
+          raw: false,
+          defval: "",
+        }) as string[][],
+      }));
+      const { products } = normalizeWorkbook(sheets);
+      if (products.length === 0) {
+        toast.error("No products found in that file. Check the sheet columns.");
+        return;
+      }
+      const res = await importFn({ data: { rows: products } });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      toast.success(
+        `Price book synced — ${res.created} new, ${res.updated} updated, ${res.skipped} unchanged.`,
+      );
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const remove = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
@@ -52,9 +91,22 @@ function ProductsPage() {
             Pricing and product context for the Respond tab.
           </p>
         </div>
-        <Button onClick={() => navigate({ to: "/app/products/new" })}>
-          <Plus className="mr-1 h-4 w-4" /> Add product
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            hidden
+            onChange={onPriceBookFile}
+          />
+          <Button variant="outline" disabled={importing} onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-1 h-4 w-4" />
+            {importing ? "Importing…" : "Upload price book"}
+          </Button>
+          <Button onClick={() => navigate({ to: "/app/products/new" })}>
+            <Plus className="mr-1 h-4 w-4" /> Add product
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-md">
