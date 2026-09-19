@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEFAULT_DDP, computeQuoteTotals, type DdpConfig } from "@/lib/quote-math";
+
+export type { DdpConfig } from "@/lib/quote-math";
+export { computeQuoteTotals } from "@/lib/quote-math";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,14 +19,6 @@ export type QuotationItem = {
   description: string | null;
   qty: number;
   unit_price_cents: number; // BASE price in AED (pre-DDP, pre-conversion)
-};
-
-export type DdpConfig = {
-  enabled: boolean;
-  boq_fixed: number; // AED, flat per shipment
-  per_kg: number; // AED per kg
-  per_unit: number; // AED per unit
-  weight: number; // total shipment weight, kg
 };
 
 export type Quotation = {
@@ -53,59 +49,6 @@ const QUOTE_SELECT =
   "id, quote_number, lead_id, company_name, contact_name, currency, exchange_rate, vat_rate, ddp, items_total_cents, vat_cents, grand_total_cents, category, status, notes, assigned_to, created_by, created_at, updated_at";
 const ITEM_SELECT =
   "id, quotation_id, position, product_id, part_number, description, qty, unit_price_cents";
-
-// ---------------------------------------------------------------------------
-// Money / DDP math — the single source of truth, ported from the quote tool.
-// Base line prices are stored in AED cents; DDP is spread per-unit and baked in,
-// then the whole thing is converted to the quote currency. Totals are frozen in
-// cents in the quote's currency.
-// ---------------------------------------------------------------------------
-
-const DEFAULT_DDP: DdpConfig = {
-  enabled: false,
-  boq_fixed: 0,
-  per_kg: 0,
-  per_unit: 0,
-  weight: 0,
-};
-
-function ddpPerUnitAedCents(
-  items: { qty: number }[],
-  ddp: DdpConfig,
-): number {
-  if (!ddp.enabled) return 0;
-  const totalUnits = items.reduce((s, i) => s + (Number(i.qty) || 0), 0);
-  if (totalUnits <= 0) return 0;
-  const totalAed =
-    (Number(ddp.boq_fixed) || 0) +
-    (Number(ddp.per_kg) || 0) * (Number(ddp.weight) || 0) +
-    (Number(ddp.per_unit) || 0) * totalUnits;
-  return Math.round((totalAed / totalUnits) * 100); // AED cents per unit
-}
-
-export function computeQuoteTotals(
-  items: { qty: number; unit_price_cents: number }[],
-  currency: string,
-  exchangeRate: number,
-  vatRate: number,
-  ddp: DdpConfig,
-): { items_total_cents: number; vat_cents: number; grand_total_cents: number } {
-  const rate = Number(exchangeRate) || 1;
-  const ddpUnit = ddpPerUnitAedCents(items, ddp);
-  let itemsTotal = 0;
-  for (const it of items) {
-    const qty = Number(it.qty) || 0;
-    const baseAedCents = Number(it.unit_price_cents) || 0;
-    const finalUnitCurCents = Math.round((baseAedCents + ddpUnit) * rate);
-    itemsTotal += finalUnitCurCents * qty;
-  }
-  const vat = Math.round(itemsTotal * ((Number(vatRate) || 0) / 100));
-  return {
-    items_total_cents: itemsTotal,
-    vat_cents: vat,
-    grand_total_cents: itemsTotal + vat,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Validation

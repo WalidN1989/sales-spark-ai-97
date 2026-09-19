@@ -25,6 +25,7 @@ import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppForecastRouteImport } from './routes/_authenticated/app.forecast'
 import { Route as AuthenticatedAppWhatsappIndexRouteImport } from './routes/_authenticated/app.whatsapp.index'
 import { Route as AuthenticatedAppVisualMatchIndexRouteImport } from './routes/_authenticated/app.visual-match.index'
+import { Route as AuthenticatedAppQuotationsIndexRouteImport } from './routes/_authenticated/app.quotations.index'
 import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_authenticated/app.prospects.index'
 import { Route as AuthenticatedAppProductsIndexRouteImport } from './routes/_authenticated/app.products.index'
 import { Route as AuthenticatedAppPaymentsIndexRouteImport } from './routes/_authenticated/app.payments.index'
@@ -137,6 +138,12 @@ const AuthenticatedAppVisualMatchIndexRoute =
   AuthenticatedAppVisualMatchIndexRouteImport.update({
     id: '/visual-match/',
     path: '/visual-match/',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppQuotationsIndexRoute =
+  AuthenticatedAppQuotationsIndexRouteImport.update({
+    id: '/quotations/',
+    path: '/quotations/',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppProspectsIndexRoute =
@@ -337,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
+  '/app/quotations/': typeof AuthenticatedAppQuotationsIndexRoute
   '/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
   '/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -380,6 +388,7 @@ export interface FileRoutesByTo {
   '/app/payments': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
+  '/app/quotations': typeof AuthenticatedAppQuotationsIndexRoute
   '/app/visual-match': typeof AuthenticatedAppVisualMatchIndexRoute
   '/app/whatsapp': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -426,6 +435,7 @@ export interface FileRoutesById {
   '/_authenticated/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
+  '/_authenticated/app/quotations/': typeof AuthenticatedAppQuotationsIndexRoute
   '/_authenticated/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
   '/_authenticated/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/_authenticated/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/app/payments/'
     | '/app/products/'
     | '/app/prospects/'
+    | '/app/quotations/'
     | '/app/visual-match/'
     | '/app/whatsapp/'
     | '/app/leads/group/$companyId'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/app/payments'
     | '/app/products'
     | '/app/prospects'
+    | '/app/quotations'
     | '/app/visual-match'
     | '/app/whatsapp'
     | '/app/leads/group/$companyId'
@@ -560,6 +572,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/payments/'
     | '/_authenticated/app/products/'
     | '/_authenticated/app/prospects/'
+    | '/_authenticated/app/quotations/'
     | '/_authenticated/app/visual-match/'
     | '/_authenticated/app/whatsapp/'
     | '/_authenticated/app/leads/group/$companyId'
@@ -685,6 +698,13 @@ declare module '@tanstack/react-router' {
       path: '/visual-match'
       fullPath: '/app/visual-match/'
       preLoaderRoute: typeof AuthenticatedAppVisualMatchIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/quotations/': {
+      id: '/_authenticated/app/quotations/'
+      path: '/quotations'
+      fullPath: '/app/quotations/'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/prospects/': {
@@ -976,6 +996,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppPaymentsIndexRoute: typeof AuthenticatedAppPaymentsIndexRoute
   AuthenticatedAppProductsIndexRoute: typeof AuthenticatedAppProductsIndexRoute
   AuthenticatedAppProspectsIndexRoute: typeof AuthenticatedAppProspectsIndexRoute
+  AuthenticatedAppQuotationsIndexRoute: typeof AuthenticatedAppQuotationsIndexRoute
   AuthenticatedAppVisualMatchIndexRoute: typeof AuthenticatedAppVisualMatchIndexRoute
   AuthenticatedAppWhatsappIndexRoute: typeof AuthenticatedAppWhatsappIndexRoute
 }
@@ -1012,6 +1033,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppPaymentsIndexRoute: AuthenticatedAppPaymentsIndexRoute,
   AuthenticatedAppProductsIndexRoute: AuthenticatedAppProductsIndexRoute,
   AuthenticatedAppProspectsIndexRoute: AuthenticatedAppProspectsIndexRoute,
+  AuthenticatedAppQuotationsIndexRoute: AuthenticatedAppQuotationsIndexRoute,
   AuthenticatedAppVisualMatchIndexRoute: AuthenticatedAppVisualMatchIndexRoute,
   AuthenticatedAppWhatsappIndexRoute: AuthenticatedAppWhatsappIndexRoute,
 }

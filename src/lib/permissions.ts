@@ -57,6 +57,7 @@ export const APP_MODULES: AppModule[] = [
   { key: "competitors", label: "Competitor Analysis", path: "/app/competitors", defaultRep: false },
   { key: "icp", label: "Product ICP", path: "/app/icp", defaultRep: false },
   { key: "products", label: "Products", path: "/app/products", defaultRep: true },
+  { key: "quotations", label: "Quotations", path: "/app/quotations", defaultRep: false },
   { key: "learning", label: "Learning", path: "/app/learning", defaultRep: true },
   { key: "payments", label: "Payment Follow-up", path: "/app/payments", defaultRep: false },
   // Sales is company-wide revenue analytics; Meetings is a nearby-company
