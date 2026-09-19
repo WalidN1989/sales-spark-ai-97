@@ -36,6 +36,8 @@ import { Route as AuthenticatedAppVisualMatchSearchIdRouteImport } from './route
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
 import { Route as AuthenticatedAppSettingsMyCompanyRouteImport } from './routes/_authenticated/app.settings.my-company'
 import { Route as AuthenticatedAppSettingsImportRouteImport } from './routes/_authenticated/app.settings.import'
+import { Route as AuthenticatedAppQuotationsNewRouteImport } from './routes/_authenticated/app.quotations.new'
+import { Route as AuthenticatedAppQuotationsIdRouteImport } from './routes/_authenticated/app.quotations.$id'
 import { Route as AuthenticatedAppProspectsNewRouteImport } from './routes/_authenticated/app.prospects.new'
 import { Route as AuthenticatedAppProspectsIdRouteImport } from './routes/_authenticated/app.prospects.$id'
 import { Route as AuthenticatedAppProductsNewRouteImport } from './routes/_authenticated/app.products.new'
@@ -206,6 +208,18 @@ const AuthenticatedAppSettingsImportRoute =
     path: '/import',
     getParentRoute: () => AuthenticatedAppSettingsRoute,
   } as any)
+const AuthenticatedAppQuotationsNewRoute =
+  AuthenticatedAppQuotationsNewRouteImport.update({
+    id: '/quotations/new',
+    path: '/quotations/new',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppQuotationsIdRoute =
+  AuthenticatedAppQuotationsIdRouteImport.update({
+    id: '/quotations/$id',
+    path: '/quotations/$id',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppProspectsNewRoute =
   AuthenticatedAppProspectsNewRouteImport.update({
     id: '/prospects/new',
@@ -334,6 +348,8 @@ export interface FileRoutesByFullPath {
   '/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -378,6 +394,8 @@ export interface FileRoutesByTo {
   '/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -425,6 +443,8 @@ export interface FileRoutesById {
   '/_authenticated/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/_authenticated/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/_authenticated/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/_authenticated/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/_authenticated/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/_authenticated/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/_authenticated/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -472,6 +492,8 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/prospects/$id'
     | '/app/prospects/new'
+    | '/app/quotations/$id'
+    | '/app/quotations/new'
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
@@ -516,6 +538,8 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/prospects/$id'
     | '/app/prospects/new'
+    | '/app/quotations/$id'
+    | '/app/quotations/new'
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
@@ -562,6 +586,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/products/new'
     | '/_authenticated/app/prospects/$id'
     | '/_authenticated/app/prospects/new'
+    | '/_authenticated/app/quotations/$id'
+    | '/_authenticated/app/quotations/new'
     | '/_authenticated/app/settings/import'
     | '/_authenticated/app/settings/my-company'
     | '/_authenticated/app/settings/users'
@@ -777,6 +803,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSettingsImportRouteImport
       parentRoute: typeof AuthenticatedAppSettingsRoute
     }
+    '/_authenticated/app/quotations/new': {
+      id: '/_authenticated/app/quotations/new'
+      path: '/quotations/new'
+      fullPath: '/app/quotations/new'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsNewRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/quotations/$id': {
+      id: '/_authenticated/app/quotations/$id'
+      path: '/quotations/$id'
+      fullPath: '/app/quotations/$id'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsIdRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/prospects/new': {
       id: '/_authenticated/app/prospects/new'
       path: '/prospects/new'
@@ -989,6 +1029,8 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppProductsNewRoute: typeof AuthenticatedAppProductsNewRoute
   AuthenticatedAppProspectsIdRoute: typeof AuthenticatedAppProspectsIdRouteWithChildren
   AuthenticatedAppProspectsNewRoute: typeof AuthenticatedAppProspectsNewRoute
+  AuthenticatedAppQuotationsIdRoute: typeof AuthenticatedAppQuotationsIdRoute
+  AuthenticatedAppQuotationsNewRoute: typeof AuthenticatedAppQuotationsNewRoute
   AuthenticatedAppVisualMatchSearchIdRoute: typeof AuthenticatedAppVisualMatchSearchIdRoute
   AuthenticatedAppCompetitorsIndexRoute: typeof AuthenticatedAppCompetitorsIndexRoute
   AuthenticatedAppIcpIndexRoute: typeof AuthenticatedAppIcpIndexRoute
@@ -1025,6 +1067,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppProspectsIdRoute:
     AuthenticatedAppProspectsIdRouteWithChildren,
   AuthenticatedAppProspectsNewRoute: AuthenticatedAppProspectsNewRoute,
+  AuthenticatedAppQuotationsIdRoute: AuthenticatedAppQuotationsIdRoute,
+  AuthenticatedAppQuotationsNewRoute: AuthenticatedAppQuotationsNewRoute,
   AuthenticatedAppVisualMatchSearchIdRoute:
     AuthenticatedAppVisualMatchSearchIdRoute,
   AuthenticatedAppCompetitorsIndexRoute: AuthenticatedAppCompetitorsIndexRoute,

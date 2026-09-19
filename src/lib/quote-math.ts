@@ -66,6 +66,22 @@ export function computeQuoteTotals(
   };
 }
 
+// Per-line customer figures: base AED + DDP-per-unit, converted to the quote
+// currency. Used by the editor preview and the copied table so they always match.
+export function computeCustomerLines(
+  items: { qty: number; unit_price_cents: number }[],
+  exchangeRate: number,
+  ddp: DdpConfig,
+): { unit_final_cents: number; line_total_cents: number }[] {
+  const rate = Number(exchangeRate) || 1;
+  const ddpUnit = ddpPerUnitAedCents(items, ddp);
+  return items.map((it) => {
+    const qty = Number(it.qty) || 0;
+    const unit = Math.round(((Number(it.unit_price_cents) || 0) + ddpUnit) * rate);
+    return { unit_final_cents: unit, line_total_cents: unit * qty };
+  });
+}
+
 // cents -> "1,234.00"
 export function fmtMoney(cents: number | null | undefined): string {
   if (cents == null || Number.isNaN(cents)) return "0.00";

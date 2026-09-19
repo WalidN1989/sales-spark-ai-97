@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -21,6 +21,7 @@ function QuotationsPage() {
   const list = useServerFn(listQuotations);
   const del = useServerFn(deleteQuotation);
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ["quotations"], queryFn: () => list() });
   const [filter, setFilter] = useState("All");
 
@@ -48,7 +49,7 @@ function QuotationsPage() {
             Client-ready quotes built from your products — VAT, currency and DDP handled.
           </p>
         </div>
-        <Button onClick={() => toast.info("The quote editor lands in the next step.")}>
+        <Button onClick={() => navigate({ to: "/app/quotations/new" })}>
           <Plus className="mr-1 h-4 w-4" /> New quotation
         </Button>
       </div>
@@ -107,7 +108,7 @@ function QuotationsPage() {
                       variant="ghost"
                       size="icon"
                       title="Open"
-                      onClick={() => toast.info("The quote editor lands in the next step.")}
+                      onClick={() => navigate({ to: "/app/quotations/$id", params: { id: q.id } })}
                     >
                       <FolderOpen className="h-4 w-4" />
                     </Button>
