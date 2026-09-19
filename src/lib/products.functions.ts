@@ -28,6 +28,26 @@ export const listProducts = createServerFn({ method: "GET" })
     return data;
   });
 
+// Name / part-number typeahead for the quotation builder. RLS scopes results to
+// the caller's own products (or all, for an admin).
+export const searchProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ q: z.string().trim().max(200), limit: z.number().int().min(1).max(50).default(20) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    const q = data.q.trim();
+    if (q.length < 2) return [];
+    const like = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+    const { data: rows, error } = await context.supabase
+      .from("products")
+      .select("*")
+      .or(`name.ilike.${like},part_number.ilike.${like},brand.ilike.${like}`)
+      .limit(data.limit);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 export const getProduct = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
