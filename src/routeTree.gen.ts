@@ -25,6 +25,7 @@ import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppForecastRouteImport } from './routes/_authenticated/app.forecast'
 import { Route as AuthenticatedAppWhatsappIndexRouteImport } from './routes/_authenticated/app.whatsapp.index'
 import { Route as AuthenticatedAppVisualMatchIndexRouteImport } from './routes/_authenticated/app.visual-match.index'
+import { Route as AuthenticatedAppQuotationsIndexRouteImport } from './routes/_authenticated/app.quotations.index'
 import { Route as AuthenticatedAppProspectsIndexRouteImport } from './routes/_authenticated/app.prospects.index'
 import { Route as AuthenticatedAppProductsIndexRouteImport } from './routes/_authenticated/app.products.index'
 import { Route as AuthenticatedAppPaymentsIndexRouteImport } from './routes/_authenticated/app.payments.index'
@@ -35,6 +36,8 @@ import { Route as AuthenticatedAppVisualMatchSearchIdRouteImport } from './route
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
 import { Route as AuthenticatedAppSettingsMyCompanyRouteImport } from './routes/_authenticated/app.settings.my-company'
 import { Route as AuthenticatedAppSettingsImportRouteImport } from './routes/_authenticated/app.settings.import'
+import { Route as AuthenticatedAppQuotationsNewRouteImport } from './routes/_authenticated/app.quotations.new'
+import { Route as AuthenticatedAppQuotationsIdRouteImport } from './routes/_authenticated/app.quotations.$id'
 import { Route as AuthenticatedAppProspectsNewRouteImport } from './routes/_authenticated/app.prospects.new'
 import { Route as AuthenticatedAppProspectsIdRouteImport } from './routes/_authenticated/app.prospects.$id'
 import { Route as AuthenticatedAppProductsNewRouteImport } from './routes/_authenticated/app.products.new'
@@ -139,6 +142,12 @@ const AuthenticatedAppVisualMatchIndexRoute =
     path: '/visual-match/',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppQuotationsIndexRoute =
+  AuthenticatedAppQuotationsIndexRouteImport.update({
+    id: '/quotations/',
+    path: '/quotations/',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppProspectsIndexRoute =
   AuthenticatedAppProspectsIndexRouteImport.update({
     id: '/prospects/',
@@ -198,6 +207,18 @@ const AuthenticatedAppSettingsImportRoute =
     id: '/import',
     path: '/import',
     getParentRoute: () => AuthenticatedAppSettingsRoute,
+  } as any)
+const AuthenticatedAppQuotationsNewRoute =
+  AuthenticatedAppQuotationsNewRouteImport.update({
+    id: '/quotations/new',
+    path: '/quotations/new',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppQuotationsIdRoute =
+  AuthenticatedAppQuotationsIdRouteImport.update({
+    id: '/quotations/$id',
+    path: '/quotations/$id',
+    getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppProspectsNewRoute =
   AuthenticatedAppProspectsNewRouteImport.update({
@@ -327,6 +348,8 @@ export interface FileRoutesByFullPath {
   '/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -337,6 +360,7 @@ export interface FileRoutesByFullPath {
   '/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
+  '/app/quotations/': typeof AuthenticatedAppQuotationsIndexRoute
   '/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
   '/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -370,6 +394,8 @@ export interface FileRoutesByTo {
   '/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -380,6 +406,7 @@ export interface FileRoutesByTo {
   '/app/payments': typeof AuthenticatedAppPaymentsIndexRoute
   '/app/products': typeof AuthenticatedAppProductsIndexRoute
   '/app/prospects': typeof AuthenticatedAppProspectsIndexRoute
+  '/app/quotations': typeof AuthenticatedAppQuotationsIndexRoute
   '/app/visual-match': typeof AuthenticatedAppVisualMatchIndexRoute
   '/app/whatsapp': typeof AuthenticatedAppWhatsappIndexRoute
   '/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -416,6 +443,8 @@ export interface FileRoutesById {
   '/_authenticated/app/products/new': typeof AuthenticatedAppProductsNewRoute
   '/_authenticated/app/prospects/$id': typeof AuthenticatedAppProspectsIdRouteWithChildren
   '/_authenticated/app/prospects/new': typeof AuthenticatedAppProspectsNewRoute
+  '/_authenticated/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
+  '/_authenticated/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/_authenticated/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
   '/_authenticated/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
@@ -426,6 +455,7 @@ export interface FileRoutesById {
   '/_authenticated/app/payments/': typeof AuthenticatedAppPaymentsIndexRoute
   '/_authenticated/app/products/': typeof AuthenticatedAppProductsIndexRoute
   '/_authenticated/app/prospects/': typeof AuthenticatedAppProspectsIndexRoute
+  '/_authenticated/app/quotations/': typeof AuthenticatedAppQuotationsIndexRoute
   '/_authenticated/app/visual-match/': typeof AuthenticatedAppVisualMatchIndexRoute
   '/_authenticated/app/whatsapp/': typeof AuthenticatedAppWhatsappIndexRoute
   '/_authenticated/app/leads/group/$companyId': typeof AuthenticatedAppLeadsGroupCompanyIdRoute
@@ -462,6 +492,8 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/prospects/$id'
     | '/app/prospects/new'
+    | '/app/quotations/$id'
+    | '/app/quotations/new'
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
@@ -472,6 +504,7 @@ export interface FileRouteTypes {
     | '/app/payments/'
     | '/app/products/'
     | '/app/prospects/'
+    | '/app/quotations/'
     | '/app/visual-match/'
     | '/app/whatsapp/'
     | '/app/leads/group/$companyId'
@@ -505,6 +538,8 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/prospects/$id'
     | '/app/prospects/new'
+    | '/app/quotations/$id'
+    | '/app/quotations/new'
     | '/app/settings/import'
     | '/app/settings/my-company'
     | '/app/settings/users'
@@ -515,6 +550,7 @@ export interface FileRouteTypes {
     | '/app/payments'
     | '/app/products'
     | '/app/prospects'
+    | '/app/quotations'
     | '/app/visual-match'
     | '/app/whatsapp'
     | '/app/leads/group/$companyId'
@@ -550,6 +586,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/products/new'
     | '/_authenticated/app/prospects/$id'
     | '/_authenticated/app/prospects/new'
+    | '/_authenticated/app/quotations/$id'
+    | '/_authenticated/app/quotations/new'
     | '/_authenticated/app/settings/import'
     | '/_authenticated/app/settings/my-company'
     | '/_authenticated/app/settings/users'
@@ -560,6 +598,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/payments/'
     | '/_authenticated/app/products/'
     | '/_authenticated/app/prospects/'
+    | '/_authenticated/app/quotations/'
     | '/_authenticated/app/visual-match/'
     | '/_authenticated/app/whatsapp/'
     | '/_authenticated/app/leads/group/$companyId'
@@ -687,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppVisualMatchIndexRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/quotations/': {
+      id: '/_authenticated/app/quotations/'
+      path: '/quotations'
+      fullPath: '/app/quotations/'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/prospects/': {
       id: '/_authenticated/app/prospects/'
       path: '/prospects'
@@ -756,6 +802,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/settings/import'
       preLoaderRoute: typeof AuthenticatedAppSettingsImportRouteImport
       parentRoute: typeof AuthenticatedAppSettingsRoute
+    }
+    '/_authenticated/app/quotations/new': {
+      id: '/_authenticated/app/quotations/new'
+      path: '/quotations/new'
+      fullPath: '/app/quotations/new'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsNewRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/quotations/$id': {
+      id: '/_authenticated/app/quotations/$id'
+      path: '/quotations/$id'
+      fullPath: '/app/quotations/$id'
+      preLoaderRoute: typeof AuthenticatedAppQuotationsIdRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/prospects/new': {
       id: '/_authenticated/app/prospects/new'
@@ -969,6 +1029,8 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppProductsNewRoute: typeof AuthenticatedAppProductsNewRoute
   AuthenticatedAppProspectsIdRoute: typeof AuthenticatedAppProspectsIdRouteWithChildren
   AuthenticatedAppProspectsNewRoute: typeof AuthenticatedAppProspectsNewRoute
+  AuthenticatedAppQuotationsIdRoute: typeof AuthenticatedAppQuotationsIdRoute
+  AuthenticatedAppQuotationsNewRoute: typeof AuthenticatedAppQuotationsNewRoute
   AuthenticatedAppVisualMatchSearchIdRoute: typeof AuthenticatedAppVisualMatchSearchIdRoute
   AuthenticatedAppCompetitorsIndexRoute: typeof AuthenticatedAppCompetitorsIndexRoute
   AuthenticatedAppIcpIndexRoute: typeof AuthenticatedAppIcpIndexRoute
@@ -976,6 +1038,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppPaymentsIndexRoute: typeof AuthenticatedAppPaymentsIndexRoute
   AuthenticatedAppProductsIndexRoute: typeof AuthenticatedAppProductsIndexRoute
   AuthenticatedAppProspectsIndexRoute: typeof AuthenticatedAppProspectsIndexRoute
+  AuthenticatedAppQuotationsIndexRoute: typeof AuthenticatedAppQuotationsIndexRoute
   AuthenticatedAppVisualMatchIndexRoute: typeof AuthenticatedAppVisualMatchIndexRoute
   AuthenticatedAppWhatsappIndexRoute: typeof AuthenticatedAppWhatsappIndexRoute
 }
@@ -1004,6 +1067,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppProspectsIdRoute:
     AuthenticatedAppProspectsIdRouteWithChildren,
   AuthenticatedAppProspectsNewRoute: AuthenticatedAppProspectsNewRoute,
+  AuthenticatedAppQuotationsIdRoute: AuthenticatedAppQuotationsIdRoute,
+  AuthenticatedAppQuotationsNewRoute: AuthenticatedAppQuotationsNewRoute,
   AuthenticatedAppVisualMatchSearchIdRoute:
     AuthenticatedAppVisualMatchSearchIdRoute,
   AuthenticatedAppCompetitorsIndexRoute: AuthenticatedAppCompetitorsIndexRoute,
@@ -1012,6 +1077,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppPaymentsIndexRoute: AuthenticatedAppPaymentsIndexRoute,
   AuthenticatedAppProductsIndexRoute: AuthenticatedAppProductsIndexRoute,
   AuthenticatedAppProspectsIndexRoute: AuthenticatedAppProspectsIndexRoute,
+  AuthenticatedAppQuotationsIndexRoute: AuthenticatedAppQuotationsIndexRoute,
   AuthenticatedAppVisualMatchIndexRoute: AuthenticatedAppVisualMatchIndexRoute,
   AuthenticatedAppWhatsappIndexRoute: AuthenticatedAppWhatsappIndexRoute,
 }
