@@ -135,16 +135,18 @@ export const matchProductsByText = createServerFn({ method: "POST" })
 // existing products by (part_number + name); inserts new rows, updates only rows
 // whose mapped fields actually changed, and skips identical rows — so re-uploading
 // the same file is a no-op. RLS keeps everything scoped to the caller.
+// Price-book names/descriptions can be long (full printer specs), so the import
+// limits are generous — the products.name/notes columns are unbounded text.
 const importRowSchema = z.object({
-  part_number: z.string().max(120).nullable().optional(),
-  name: z.string().min(1).max(300),
+  part_number: z.string().max(200).nullable().optional(),
+  name: z.string().min(1).max(2000),
   brand: z.string().max(200).nullable().optional(),
-  category: z.string().max(120).nullable().optional(),
+  category: z.string().max(200).nullable().optional(),
   cost_price_cents: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
   selling_price_cents: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
   currency: z.string().min(1).max(8).default("AED"),
-  stock_status: z.string().max(80).nullable().optional(),
-  notes: z.string().max(4000).nullable().optional(),
+  stock_status: z.string().max(200).nullable().optional(),
+  notes: z.string().max(8000).nullable().optional(),
 });
 
 const COMPARE_FIELDS = [
