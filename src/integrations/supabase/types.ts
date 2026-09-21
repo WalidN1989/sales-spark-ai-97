@@ -913,6 +913,38 @@ export type Database = {
           },
         ]
       }
+      lead_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          lead_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_purchases: {
         Row: {
           brand: string | null
@@ -1369,6 +1401,50 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          actor_id: string | null
+          body: string | null
+          created_at: string
+          id: string
+          lead_id: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_members: {
         Row: {
           created_at: string
@@ -1707,6 +1783,141 @@ export type Database = {
             columns: ["source_lead_purchase_id"]
             isOneToOne: false
             referencedRelation: "lead_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          part_number: string | null
+          position: number
+          product_id: string | null
+          qty: number
+          quotation_id: string
+          unit_price_cents: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          part_number?: string | null
+          position?: number
+          product_id?: string | null
+          qty?: number
+          quotation_id: string
+          unit_price_cents?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          part_number?: string | null
+          position?: number
+          product_id?: string | null
+          qty?: number
+          quotation_id?: string
+          unit_price_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          assigned_to: string | null
+          category: string | null
+          company_name: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          ddp: Json
+          exchange_rate: number
+          grand_total_cents: number
+          id: string
+          items_total_cents: number
+          lead_id: string | null
+          notes: string | null
+          org_id: string | null
+          quote_number: number
+          status: string
+          updated_at: string
+          vat_cents: number
+          vat_rate: number
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          currency?: string
+          ddp?: Json
+          exchange_rate?: number
+          grand_total_cents?: number
+          id?: string
+          items_total_cents?: number
+          lead_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          quote_number?: number
+          status?: string
+          updated_at?: string
+          vat_cents?: number
+          vat_rate?: number
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          ddp?: Json
+          exchange_rate?: number
+          grand_total_cents?: number
+          id?: string
+          items_total_cents?: number
+          lead_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          quote_number?: number
+          status?: string
+          updated_at?: string
+          vat_cents?: number
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
