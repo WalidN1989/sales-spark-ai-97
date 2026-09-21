@@ -136,7 +136,8 @@ export function QuotationEditor({
     let id = t.lead_id;
     if (!id && t.company_id) {
       // A prospect with no lead yet: attach to its primary lead (created if
-      // needed — it stays a prospect, not converted into Leads).
+      // needed). Conversion into Leads happens on Save/Copy, not on pick, so
+      // picking and cancelling converts nothing.
       setLinking(true);
       try {
         id = (await resolveLead({ data: { companyId: t.company_id, convert: false } })).leadId;

@@ -402,7 +402,7 @@ function CompanyProfile() {
                   leadIds={leads.map((l) => l.id)}
                   onNew={async () => {
                     // Quotes attach to a lead; a contact-less prospect gets its
-                    // primary lead (stays a prospect — not converted to Leads).
+                    // primary lead. Saving the quote converts it into Leads.
                     const leadId =
                       anchorId || (await getOrCreateLead({ data: { companyId: id, convert: false } })).leadId;
                     navigate({ to: "/app/quotations/new", search: { lead: leadId } });

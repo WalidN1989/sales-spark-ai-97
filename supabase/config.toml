@@ -85,3 +85,6 @@ verify_jwt = false
 
 [functions.list-competitor-catalog]
 verify_jwt = false
+
+[functions.create-quotation]
+verify_jwt = false

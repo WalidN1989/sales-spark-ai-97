@@ -210,7 +210,9 @@ async function insertItems(
 //   * advances pipeline_stage to 'quotation' (forward only — never from
 //     negotiation / purchase_order / won / lost);
 //   * fills pipeline_value_cents with the ex-VAT total in AED, only if empty;
-//   * merges quoted products into products_services.
+//   * merges quoted products into products_services;
+//   * converts a prospect into Leads (is_converted = true on the company's
+//     contacts, same as Convert-to-Lead) — a quote means a live deal.
 // Best-effort: a failure here never fails the save itself.
 // ---------------------------------------------------------------------------
 const PRE_QUOTE_STAGES = new Set<string | null>([null, "", "prospect", "qualified", "meeting"]);
@@ -255,11 +257,22 @@ async function syncLeadFromQuote(
 
     const { data: lead } = await sb
       .from("leads")
-      .select("pipeline_stage, pipeline_value_cents, products_services")
+      .select("pipeline_stage, pipeline_value_cents, products_services, is_converted, company_id, prospect_id")
       .eq("id", leadId)
       .single();
     if (!lead) return true;
     const patch: Record<string, unknown> = {};
+    if (lead.is_converted === false) {
+      patch.is_converted = true;
+      const companyId = lead.company_id ?? lead.prospect_id;
+      if (companyId) {
+        await sb
+          .from("leads")
+          .update({ is_converted: true })
+          .or(`company_id.eq.${companyId},prospect_id.eq.${companyId}`)
+          .eq("is_converted", false);
+      }
+    }
     if (PRE_QUOTE_STAGES.has(lead.pipeline_stage ?? null)) patch.pipeline_stage = "quotation";
     if (!lead.pipeline_value_cents) {
       const rate = Number(q.exchangeRate) || 1; // 1 AED = rate * currency
