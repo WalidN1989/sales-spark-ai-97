@@ -369,7 +369,10 @@ export const addContactToCompany = createServerFn({ method: "POST" })
 export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ companyId: z.string().uuid() }).parse(d),
+    // convert=false creates the primary lead WITHOUT converting the prospect
+    // into Leads (used when attaching a quote to a prospect — conversion stays
+    // a deliberate, manual step). Default true keeps Convert-to-Lead working.
+    z.object({ companyId: z.string().uuid(), convert: z.boolean().optional() }).parse(d),
   )
   .handler(async ({ context, data }) => {
     const { data: leads, error } = await context.supabase
@@ -412,6 +415,8 @@ export const getOrCreatePrimaryLeadForCompany = createServerFn({ method: "POST" 
         status: "warm",
         is_primary: true,
         source: "auto",
+        // is_converted isn't in the generated types yet.
+        ...({ is_converted: data.convert ?? true } as unknown as Record<string, never>),
       })
       .select("id")
       .single();

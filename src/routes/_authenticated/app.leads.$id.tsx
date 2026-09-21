@@ -83,6 +83,7 @@ import { StatusFunnel, unifiedToCompany } from "@/components/leads/StatusFunnel"
 import { listLeadPurchases } from "@/lib/lead-purchases.functions";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
 import { LeadChat } from "@/components/leads/LeadChat";
+import { LeadQuotations } from "@/components/quotations/LeadQuotations";
 
 import { cn } from "@/lib/utils";
 import { useAccess } from "@/hooks/use-access";
@@ -517,6 +518,14 @@ function LeadDetail() {
         }
         secondary={
           <>
+            {can("quotations") && (
+              <Section title="Quotations" icon={<FileText className="h-4 w-4" />} defaultOpen>
+                <LeadQuotations
+                  leadIds={[id]}
+                  onNew={() => navigate({ to: "/app/quotations/new", search: { lead: id } })}
+                />
+              </Section>
+            )}
             <Section title="Edit lead details" icon={<Save className="h-4 w-4" />}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

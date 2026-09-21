@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Plus, Trash2, Search, Copy, Save } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2, Search, Copy, Save, Link2, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,14 @@ import { searchProducts } from "@/lib/products.functions";
 import {
   createQuotation,
   updateQuotation,
+  searchQuoteTargets,
   type QuotationWithItems,
+  type QuoteTarget,
 } from "@/lib/quotations.functions";
+import { getOrCreatePrimaryLeadForCompany } from "@/lib/leads.functions";
+
+// Pre-link a brand-new quote to a lead (from the lead / prospect page).
+export type QuotePrefill = { lead_id: string; company: string; contact: string | null };
 import {
   CURRENCIES,
   DEFAULT_RATES,
@@ -70,14 +77,79 @@ function categoryBucket(brand: string | null, category: string | null): string {
   return "Other";
 }
 
-export function QuotationEditor({ initial }: { initial?: QuotationWithItems | null }) {
+export function QuotationEditor({
+  initial,
+  prefill,
+}: {
+  initial?: QuotationWithItems | null;
+  prefill?: QuotePrefill | null;
+}) {
   const navigate = useNavigate();
   const doSearch = useServerFn(searchProducts);
   const create = useServerFn(createQuotation);
   const update = useServerFn(updateQuotation);
+  const findTargets = useServerFn(searchQuoteTargets);
+  const resolveLead = useServerFn(getOrCreatePrimaryLeadForCompany);
+  const qc = useQueryClient();
+  // After a save, refresh the CRM views the quote just touched.
+  const refreshCrm = () => {
+    qc.invalidateQueries({ queryKey: ["leads"] });
+    qc.invalidateQueries({ queryKey: ["lead-quotations"] });
+    if (leadId) qc.invalidateQueries({ queryKey: ["lead", leadId] });
+  };
 
-  const [company, setCompany] = useState(initial?.company_name ?? "");
-  const [contact, setContact] = useState(initial?.contact_name ?? "");
+  const [company, setCompany] = useState(initial?.company_name ?? prefill?.company ?? "");
+  const [contact, setContact] = useState(initial?.contact_name ?? prefill?.contact ?? "");
+
+  // CRM link: the lead this quote belongs to. Saving/copying logs an entry in
+  // that lead's Activity Journal and moves it to the Quotation stage.
+  const [leadId, setLeadId] = useState<string | null>(initial?.lead_id ?? prefill?.lead_id ?? null);
+  const [leadLabel, setLeadLabel] = useState<string | null>(
+    initial?.lead_label ??
+      (prefill ? [prefill.company, prefill.contact].filter(Boolean).join(" · ") : null),
+  );
+  const [coOpen, setCoOpen] = useState(false);
+  const [targets, setTargets] = useState<QuoteTarget[]>([]);
+  const [linking, setLinking] = useState(false);
+  const coTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (coTimer.current) clearTimeout(coTimer.current);
+    if (!coOpen || company.trim().length < 2) {
+      setTargets([]);
+      return;
+    }
+    coTimer.current = setTimeout(async () => {
+      try {
+        setTargets(await findTargets({ data: { q: company } }));
+      } catch {
+        setTargets([]);
+      }
+    }, 250);
+  }, [company, coOpen, findTargets]);
+
+  async function pickTarget(t: QuoteTarget) {
+    setCoOpen(false);
+    setTargets([]);
+    setCompany(t.company);
+    if (t.contact) setContact(t.contact);
+    let id = t.lead_id;
+    if (!id && t.company_id) {
+      // A prospect with no lead yet: attach to its primary lead (created if
+      // needed — it stays a prospect, not converted into Leads).
+      setLinking(true);
+      try {
+        id = (await resolveLead({ data: { companyId: t.company_id, convert: false } })).leadId;
+      } catch (e) {
+        toast.error((e as Error).message);
+        return;
+      } finally {
+        setLinking(false);
+      }
+    }
+    setLeadId(id);
+    setLeadLabel(t.contact ? `${t.company} · ${t.contact}` : t.company);
+  }
   const [rows, setRows] = useState<Row[]>(
     (initial?.items ?? []).map((it) => ({
       key: newKey(),
@@ -203,13 +275,15 @@ export function QuotationEditor({ initial }: { initial?: QuotationWithItems | nu
     return best;
   }
 
-  async function persist(): Promise<{ id: string; number: number } | null> {
+  async function persist(
+    event: "saved" | "copied",
+  ): Promise<{ id: string; number: number; logged: boolean } | null> {
     if (rows.length === 0) {
       toast.error("Add at least one line item first.");
       return null;
     }
     const payload = {
-      lead_id: initial?.lead_id ?? null,
+      lead_id: leadId,
       company_name: company || null,
       contact_name: contact || null,
       currency,
@@ -227,20 +301,28 @@ export function QuotationEditor({ initial }: { initial?: QuotationWithItems | nu
       })),
     };
     if (editingId) {
-      await update({ data: { id: editingId, patch: payload } });
-      return { id: editingId, number: quoteNumber ?? 0 };
+      const u = (await update({ data: { id: editingId, patch: payload, log_event: event } })) as {
+        logged?: boolean;
+      };
+      refreshCrm();
+      return { id: editingId, number: quoteNumber ?? 0, logged: !!u?.logged };
     }
-    const res = (await create({ data: payload })) as { id: string; quote_number: number };
+    const res = (await create({ data: { ...payload, log_event: event } })) as {
+      id: string;
+      quote_number: number;
+      logged?: boolean;
+    };
     setEditingId(res.id);
     setQuoteNumber(res.quote_number);
-    return { id: res.id, number: res.quote_number };
+    refreshCrm();
+    return { id: res.id, number: res.quote_number, logged: !!res.logged };
   }
 
   async function onSave() {
     setSaving(true);
     try {
-      const r = await persist();
-      if (r) toast.success(`Quotation #${r.number} saved`);
+      const r = await persist("saved");
+      if (r) toast.success(`Quotation #${r.number} saved${r.logged ? " · logged on the lead" : ""}`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -303,8 +385,10 @@ export function QuotationEditor({ initial }: { initial?: QuotationWithItems | nu
     }
     // Every copied quote is also saved, so the history is complete.
     try {
-      const r = await persist();
-      toast.success(r ? `Copied — saved as Quotation #${r.number}` : "Copied");
+      const r = await persist("copied");
+      toast.success(
+        r ? `Copied — saved as Quotation #${r.number}${r.logged ? " · logged on the lead" : ""}` : "Copied",
+      );
     } catch {
       toast.success("Copied (save failed — try Save)");
     }
@@ -331,14 +415,84 @@ export function QuotationEditor({ initial }: { initial?: QuotationWithItems | nu
 
       <Card className="space-y-3 p-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
+          <div className="relative">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Company</label>
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company name" />
+            <Input
+              value={company}
+              onChange={(e) => {
+                setCompany(e.target.value);
+                setCoOpen(true);
+              }}
+              onFocus={() => setCoOpen(true)}
+              onBlur={() => setCoOpen(false)}
+              placeholder="Company name — pick from Leads / Prospects to link"
+            />
+            {coOpen && targets.length > 0 && (
+              <div className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-md border bg-popover shadow-lg">
+                {targets.map((t) => (
+                  <button
+                    key={`${t.kind}:${t.lead_id ?? t.company_id}`}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // keep focus so blur doesn't close before click
+                      void pickTarget(t);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-accent"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{t.company}</span>
+                      {t.contact && <span className="block truncate text-xs text-muted-foreground">{t.contact}</span>}
+                    </span>
+                    <span
+                      className={
+                        t.kind === "lead" && t.converted
+                          ? "shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : "shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                      }
+                    >
+                      {t.kind === "lead" && t.converted ? "Lead" : "Prospect"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Contact</label>
             <Input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Contact person" />
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {leadId ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <Link2 className="h-3 w-3" /> Linked to {leadLabel ?? "CRM lead"}
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/app/leads/$id", params: { id: leadId } })}
+                className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <ExternalLink className="h-3 w-3" /> Open lead
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLeadId(null);
+                  setLeadLabel(null);
+                }}
+                className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-rose-600"
+              >
+                <X className="h-3 w-3" /> Unlink
+              </button>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {linking
+                ? "Linking…"
+                : "Not linked — type the company and pick it from the list so Save / Copy logs this quote on the lead."}
+            </span>
+          )}
         </div>
       </Card>
 

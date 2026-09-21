@@ -21,6 +21,7 @@ import {
   Users,
   ChevronDown,
   Flame,
+  FileText,
 } from "lucide-react";
 import { FindContactsDialog } from "@/components/prospects/FindContactsDialog";
 import { EditCompanyDialog } from "@/components/prospects/EditCompanyDialog";
@@ -33,6 +34,7 @@ import { StatusFunnel, companyToUnified, unifiedToCompany } from "@/components/l
 
 import { LookalikesPanel } from "@/components/prospects/LookalikesPanel";
 import { LeadWorkspace, type WorkspaceContact } from "@/components/leads/LeadWorkspace";
+import { LeadQuotations } from "@/components/quotations/LeadQuotations";
 import { researchCompany, generatePitchEmail } from "@/lib/research.functions";
 import { scanMarketInsight, applyIndustry } from "@/lib/market.functions";
 import { slugifyCompetitor } from "@/lib/competitor-email.functions";
@@ -394,6 +396,20 @@ function CompanyProfile() {
         }
         secondary={
           <>
+            {can("quotations") && (
+              <Section title="Quotations" icon={<FileText className="h-4 w-4" />} defaultOpen>
+                <LeadQuotations
+                  leadIds={leads.map((l) => l.id)}
+                  onNew={async () => {
+                    // Quotes attach to a lead; a contact-less prospect gets its
+                    // primary lead (stays a prospect — not converted to Leads).
+                    const leadId =
+                      anchorId || (await getOrCreateLead({ data: { companyId: id, convert: false } })).leadId;
+                    navigate({ to: "/app/quotations/new", search: { lead: leadId } });
+                  }}
+                />
+              </Section>
+            )}
             {can("prospect_research") && (
               <Section title="AI Research" icon={<Sparkles className="h-4 w-4" />}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
