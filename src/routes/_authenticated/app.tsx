@@ -104,12 +104,14 @@ function AppShell() {
   const NavLinks = ({
     onClick,
     iconOnly = false,
+    settingsOnly = false,
   }: {
     onClick?: () => void;
     iconOnly?: boolean;
+    settingsOnly?: boolean;
   }) => (
-    <nav className="flex flex-col gap-1">
-      {nav.map((n) => {
+    <nav aria-label={settingsOnly ? "Settings" : "Main navigation"} className="flex flex-col gap-0.5">
+      {nav.filter((n) => n.to.startsWith("/app/settings") === settingsOnly).map((n) => {
         const Icon = n.icon;
         const active = location.pathname.startsWith(n.to.replace("/my-company", ""));
         return (
@@ -119,12 +121,12 @@ function AppShell() {
             onClick={onClick}
             title={iconOnly ? n.label : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md text-sm font-medium transition-colors",
-              iconOnly ? "justify-center px-2 py-2" : "px-3 py-2",
+              "flex h-7 shrink-0 items-center gap-2.5 rounded-md text-[13px] font-medium transition-colors",
+              iconOnly ? "justify-center px-2" : "px-2.5",
               active ? "bg-primary text-primary-foreground" : "hover:bg-accent",
             )}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" />
             {!iconOnly && n.label}
           </Link>
         );
@@ -134,17 +136,17 @@ function AppShell() {
 
   return (
     <HeaderActionsContext.Provider value={setHideActions}>
-    <div className="flex h-screen overflow-hidden bg-muted/20">
+    <div className="flex h-dvh overflow-hidden bg-muted/20">
       {/* Sidebar - desktop */}
       <aside
         className={cn(
-          "hidden flex-col border-r bg-card p-3 md:flex transition-[width] duration-200",
-          collapsed ? "w-16" : "w-64 p-4",
+          "hidden min-h-0 shrink-0 flex-col border-r bg-card p-2 md:flex transition-[width] duration-200",
+          collapsed ? "w-16" : "w-64",
         )}
       >
         <div
           className={cn(
-            "mb-6 flex items-center gap-2",
+            "mb-2 flex shrink-0 items-center gap-2",
             collapsed ? "justify-center px-0" : "px-2 justify-between",
           )}
         >
@@ -168,14 +170,14 @@ function AppShell() {
             )}
           </Button>
         </div>
-        <NavLinks iconOnly={collapsed} />
-        <div className="mt-auto pt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><NavLinks iconOnly={collapsed} /></div>
+        <div className="mt-2 shrink-0 border-t pt-2"><NavLinks iconOnly={collapsed} settingsOnly />
           {isAdmin && !collapsed && (
-            <p className="px-3 pb-2 text-xs text-muted-foreground">Admin</p>
+            <p className="px-2.5 pt-1 text-[10px] text-muted-foreground">Admin</p>
           )}
           <Button
             variant="ghost"
-            className={cn("w-full", collapsed ? "justify-center px-0" : "justify-start")}
+            className={cn("h-7 w-full text-[13px]", collapsed ? "justify-center px-0" : "justify-start")}
             onClick={signOut}
             title={collapsed ? "Sign out" : undefined}
           >
@@ -195,10 +197,10 @@ function AppShell() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64">
-              <div className="mt-6">
-                <NavLinks onClick={() => setOpen(false)} />
-                <Button variant="ghost" className="mt-4 w-full justify-start" onClick={signOut}>
+            <SheetContent side="left" className="flex w-64 flex-col overflow-hidden">
+              <div className="mt-6 flex min-h-0 flex-1 flex-col">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><NavLinks onClick={() => setOpen(false)} /></div><div className="mt-2 shrink-0 border-t pt-2"><NavLinks onClick={() => setOpen(false)} settingsOnly /></div>
+                <Button variant="ghost" className="h-8 w-full shrink-0 justify-start" onClick={signOut}>
                   <LogOut className="mr-2 h-4 w-4" /> Sign out
                 </Button>
               </div>
