@@ -1929,6 +1929,7 @@ export type Database = {
           ai_provider: string | null
           ai_status: string
           assigned_to: string | null
+          call_successful: boolean | null
           channel: string
           closed_at: string | null
           company_id: string | null
@@ -1937,6 +1938,7 @@ export type Database = {
           created_at: string
           direction: string
           email: string | null
+          ended_at: string | null
           external_conversation_id: string | null
           external_provider: string | null
           follow_up_number: string | null
@@ -1944,6 +1946,7 @@ export type Database = {
           handed_off_at: string | null
           id: string
           inquiry_type: string
+          language: string | null
           last_message_at: string
           lead_id: string | null
           location: string | null
@@ -1952,6 +1955,7 @@ export type Database = {
           phone: string | null
           priority: string
           product_interest: string | null
+          provider_metadata: Json
           recording_duration_seconds: number
           recording_url: string | null
           service_interest: string | null
@@ -1967,6 +1971,7 @@ export type Database = {
           ai_provider?: string | null
           ai_status?: string
           assigned_to?: string | null
+          call_successful?: boolean | null
           channel?: string
           closed_at?: string | null
           company_id?: string | null
@@ -1975,6 +1980,7 @@ export type Database = {
           created_at?: string
           direction?: string
           email?: string | null
+          ended_at?: string | null
           external_conversation_id?: string | null
           external_provider?: string | null
           follow_up_number?: string | null
@@ -1982,6 +1988,7 @@ export type Database = {
           handed_off_at?: string | null
           id?: string
           inquiry_type?: string
+          language?: string | null
           last_message_at?: string
           lead_id?: string | null
           location?: string | null
@@ -1990,6 +1997,7 @@ export type Database = {
           phone?: string | null
           priority?: string
           product_interest?: string | null
+          provider_metadata?: Json
           recording_duration_seconds?: number
           recording_url?: string | null
           service_interest?: string | null
@@ -2005,6 +2013,7 @@ export type Database = {
           ai_provider?: string | null
           ai_status?: string
           assigned_to?: string | null
+          call_successful?: boolean | null
           channel?: string
           closed_at?: string | null
           company_id?: string | null
@@ -2013,6 +2022,7 @@ export type Database = {
           created_at?: string
           direction?: string
           email?: string | null
+          ended_at?: string | null
           external_conversation_id?: string | null
           external_provider?: string | null
           follow_up_number?: string | null
@@ -2020,6 +2030,7 @@ export type Database = {
           handed_off_at?: string | null
           id?: string
           inquiry_type?: string
+          language?: string | null
           last_message_at?: string
           lead_id?: string | null
           location?: string | null
@@ -2028,6 +2039,7 @@ export type Database = {
           phone?: string | null
           priority?: string
           product_interest?: string | null
+          provider_metadata?: Json
           recording_duration_seconds?: number
           recording_url?: string | null
           service_interest?: string | null
@@ -2113,6 +2125,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      reception_webhook_events: {
+        Row: {
+          error_message: string | null
+          event_type: string
+          external_conversation_id: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          processing_status: string
+          provider: string
+          received_at: string
+        }
+        Insert: {
+          error_message?: string | null
+          event_type: string
+          external_conversation_id?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          processing_status?: string
+          provider: string
+          received_at?: string
+        }
+        Update: {
+          error_message?: string | null
+          event_type?: string
+          external_conversation_id?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          processing_status?: string
+          provider?: string
+          received_at?: string
+        }
+        Relationships: []
       }
       reminders: {
         Row: {
