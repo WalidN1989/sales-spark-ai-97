@@ -450,6 +450,11 @@ function ReceptionPage() {
 }
 
 function AiPlanCard({ plan, provider }: { plan: NonNullable<ReceptionConversation["ai_plan"]>; provider: ReceptionConversation["ai_provider"] }) {
+  const providerPlan = plan as typeof plan & { transcript_summary?: string };
+  const summary = providerPlan.summary || providerPlan.transcript_summary || "Conversation captured by Reception.";
+  const suggestedResponse = providerPlan.suggested_response || "Review the call and contact the customer using the captured follow-up details.";
+  const actions = Array.isArray(providerPlan.actions) ? providerPlan.actions.filter((action) => typeof action === "string") : [];
+  const productMatches = Array.isArray(providerPlan.product_matches) ? providerPlan.product_matches.filter((lookup) => lookup && typeof lookup.query === "string" && Array.isArray(lookup.matches)) : [];
   const actionLabels: Record<string, string> = {
     upsert_lead: "Update lead",
     lookup_product: "Check products",
@@ -463,23 +468,23 @@ function AiPlanCard({ plan, provider }: { plan: NonNullable<ReceptionConversatio
       <div className="flex items-start justify-between gap-3 border-b border-indigo-100 px-4 py-3">
         <div>
           <p className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950"><Bot className="h-4 w-4 text-indigo-600" /> AI sales plan</p>
-          <p className="mt-1 text-sm leading-relaxed text-slate-700">{plan.summary}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-700">{summary}</p>
         </div>
         <Badge variant="outline" className="shrink-0 border-indigo-200 bg-white/70 text-[9px] capitalize text-indigo-700">{provider}</Badge>
       </div>
       <div className="grid gap-4 px-4 py-3 lg:grid-cols-2">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recommended response</p>
-          <p className="mt-1 text-sm leading-relaxed">{plan.suggested_response}</p>
+          <p className="mt-1 text-sm leading-relaxed">{suggestedResponse}</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {plan.actions.map((action) => <span key={action} className="rounded-full border border-indigo-100 bg-white px-2 py-1 text-[10px] font-medium text-indigo-700">{actionLabels[action] || action}</span>)}
+            {actions.map((action) => <span key={action} className="rounded-full border border-indigo-100 bg-white px-2 py-1 text-[10px] font-medium text-indigo-700">{actionLabels[action] || action}</span>)}
           </div>
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Verified CRM matches</p>
-          {plan.product_matches.length === 0 ? (
+          {productMatches.length === 0 ? (
             <p className="mt-1 text-xs text-muted-foreground">No product was clear enough to check yet.</p>
-          ) : plan.product_matches.map((lookup) => (
+          ) : productMatches.map((lookup) => (
             <div key={lookup.query} className="mt-1.5 rounded-lg border bg-white/80 p-2">
               <p className="text-xs font-medium">{lookup.quantity ? `${lookup.quantity} × ` : ""}{lookup.query}</p>
               {lookup.matches.length === 0 ? <p className="mt-1 text-[10px] text-amber-700">No exact pricebook match — review required.</p> : lookup.matches.slice(0, 2).map((match) => (

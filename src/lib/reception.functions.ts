@@ -34,7 +34,7 @@ export type ReceptionConversation = {
   recording_url: string | null;
   recording_duration_seconds: number;
   ai_status: "not_run" | "processing" | "ready" | "failed";
-  ai_provider: "anthropic" | "openai" | null;
+  ai_provider: "anthropic" | "openai" | "elevenlabs" | null;
   ai_plan: ReceptionAiPlan | null;
   ai_analyzed_at: string | null;
   started_at: string;
