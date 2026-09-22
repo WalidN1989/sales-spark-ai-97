@@ -19,6 +19,14 @@ verify_jwt = false
 [functions.whatsapp-inbound]
 verify_jwt = false
 
+# ElevenLabs signed post-call transcript webhook and authenticated history
+# reconciliation. The webhook validates ElevenLabs-Signature itself.
+[functions.elevenlabs-post-call]
+verify_jwt = false
+
+[functions.sync-elevenlabs-conversations]
+verify_jwt = false
+
 # Competitor research ingest + list — auth via x-api-key
 # (COMPETITOR_RESEARCH_API_KEY).
 [functions.create-competitor-research]

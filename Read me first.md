@@ -236,6 +236,32 @@ Still required before live telephony: apply the Reception migration, configure
 connect a Twilio number/webhook, and configure WhatsApp/email provider secrets.
 Never commit provider secrets to Git.
 
+### ElevenLabs → Reception call logging (2026-09-22)
+
+Completed calls are ingested by the signed post-call webhook:
+
+`https://qygugdjyiebhnlwhhbwi.supabase.co/functions/v1/elevenlabs-post-call`
+
+Enable **Post-call transcription** for that URL in ElevenLabs Workspace →
+Webhooks. Store the generated signing secret in Supabase as
+`ELEVENLABS_WEBHOOK_SECRET`. The function validates the HMAC signature, records
+every transcript turn, creates or reuses a lead, and uses the ElevenLabs
+conversation id as an idempotency key so retries cannot duplicate calls.
+
+Required Edge Function secrets:
+
+- `ELEVENLABS_WEBHOOK_SECRET`
+- `ELEVENLABS_AGENT_ID=agent_7801m33yqxzqf96vgjdam9ry0c86`
+- `RECEPTION_OWNER_USER_ID` (falls back to `PROSPECT_WEBHOOK_USER_ID`)
+- `ELEVENLABS_API_KEY` and `RECEPTION_SYNC_KEY` for history reconciliation
+
+`sync-elevenlabs-conversations` scans the latest 100 agent conversations and
+backfills anything not delivered by webhook. Apply migration
+`20260922150000_elevenlabs_reception_ingest.sql` before deploying either
+function. Do not enable the separate post-call audio webhook until a recording
+retention policy and private storage bucket are agreed; transcript call logs are
+fully supported now.
+
 ### ICP cards: one owner for the UI and the agent (2026-09-11)
 
 `list-icp-profiles` filters on `user_id = PROSPECT_WEBHOOK_USER_ID`. The three
