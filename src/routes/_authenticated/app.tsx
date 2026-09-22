@@ -24,6 +24,8 @@ import {
   TrendingUp,
   Crosshair,
   MessageCircle,
+  Headphones,
+  Mail,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,7 +81,9 @@ function AppShell() {
     { to: "/app/prospects", label: "Prospects", icon: Users, show: can("prospects") },
     { to: "/app/qualifying", label: "Qualifying", icon: Target, show: can("qualifying") },
     { to: "/app/leads", label: "Leads", icon: Flame, show: can("leads") },
+    { to: "/app/reception", label: "Reception", icon: Headphones, show: can("reception") },
     { to: "/app/whatsapp", label: "WhatsApp", icon: MessageCircle, show: can("whatsapp") },
+    { to: "/app/email", label: "Email", icon: Mail, show: can("email") },
     { to: "/app/forecast", label: "Forecast", icon: TrendingUp, show: can("forecast") },
     { to: "/app/tasks", label: "Tasks", icon: ListChecks, show: can("tasks") },
     { to: "/app/inquiries", label: "Inquiries", icon: Layers, show: can("inquiries") },

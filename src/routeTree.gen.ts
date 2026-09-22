@@ -17,12 +17,14 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppTasksRouteImport } from './routes/_authenticated/app.tasks'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
+import { Route as AuthenticatedAppReceptionRouteImport } from './routes/_authenticated/app.reception'
 import { Route as AuthenticatedAppQualifyingRouteImport } from './routes/_authenticated/app.qualifying'
 import { Route as AuthenticatedAppNotesRouteImport } from './routes/_authenticated/app.notes'
 import { Route as AuthenticatedAppMeetingsRouteImport } from './routes/_authenticated/app.meetings'
 import { Route as AuthenticatedAppLeadsRouteImport } from './routes/_authenticated/app.leads'
 import { Route as AuthenticatedAppInquiriesRouteImport } from './routes/_authenticated/app.inquiries'
 import { Route as AuthenticatedAppForecastRouteImport } from './routes/_authenticated/app.forecast'
+import { Route as AuthenticatedAppEmailRouteImport } from './routes/_authenticated/app.email'
 import { Route as AuthenticatedAppWhatsappIndexRouteImport } from './routes/_authenticated/app.whatsapp.index'
 import { Route as AuthenticatedAppVisualMatchIndexRouteImport } from './routes/_authenticated/app.visual-match.index'
 import { Route as AuthenticatedAppQuotationsIndexRouteImport } from './routes/_authenticated/app.quotations.index'
@@ -96,6 +98,12 @@ const AuthenticatedAppSalesRoute = AuthenticatedAppSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppReceptionRoute =
+  AuthenticatedAppReceptionRouteImport.update({
+    id: '/reception',
+    path: '/reception',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppQualifyingRoute =
   AuthenticatedAppQualifyingRouteImport.update({
     id: '/qualifying',
@@ -130,6 +138,11 @@ const AuthenticatedAppForecastRoute =
     path: '/forecast',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppEmailRoute = AuthenticatedAppEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppWhatsappIndexRoute =
   AuthenticatedAppWhatsappIndexRouteImport.update({
     id: '/whatsapp/',
@@ -324,12 +337,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/app/email': typeof AuthenticatedAppEmailRoute
   '/app/forecast': typeof AuthenticatedAppForecastRoute
   '/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
   '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
+  '/app/reception': typeof AuthenticatedAppReceptionRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -370,12 +385,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/app/email': typeof AuthenticatedAppEmailRoute
   '/app/forecast': typeof AuthenticatedAppForecastRoute
   '/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/app/meetings': typeof AuthenticatedAppMeetingsRoute
   '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
+  '/app/reception': typeof AuthenticatedAppReceptionRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -419,12 +436,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
+  '/_authenticated/app/email': typeof AuthenticatedAppEmailRoute
   '/_authenticated/app/forecast': typeof AuthenticatedAppForecastRoute
   '/_authenticated/app/inquiries': typeof AuthenticatedAppInquiriesRouteWithChildren
   '/_authenticated/app/leads': typeof AuthenticatedAppLeadsRouteWithChildren
   '/_authenticated/app/meetings': typeof AuthenticatedAppMeetingsRoute
   '/_authenticated/app/notes': typeof AuthenticatedAppNotesRoute
   '/_authenticated/app/qualifying': typeof AuthenticatedAppQualifyingRoute
+  '/_authenticated/app/reception': typeof AuthenticatedAppReceptionRoute
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -468,12 +487,14 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/app'
+    | '/app/email'
     | '/app/forecast'
     | '/app/inquiries'
     | '/app/leads'
     | '/app/meetings'
     | '/app/notes'
     | '/app/qualifying'
+    | '/app/reception'
     | '/app/sales'
     | '/app/settings'
     | '/app/tasks'
@@ -514,12 +535,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/app/email'
     | '/app/forecast'
     | '/app/inquiries'
     | '/app/leads'
     | '/app/meetings'
     | '/app/notes'
     | '/app/qualifying'
+    | '/app/reception'
     | '/app/sales'
     | '/app/settings'
     | '/app/tasks'
@@ -562,12 +585,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/app'
+    | '/_authenticated/app/email'
     | '/_authenticated/app/forecast'
     | '/_authenticated/app/inquiries'
     | '/_authenticated/app/leads'
     | '/_authenticated/app/meetings'
     | '/_authenticated/app/notes'
     | '/_authenticated/app/qualifying'
+    | '/_authenticated/app/reception'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/tasks'
@@ -670,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSalesRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/reception': {
+      id: '/_authenticated/app/reception'
+      path: '/reception'
+      fullPath: '/app/reception'
+      preLoaderRoute: typeof AuthenticatedAppReceptionRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/qualifying': {
       id: '/_authenticated/app/qualifying'
       path: '/qualifying'
@@ -710,6 +742,13 @@ declare module '@tanstack/react-router' {
       path: '/forecast'
       fullPath: '/app/forecast'
       preLoaderRoute: typeof AuthenticatedAppForecastRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/email': {
+      id: '/_authenticated/app/email'
+      path: '/email'
+      fullPath: '/app/email'
+      preLoaderRoute: typeof AuthenticatedAppEmailRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/whatsapp/': {
@@ -1007,12 +1046,14 @@ const AuthenticatedAppProspectsIdRouteWithChildren =
   )
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppEmailRoute: typeof AuthenticatedAppEmailRoute
   AuthenticatedAppForecastRoute: typeof AuthenticatedAppForecastRoute
   AuthenticatedAppInquiriesRoute: typeof AuthenticatedAppInquiriesRouteWithChildren
   AuthenticatedAppLeadsRoute: typeof AuthenticatedAppLeadsRouteWithChildren
   AuthenticatedAppMeetingsRoute: typeof AuthenticatedAppMeetingsRoute
   AuthenticatedAppNotesRoute: typeof AuthenticatedAppNotesRoute
   AuthenticatedAppQualifyingRoute: typeof AuthenticatedAppQualifyingRoute
+  AuthenticatedAppReceptionRoute: typeof AuthenticatedAppReceptionRoute
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppTasksRoute: typeof AuthenticatedAppTasksRoute
@@ -1044,12 +1085,14 @@ interface AuthenticatedAppRouteChildren {
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppEmailRoute: AuthenticatedAppEmailRoute,
   AuthenticatedAppForecastRoute: AuthenticatedAppForecastRoute,
   AuthenticatedAppInquiriesRoute: AuthenticatedAppInquiriesRouteWithChildren,
   AuthenticatedAppLeadsRoute: AuthenticatedAppLeadsRouteWithChildren,
   AuthenticatedAppMeetingsRoute: AuthenticatedAppMeetingsRoute,
   AuthenticatedAppNotesRoute: AuthenticatedAppNotesRoute,
   AuthenticatedAppQualifyingRoute: AuthenticatedAppQualifyingRoute,
+  AuthenticatedAppReceptionRoute: AuthenticatedAppReceptionRoute,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppTasksRoute: AuthenticatedAppTasksRoute,

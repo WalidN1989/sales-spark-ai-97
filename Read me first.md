@@ -4,7 +4,7 @@
 > Read this before touching anything. It explains where the project stands, how it
 > is wired, and the working rules agreed with Walid.
 
-_Last updated: 2026-07-17 (office PC session)._
+_Last updated: 2026-09-22 (office PC session)._
 
 ---
 
@@ -200,6 +200,41 @@ key, `AGENT_API_KEY`; the older module keys keep working. Discovery is
 `list-competitor-catalog`. Full contract and the **future-module checklist**:
 `docs/agent-api.md`. Rule: a new module is not done until it has a row in
 `agent_modules` and list/get/write routes.
+
+### Reception, Voice Agent and Email foundation (2026-09-22)
+
+New sidebar modules **Reception** (`/app/reception`) and **Email** (`/app/email`)
+prepare the CRM for ElevenLabs, Twilio/WhatsApp and an email provider. Reception
+stores calls and messages as one conversation, displays the recording/transcript,
+collects contact and product/service requirements, assigns an owner and links or
+creates a lead. Email is a review-first outbox for drafts prepared from the same
+conversation. AI may use OpenAI or Anthropic to structure the transcript, match
+the CRM pricebook and prepare lead/WhatsApp/email/quotation drafts; it must never
+invent prices, stock, delivery, warranty or specifications, and no external
+message is sent automatically.
+
+Key files:
+
+- `src/routes/_authenticated/app.reception.tsx` — reception desk UI.
+- `src/routes/_authenticated/app.email.tsx` — email draft queue.
+- `src/lib/reception.functions.ts` — conversation, transcript and lead-linking operations.
+- `src/lib/reception-ai.functions.ts` — provider-neutral transcript analysis and draft plan.
+- `supabase/migrations/20260922120000_reception_foundation.sql` — conversation/message schema, RLS and lead creation trigger.
+
+ElevenLabs agent **eTOP Reception** is published as
+`agent_7801m33yqxzqf96vgjdam9ry0c86`. It uses English by default, automatically
+switches to Arabic, Hindi or Urdu, uses a professional Hyderabadi Dakhni style for
+Hindi/Urdu, and opens with “Thank you for calling eTOP. Maya with you—how can I
+help you?” Its primary voice is **Hope — Smooth, Engaging and Kind** using V3
+Conversational expressive mode. The `etopme.ae` crawl contains 66 indexed
+documents with RAG enabled.
+The prompt does not announce that Maya is an AI; if directly asked, it answers
+honestly and briefly.
+
+Still required before live telephony: apply the Reception migration, configure
+`ELEVENLABS_AGENT_ID` with the ID above, add `ELEVENLABS_API_KEY` as a secret,
+connect a Twilio number/webhook, and configure WhatsApp/email provider secrets.
+Never commit provider secrets to Git.
 
 ### ICP cards: one owner for the UI and the agent (2026-09-11)
 
