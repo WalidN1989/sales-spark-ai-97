@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Mic2,
   Phone,
+  Pencil,
   Plus,
   Search,
   Send,
@@ -429,7 +430,7 @@ function ReceptionPage() {
               </form>
             </section>
 
-            <ReceptionDetails conversation={active} team={team} onUpdate={(patch) => update.mutate({ id: active.id, patch })} />
+            <ReceptionDetails conversation={active} team={team} onUpdate={(patch) => update.mutateAsync({ id: active.id, patch })} />
           </>
         )}
       </div>
@@ -550,15 +551,32 @@ function ReceptionDetails({
 }: {
   conversation: ReceptionConversation;
   team: TeamMember[];
-  onUpdate: (patch: ReceptionPatch) => void;
+  onUpdate: (patch: ReceptionPatch) => Promise<unknown>;
 }) {
+  const [editOpen, setEditOpen] = useState(false);
   return (
-    <aside className="hidden w-80 shrink-0 overflow-y-auto border-l bg-card p-4 xl:block">
-      <div className="flex items-center gap-2">
-        <UserRoundCheck className="h-4 w-4 text-indigo-600" />
-        <h3 className="text-sm font-semibold">Reception brief</h3>
+    <>
+      <aside className="hidden w-80 shrink-0 overflow-y-auto border-l bg-card p-4 xl:block">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <UserRoundCheck className="h-4 w-4 text-indigo-600" />
+            <h3 className="text-sm font-semibold">Reception brief</h3>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Everything a salesperson needs before taking over.</p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-indigo-50 hover:text-indigo-700"
+          title="Edit reception details"
+          aria-label="Edit reception details"
+          onClick={() => setEditOpen(true)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">Everything a salesperson needs before taking over.</p>
 
       <div className="mt-5 space-y-4">
         <Detail label="Contact" value={conversation.contact_name} />
@@ -613,7 +631,118 @@ function ReceptionDetails({
           </Select>
         </div>
       </div>
-    </aside>
+      </aside>
+      <EditReceptionDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        conversation={conversation}
+        onSave={async (patch) => {
+          await onUpdate(patch);
+          setEditOpen(false);
+          toast.success("Reception details updated");
+        }}
+      />
+    </>
+  );
+}
+
+function EditReceptionDialog({
+  open,
+  onOpenChange,
+  conversation,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  conversation: ReceptionConversation;
+  onSave: (patch: ReceptionPatch) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    contact_name: conversation.contact_name ?? "",
+    company_name: conversation.company_name ?? "",
+    location: conversation.location ?? "",
+    phone: conversation.phone ?? "",
+    whatsapp: conversation.whatsapp ?? "",
+    email: conversation.email ?? "",
+    product_interest: conversation.product_interest ?? "",
+    service_interest: conversation.service_interest ?? "",
+    follow_up_number: conversation.follow_up_number ?? "",
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      contact_name: conversation.contact_name ?? "",
+      company_name: conversation.company_name ?? "",
+      location: conversation.location ?? "",
+      phone: conversation.phone ?? "",
+      whatsapp: conversation.whatsapp ?? "",
+      email: conversation.email ?? "",
+      product_interest: conversation.product_interest ?? "",
+      service_interest: conversation.service_interest ?? "",
+      follow_up_number: conversation.follow_up_number ?? "",
+    });
+  }, [conversation, open]);
+
+  const field = (key: keyof typeof form, label: string, placeholder: string) => (
+    <div>
+      <Label className="text-xs font-medium">{label}</Label>
+      <Input
+        className="mt-1.5 h-10"
+        value={form[key]}
+        placeholder={placeholder}
+        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+      />
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl overflow-hidden p-0">
+        <DialogHeader className="border-b bg-gradient-to-r from-indigo-50 via-white to-violet-50 px-6 py-5">
+          <DialogTitle className="flex items-center gap-2">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-indigo-100 text-indigo-700">
+              <Pencil className="h-4 w-4" />
+            </span>
+            Edit reception details
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">Correct or complete the information captured during the call.</p>
+        </DialogHeader>
+        <div className="grid max-h-[65vh] gap-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
+          {field("contact_name", "Contact", "Customer name")}
+          {field("company_name", "Company", "Company name")}
+          {field("location", "Location", "Dubai, UAE")}
+          {field("phone", "Phone", "+971…")}
+          {field("whatsapp", "WhatsApp", "+971…")}
+          {field("email", "Email", "name@company.com")}
+          <div className="sm:col-span-2">{field("product_interest", "Product inquiry", "Product, model, quantity or requirement")}</div>
+          <div className="sm:col-span-2">{field("service_interest", "Service inquiry", "Service or support requirement")}</div>
+          <div className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+            {field("follow_up_number", "Follow-up number", "Best number for sales follow-up")}
+          </div>
+        </div>
+        <DialogFooter className="border-t bg-slate-50/70 px-6 py-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            className="bg-slate-950 hover:bg-slate-800"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave(form);
+              } catch {
+                // The shared mutation displays the server error and keeps the form open.
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
