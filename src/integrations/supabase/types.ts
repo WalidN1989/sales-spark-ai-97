@@ -1922,6 +1922,198 @@ export type Database = {
           },
         ]
       }
+      reception_conversations: {
+        Row: {
+          ai_analyzed_at: string | null
+          ai_plan: Json | null
+          ai_provider: string | null
+          ai_status: string
+          assigned_to: string | null
+          channel: string
+          closed_at: string | null
+          company_id: string | null
+          company_name: string | null
+          contact_name: string | null
+          created_at: string
+          direction: string
+          email: string | null
+          external_conversation_id: string | null
+          external_provider: string | null
+          follow_up_number: string | null
+          follow_up_number_confirmed: boolean
+          handed_off_at: string | null
+          id: string
+          inquiry_type: string
+          last_message_at: string
+          lead_id: string | null
+          location: string | null
+          org_id: string
+          owner_id: string
+          phone: string | null
+          priority: string
+          product_interest: string | null
+          recording_duration_seconds: number
+          recording_url: string | null
+          service_interest: string | null
+          started_at: string
+          status: string
+          summary: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          ai_analyzed_at?: string | null
+          ai_plan?: Json | null
+          ai_provider?: string | null
+          ai_status?: string
+          assigned_to?: string | null
+          channel?: string
+          closed_at?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          direction?: string
+          email?: string | null
+          external_conversation_id?: string | null
+          external_provider?: string | null
+          follow_up_number?: string | null
+          follow_up_number_confirmed?: boolean
+          handed_off_at?: string | null
+          id?: string
+          inquiry_type?: string
+          last_message_at?: string
+          lead_id?: string | null
+          location?: string | null
+          org_id?: string
+          owner_id?: string
+          phone?: string | null
+          priority?: string
+          product_interest?: string | null
+          recording_duration_seconds?: number
+          recording_url?: string | null
+          service_interest?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          ai_analyzed_at?: string | null
+          ai_plan?: Json | null
+          ai_provider?: string | null
+          ai_status?: string
+          assigned_to?: string | null
+          channel?: string
+          closed_at?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string
+          direction?: string
+          email?: string | null
+          external_conversation_id?: string | null
+          external_provider?: string | null
+          follow_up_number?: string | null
+          follow_up_number_confirmed?: boolean
+          handed_off_at?: string | null
+          id?: string
+          inquiry_type?: string
+          last_message_at?: string
+          lead_id?: string | null
+          location?: string | null
+          org_id?: string
+          owner_id?: string
+          phone?: string | null
+          priority?: string
+          product_interest?: string | null
+          recording_duration_seconds?: number
+          recording_url?: string | null
+          service_interest?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reception_conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reception_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reception_conversations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reception_messages: {
+        Row: {
+          channel: string
+          content: string
+          conversation_id: string
+          created_at: string
+          created_by: string | null
+          delivery_status: string
+          direction: string
+          external_message_id: string | null
+          id: string
+          metadata: Json
+          sender_role: string
+          subject: string | null
+        }
+        Insert: {
+          channel: string
+          content: string
+          conversation_id: string
+          created_at?: string
+          created_by?: string | null
+          delivery_status?: string
+          direction: string
+          external_message_id?: string | null
+          id?: string
+          metadata?: Json
+          sender_role: string
+          subject?: string | null
+        }
+        Update: {
+          channel?: string
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_status?: string
+          direction?: string
+          external_message_id?: string | null
+          id?: string
+          metadata?: Json
+          sender_role?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reception_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "reception_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string
