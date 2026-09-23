@@ -13,8 +13,9 @@ const json = (body: unknown, status = 200) =>
 
 type Provider = "azure" | "openai" | "elevenlabs";
 
-const sinhalaElevenLabsVoiceName = "Jane - Professional Audiobook Reader";
+const sinhalaElevenLabsVoiceName = "Anika - Warm and Intimate";
 const sinhalaElevenLabsModel = "eleven_v3";
+const sinhalaElevenLabsStability = 0.8;
 
 function provider(): Provider | null {
   if (Deno.env.get("AZURE_SPEECH_KEY") && Deno.env.get("AZURE_SPEECH_REGION")) return "azure";
@@ -105,7 +106,7 @@ async function elevenLabsSpeech(text: string) {
       body: JSON.stringify({
         text,
         model_id: Deno.env.get("SINHALA_ELEVENLABS_MODEL_ID") || sinhalaElevenLabsModel,
-        voice_settings: { stability: 0.5 },
+        voice_settings: { stability: sinhalaElevenLabsStability },
       }),
     },
   );
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
           ? {
               voice: sinhalaElevenLabsVoiceName,
               model: Deno.env.get("SINHALA_ELEVENLABS_MODEL_ID") || sinhalaElevenLabsModel,
-              stability: 0.5,
+              stability: sinhalaElevenLabsStability,
             }
           : {}),
       });
