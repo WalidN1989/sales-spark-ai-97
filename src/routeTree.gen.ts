@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppTasksRouteImport } from './routes/_authenticated/app.tasks'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppSalesRouteImport } from './routes/_authenticated/app.sales'
+import { Route as AuthenticatedAppReceptionLabRouteImport } from './routes/_authenticated/app.reception-lab'
 import { Route as AuthenticatedAppReceptionRouteImport } from './routes/_authenticated/app.reception'
 import { Route as AuthenticatedAppQualifyingRouteImport } from './routes/_authenticated/app.qualifying'
 import { Route as AuthenticatedAppNotesRouteImport } from './routes/_authenticated/app.notes'
@@ -98,6 +99,12 @@ const AuthenticatedAppSalesRoute = AuthenticatedAppSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppReceptionLabRoute =
+  AuthenticatedAppReceptionLabRouteImport.update({
+    id: '/reception-lab',
+    path: '/reception-lab',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppReceptionRoute =
   AuthenticatedAppReceptionRouteImport.update({
     id: '/reception',
@@ -345,6 +352,7 @@ export interface FileRoutesByFullPath {
   '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/reception': typeof AuthenticatedAppReceptionRoute
+  '/app/reception-lab': typeof AuthenticatedAppReceptionLabRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -393,6 +401,7 @@ export interface FileRoutesByTo {
   '/app/notes': typeof AuthenticatedAppNotesRoute
   '/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/app/reception': typeof AuthenticatedAppReceptionRoute
+  '/app/reception-lab': typeof AuthenticatedAppReceptionLabRoute
   '/app/sales': typeof AuthenticatedAppSalesRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -444,6 +453,7 @@ export interface FileRoutesById {
   '/_authenticated/app/notes': typeof AuthenticatedAppNotesRoute
   '/_authenticated/app/qualifying': typeof AuthenticatedAppQualifyingRoute
   '/_authenticated/app/reception': typeof AuthenticatedAppReceptionRoute
+  '/_authenticated/app/reception-lab': typeof AuthenticatedAppReceptionLabRoute
   '/_authenticated/app/sales': typeof AuthenticatedAppSalesRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/tasks': typeof AuthenticatedAppTasksRoute
@@ -495,6 +505,7 @@ export interface FileRouteTypes {
     | '/app/notes'
     | '/app/qualifying'
     | '/app/reception'
+    | '/app/reception-lab'
     | '/app/sales'
     | '/app/settings'
     | '/app/tasks'
@@ -543,6 +554,7 @@ export interface FileRouteTypes {
     | '/app/notes'
     | '/app/qualifying'
     | '/app/reception'
+    | '/app/reception-lab'
     | '/app/sales'
     | '/app/settings'
     | '/app/tasks'
@@ -593,6 +605,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/notes'
     | '/_authenticated/app/qualifying'
     | '/_authenticated/app/reception'
+    | '/_authenticated/app/reception-lab'
     | '/_authenticated/app/sales'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/tasks'
@@ -693,6 +706,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/app/sales'
       preLoaderRoute: typeof AuthenticatedAppSalesRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/reception-lab': {
+      id: '/_authenticated/app/reception-lab'
+      path: '/reception-lab'
+      fullPath: '/app/reception-lab'
+      preLoaderRoute: typeof AuthenticatedAppReceptionLabRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/reception': {
@@ -1054,6 +1074,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppNotesRoute: typeof AuthenticatedAppNotesRoute
   AuthenticatedAppQualifyingRoute: typeof AuthenticatedAppQualifyingRoute
   AuthenticatedAppReceptionRoute: typeof AuthenticatedAppReceptionRoute
+  AuthenticatedAppReceptionLabRoute: typeof AuthenticatedAppReceptionLabRoute
   AuthenticatedAppSalesRoute: typeof AuthenticatedAppSalesRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppTasksRoute: typeof AuthenticatedAppTasksRoute
@@ -1093,6 +1114,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppNotesRoute: AuthenticatedAppNotesRoute,
   AuthenticatedAppQualifyingRoute: AuthenticatedAppQualifyingRoute,
   AuthenticatedAppReceptionRoute: AuthenticatedAppReceptionRoute,
+  AuthenticatedAppReceptionLabRoute: AuthenticatedAppReceptionLabRoute,
   AuthenticatedAppSalesRoute: AuthenticatedAppSalesRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppTasksRoute: AuthenticatedAppTasksRoute,

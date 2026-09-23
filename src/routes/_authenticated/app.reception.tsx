@@ -18,6 +18,7 @@ import {
   Send,
   ShieldCheck,
   UserRoundCheck,
+  Languages,
 } from "lucide-react";
 import { toast } from "sonner";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
@@ -215,9 +216,17 @@ function ReceptionPage() {
             />
           </div>
         </div>
-        <Button size="sm" onClick={() => setIntakeOpen(true)} className="shrink-0">
-          <Plus className="mr-1.5 h-4 w-4" /> New intake
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/app/reception-lab"
+            className="hidden h-8 items-center gap-1.5 rounded-md border bg-white px-3 text-xs font-medium transition-colors hover:bg-accent sm:flex"
+          >
+            <Languages className="h-3.5 w-3.5 text-violet-600" /> Sinhala Lab
+          </Link>
+          <Button size="sm" onClick={() => setIntakeOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" /> New intake
+          </Button>
+        </div>
       </HeaderPortal>
 
       <div className="flex shrink-0 items-center gap-2 border-b bg-card px-3 py-2">
