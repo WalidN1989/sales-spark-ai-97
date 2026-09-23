@@ -122,7 +122,10 @@ Deno.serve(async (req) => {
     return new Response(await response.arrayBuffer(), {
       headers: {
         ...corsHeaders,
-        "content-type": "audio/mpeg",
+        // Supabase FunctionsClient only preserves binary responses as Blob for
+        // application/octet-stream (audio/mpeg is otherwise decoded as text).
+        "content-type": "application/octet-stream",
+        "x-audio-content-type": "audio/mpeg",
         "cache-control": "no-store",
         "x-speech-provider": selected,
       },

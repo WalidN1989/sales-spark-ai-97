@@ -16,5 +16,5 @@ export async function synthesizeSinhalaSpeech(text: string) {
   });
   if (error) throw error;
   if (!(data instanceof Blob)) throw new Error("The speech provider returned an invalid response.");
-  return data;
+  return new Blob([data], { type: "audio/mpeg" });
 }
