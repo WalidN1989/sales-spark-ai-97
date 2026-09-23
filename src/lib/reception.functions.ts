@@ -74,6 +74,7 @@ export const listReceptionConversations = createServerFn({ method: "GET" })
     const { data, error } = await db(context)
       .from("reception_conversations")
       .select(conversationSelect)
+      .or("external_provider.is.null,external_provider.neq.sinhala_lab")
       .order("last_message_at", { ascending: false })
       .limit(500);
     if (error) {

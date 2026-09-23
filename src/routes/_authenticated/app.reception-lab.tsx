@@ -20,14 +20,29 @@ import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { replyInSinhala, type SinhalaLabReply } from "@/lib/sinhala-lab.functions";
+import {
+  beginSinhalaLabTest,
+  getSinhalaSpeechStatus,
+  loadLatestSinhalaLabTest,
+  replyInSinhala,
+  saveSinhalaLabScores,
+  synthesizeSinhalaSpeech,
+  type SinhalaLabReply,
+  type SinhalaLabScores,
+} from "@/lib/sinhala-lab.functions";
 
 export const Route = createFileRoute("/_authenticated/app/reception-lab")({
   head: () => ({ meta: [{ title: "Sinhala Voice Lab — Sales Insights" }] }),
   component: SinhalaVoiceLab,
 });
 
-type Turn = { role: "caller" | "receptionist"; text: string; english?: string; latency?: number };
+type Turn = {
+  role: "caller" | "receptionist";
+  text: string;
+  english?: string;
+  latency?: number;
+  intent?: string;
+};
 type SpeechRecognitionEventLike = Event & {
   results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
 };
@@ -56,8 +71,13 @@ const greeting = "eTOP වෙත ඇමතීම ගැන ස්තූතිය
 
 function SinhalaVoiceLab() {
   const replyFn = useServerFn(replyInSinhala);
+  const beginFn = useServerFn(beginSinhalaLabTest);
+  const loadFn = useServerFn(loadLatestSinhalaLabTest);
+  const saveScoresFn = useServerFn(saveSinhalaLabScores);
+  const speechStatusFn = useServerFn(getSinhalaSpeechStatus);
+  const synthesizeFn = useServerFn(synthesizeSinhalaSpeech);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const startedAtRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [transcript, setTranscript] = useState("");
   const [interim, setInterim] = useState("");
   const [turns, setTurns] = useState<Turn[]>([
@@ -70,6 +90,12 @@ function SinhalaVoiceLab() {
   const [reply, setReply] = useState<SinhalaLabReply | null>(null);
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [restoring, setRestoring] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [speechProvider, setSpeechProvider] = useState<"azure" | "openai" | "elevenlabs" | null>(
+    null,
+  );
   const [recognitionSupported, setRecognitionSupported] = useState(false);
   const [sinhalaVoices, setSinhalaVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [scores, setScores] = useState({
@@ -89,11 +115,44 @@ function SinhalaVoiceLab() {
     setRecognitionSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
     loadVoices();
     window.speechSynthesis?.addEventListener("voiceschanged", loadVoices);
+    let cancelled = false;
+    Promise.all([loadFn(), speechStatusFn()])
+      .then(([saved, speech]) => {
+        if (cancelled) return;
+        setSpeechProvider(speech.provider);
+        if (saved) {
+          setSessionId(saved.id);
+          setTurns(saved.turns.length ? saved.turns : turns);
+          setScores(saved.scores);
+          const lastReply = [...saved.turns]
+            .reverse()
+            .find((turn) => turn.role === "receptionist" && turn.intent);
+          if (lastReply?.intent) {
+            setReply({
+              sinhala: lastReply.text,
+              english: lastReply.english || "",
+              intent: lastReply.intent,
+            });
+          }
+        }
+      })
+      .catch((error) =>
+        toast.error(
+          error instanceof Error ? error.message : "Saved Sinhala test could not be restored.",
+        ),
+      )
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
     return () => {
+      cancelled = true;
       recognitionRef.current?.abort?.();
+      audioRef.current?.pause();
       window.speechSynthesis?.cancel();
       window.speechSynthesis?.removeEventListener("voiceschanged", loadVoices);
     };
+    // The server function handles are stable for the lifetime of this route.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const average = useMemo(() => {
@@ -101,15 +160,46 @@ function SinhalaVoiceLab() {
     return values.length ? values.reduce((sum, score) => sum + score, 0) / values.length : 0;
   }, [scores]);
 
-  const speak = (text: string) => {
-    if (!("speechSynthesis" in window))
-      return toast.error("Speech playback is unavailable in this browser.");
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "si-LK";
-    if (sinhalaVoices[0]) utterance.voice = sinhalaVoices[0];
-    utterance.rate = 0.92;
-    window.speechSynthesis.speak(utterance);
+  const speak = async (text: string) => {
+    audioRef.current?.pause();
+    window.speechSynthesis?.cancel();
+    setSpeaking(true);
+    try {
+      if (sinhalaVoices[0]) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "si-LK";
+        utterance.voice = sinhalaVoices[0];
+        utterance.rate = 0.92;
+        utterance.onend = () => setSpeaking(false);
+        utterance.onerror = () => {
+          setSpeaking(false);
+          toast.error("The installed Sinhala voice could not play this response.");
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+      const audio = await synthesizeFn({ data: { text } });
+      const player = new Audio(`data:${audio.mimeType};base64,${audio.audioBase64}`);
+      audioRef.current = player;
+      player.onended = () => setSpeaking(false);
+      player.onerror = () => {
+        setSpeaking(false);
+        toast.error("The generated Sinhala audio could not be played.");
+      };
+      await player.play();
+    } catch (error) {
+      setSpeaking(false);
+      toast.error(
+        error instanceof Error ? error.message : "Sinhala speech could not be generated.",
+      );
+    }
+  };
+
+  const ensureSession = async () => {
+    if (sessionId) return sessionId;
+    const created = await beginFn();
+    setSessionId(created.id);
+    return created.id;
   };
 
   const startListening = () => {
@@ -140,7 +230,6 @@ function SinhalaVoiceLab() {
     recognitionRef.current = recognition;
     setInterim("");
     setListening(true);
-    startedAtRef.current = performance.now();
     recognition.start();
   };
 
@@ -154,12 +243,15 @@ function SinhalaVoiceLab() {
     setTranscript("");
     setInterim("");
     setThinking(true);
-    const started = performance.now();
     try {
+      const activeSessionId = await ensureSession();
       const result = await replyFn({
-        data: { message, turns: turns.map(({ role, text }) => ({ role, text })) },
+        data: {
+          sessionId: activeSessionId,
+          message,
+          turns: turns.map(({ role, text }) => ({ role, text })),
+        },
       });
-      const latency = Math.round(performance.now() - started);
       setReply(result.reply);
       setTurns((current) => [
         ...current,
@@ -167,10 +259,11 @@ function SinhalaVoiceLab() {
           role: "receptionist",
           text: result.reply.sinhala,
           english: result.reply.english,
-          latency,
+          latency: result.latency,
+          intent: result.reply.intent,
         },
       ]);
-      speak(result.reply.sinhala);
+      await speak(result.reply.sinhala);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "The Sinhala response could not be generated.",
@@ -183,6 +276,8 @@ function SinhalaVoiceLab() {
   const reset = () => {
     recognitionRef.current?.abort?.();
     window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    setSessionId(null);
     setTranscript("");
     setInterim("");
     setReply(null);
@@ -195,6 +290,27 @@ function SinhalaVoiceLab() {
     ]);
     setScores({ recognition: 0, understanding: 0, pronunciation: 0, naturalness: 0 });
   };
+
+  const score = async (key: keyof SinhalaLabScores, value: number) => {
+    const next = { ...scores, [key]: value };
+    setScores(next);
+    try {
+      const activeSessionId = await ensureSession();
+      await saveScoresFn({ data: { sessionId: activeSessionId, scores: next } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The test score could not be saved.");
+    }
+  };
+
+  const speechLabel = sinhalaVoices[0]
+    ? sinhalaVoices[0].name
+    : speechProvider === "azure"
+      ? "Azure · Thilini"
+      : speechProvider === "openai"
+        ? "OpenAI Sinhala voice"
+        : speechProvider === "elevenlabs"
+          ? "ElevenLabs · experimental"
+          : "Not connected";
 
   return (
     <div className="-m-4 flex h-[calc(100%+2rem)] min-w-0 flex-col bg-[#f7f8fb] md:-m-6 md:h-[calc(100%+3rem)]">
@@ -216,9 +332,15 @@ function SinhalaVoiceLab() {
             </p>
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={reset}>
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> New test
-        </Button>
+        <div className="flex items-center gap-3">
+          <span className="hidden items-center gap-1.5 text-[11px] font-medium text-emerald-700 sm:flex">
+            <CheckCircle2 className="h-3.5 w-3.5" />{" "}
+            {restoring ? "Loading saved test…" : sessionId ? "Saved to Supabase" : "Ready to save"}
+          </span>
+          <Button size="sm" variant="outline" onClick={reset}>
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> New test
+          </Button>
+        </div>
       </HeaderPortal>
 
       <div className="grid min-h-0 flex-1 xl:grid-cols-[minmax(0,1fr)_330px]">
@@ -231,8 +353,8 @@ function SinhalaVoiceLab() {
             />
             <Capability
               label="Sinhala voice"
-              value={sinhalaVoices.length ? sinhalaVoices[0].name : "Browser fallback"}
-              ready={sinhalaVoices.length > 0}
+              value={speechLabel}
+              ready={sinhalaVoices.length > 0 || Boolean(speechProvider)}
             />
             <Capability label="Reception intelligence" value="Existing CRM AI" ready />
           </div>
@@ -277,10 +399,11 @@ function SinhalaVoiceLab() {
                       <div className="mt-2 flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => speak(turn.text)}
+                          onClick={() => void speak(turn.text)}
+                          disabled={speaking}
                           className="flex items-center gap-1 text-[11px] font-medium text-violet-600"
                         >
-                          <Play className="h-3 w-3" /> Play
+                          <Play className="h-3 w-3" /> {speaking ? "Speaking…" : "Play"}
                         </button>
                         {turn.latency != null && (
                           <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -360,25 +483,25 @@ function SinhalaVoiceLab() {
               label="Speech recognition"
               hint="Did the transcript match the caller?"
               value={scores.recognition}
-              onChange={(value) => setScores((current) => ({ ...current, recognition: value }))}
+              onChange={(value) => void score("recognition", value)}
             />
             <Score
               label="Understanding"
               hint="Did Maya understand the request?"
               value={scores.understanding}
-              onChange={(value) => setScores((current) => ({ ...current, understanding: value }))}
+              onChange={(value) => void score("understanding", value)}
             />
             <Score
               label="Pronunciation"
               hint="Was the Sinhala easy to understand?"
               value={scores.pronunciation}
-              onChange={(value) => setScores((current) => ({ ...current, pronunciation: value }))}
+              onChange={(value) => void score("pronunciation", value)}
             />
             <Score
               label="Naturalness"
               hint="Did it sound like a real conversation?"
               value={scores.naturalness}
-              onChange={(value) => setScores((current) => ({ ...current, naturalness: value }))}
+              onChange={(value) => void score("naturalness", value)}
             />
           </div>
           <div
@@ -403,8 +526,14 @@ function SinhalaVoiceLab() {
             </p>
           </div>
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-            This pilot uses the browser speech engine. It measures the workflow now; Azure Speech
-            will provide the controlled production voice and recognition layer.
+            Every turn and score is saved in Supabase.{" "}
+            {speechProvider === "azure"
+              ? "Azure provides the Sinhala voice."
+              : speechProvider === "openai"
+                ? "OpenAI currently provides the Sinhala voice."
+                : speechProvider === "elevenlabs"
+                  ? "ElevenLabs playback is experimental for Sinhala; score pronunciation carefully."
+                  : "Connect Azure Speech or OpenAI to enable spoken replies on this computer."}
           </div>
           {reply && (
             <p className="mt-4 text-[11px] text-muted-foreground">
