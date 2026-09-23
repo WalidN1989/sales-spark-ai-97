@@ -13,6 +13,9 @@ const json = (body: unknown, status = 200) =>
 
 type Provider = "azure" | "openai" | "elevenlabs";
 
+const sinhalaElevenLabsVoiceName = "Jane - Professional Audiobook Reader";
+const sinhalaElevenLabsModel = "eleven_v3";
+
 function provider(): Provider | null {
   if (Deno.env.get("AZURE_SPEECH_KEY") && Deno.env.get("AZURE_SPEECH_REGION")) return "azure";
   if (Deno.env.get("OPENAI_API_KEY")) return "openai";
@@ -76,22 +79,34 @@ async function openAiSpeech(text: string) {
 
 async function elevenLabsSpeech(text: string) {
   const apiKey = Deno.env.get("ELEVENLABS_API_KEY")!;
-  const agentId = Deno.env.get("ELEVENLABS_AGENT_ID")!;
-  const agentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
-    headers: { "xi-api-key": apiKey },
-  });
-  if (!agentResponse.ok) return agentResponse;
-  const agent = (await agentResponse.json()) as {
-    conversation_config?: { tts?: { voice_id?: string } };
-  };
-  const voiceId = agent.conversation_config?.tts?.voice_id;
-  if (!voiceId) return json({ error: "The ElevenLabs agent has no voice configured." }, 503);
+  let voiceId = Deno.env.get("SINHALA_ELEVENLABS_VOICE_ID");
+
+  if (!voiceId) {
+    const voicesResponse = await fetch(
+      `https://api.elevenlabs.io/v1/shared-voices?page_size=30&search=${encodeURIComponent(sinhalaElevenLabsVoiceName)}`,
+      { headers: { "xi-api-key": apiKey } },
+    );
+    if (!voicesResponse.ok) return voicesResponse;
+    const result = (await voicesResponse.json()) as {
+      voices?: Array<{ voice_id?: string; name?: string }>;
+    };
+    voiceId = result.voices?.find((voice) => voice.name === sinhalaElevenLabsVoiceName)?.voice_id;
+  }
+
+  if (!voiceId) {
+    return json({ error: `ElevenLabs voice '${sinhalaElevenLabsVoiceName}' was not found.` }, 503);
+  }
+
   return fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": apiKey },
-      body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
+      body: JSON.stringify({
+        text,
+        model_id: Deno.env.get("SINHALA_ELEVENLABS_MODEL_ID") || sinhalaElevenLabsModel,
+        voice_settings: { stability: 0.5 },
+      }),
     },
   );
 }
@@ -103,7 +118,18 @@ Deno.serve(async (req) => {
     await requireUser(req);
     const body = (await req.json()) as { action?: string; text?: string };
     const selected = provider();
-    if (body.action === "status") return json({ provider: selected });
+    if (body.action === "status") {
+      return json({
+        provider: selected,
+        ...(selected === "elevenlabs"
+          ? {
+              voice: sinhalaElevenLabsVoiceName,
+              model: Deno.env.get("SINHALA_ELEVENLABS_MODEL_ID") || sinhalaElevenLabsModel,
+              stability: 0.5,
+            }
+          : {}),
+      });
+    }
     const text = body.text?.trim();
     if (!text || text.length > 1200)
       return json({ error: "Text must contain 1–1200 characters." }, 400);
