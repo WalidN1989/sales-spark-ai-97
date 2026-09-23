@@ -1,5 +1,10 @@
 project_id = "qygugdjyiebhnlwhhbwi"
 
+# Authenticated browser endpoint for Sinhala speech synthesis. Provider secrets
+# stay inside Supabase and are never returned to the client.
+[functions.sinhala-speech]
+verify_jwt = true
+
 # External prospect webhook — authenticates with its own x-api-key header
 # (PROSPECT_WEBHOOK_KEY), so the Supabase JWT gateway check is disabled.
 [functions.create-prospect]

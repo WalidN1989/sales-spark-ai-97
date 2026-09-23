@@ -22,14 +22,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   beginSinhalaLabTest,
-  getSinhalaSpeechStatus,
   loadLatestSinhalaLabTest,
   replyInSinhala,
   saveSinhalaLabScores,
-  synthesizeSinhalaSpeech,
   type SinhalaLabReply,
   type SinhalaLabScores,
 } from "@/lib/sinhala-lab.functions";
+import {
+  getSinhalaSpeechStatus,
+  synthesizeSinhalaSpeech,
+  type SinhalaSpeechProvider,
+} from "@/lib/sinhala-speech";
 
 export const Route = createFileRoute("/_authenticated/app/reception-lab")({
   head: () => ({ meta: [{ title: "Sinhala Voice Lab — Sales Insights" }] }),
@@ -74,8 +77,6 @@ function SinhalaVoiceLab() {
   const beginFn = useServerFn(beginSinhalaLabTest);
   const loadFn = useServerFn(loadLatestSinhalaLabTest);
   const saveScoresFn = useServerFn(saveSinhalaLabScores);
-  const speechStatusFn = useServerFn(getSinhalaSpeechStatus);
-  const synthesizeFn = useServerFn(synthesizeSinhalaSpeech);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [transcript, setTranscript] = useState("");
@@ -93,9 +94,7 @@ function SinhalaVoiceLab() {
   const [speaking, setSpeaking] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [speechProvider, setSpeechProvider] = useState<"azure" | "openai" | "elevenlabs" | null>(
-    null,
-  );
+  const [speechProvider, setSpeechProvider] = useState<SinhalaSpeechProvider | null>(null);
   const [recognitionSupported, setRecognitionSupported] = useState(false);
   const [sinhalaVoices, setSinhalaVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [scores, setScores] = useState({
@@ -116,7 +115,7 @@ function SinhalaVoiceLab() {
     loadVoices();
     window.speechSynthesis?.addEventListener("voiceschanged", loadVoices);
     let cancelled = false;
-    Promise.all([loadFn(), speechStatusFn()])
+    Promise.all([loadFn(), getSinhalaSpeechStatus()])
       .then(([saved, speech]) => {
         if (cancelled) return;
         setSpeechProvider(speech.provider);
@@ -178,11 +177,16 @@ function SinhalaVoiceLab() {
         window.speechSynthesis.speak(utterance);
         return;
       }
-      const audio = await synthesizeFn({ data: { text } });
-      const player = new Audio(`data:${audio.mimeType};base64,${audio.audioBase64}`);
+      const audio = await synthesizeSinhalaSpeech(text);
+      const audioUrl = URL.createObjectURL(audio);
+      const player = new Audio(audioUrl);
       audioRef.current = player;
-      player.onended = () => setSpeaking(false);
+      player.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setSpeaking(false);
+      };
       player.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
         setSpeaking(false);
         toast.error("The generated Sinhala audio could not be played.");
       };

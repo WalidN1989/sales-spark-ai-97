@@ -38,6 +38,7 @@ import { Route as AuthenticatedAppCompetitorsIndexRouteImport } from './routes/_
 import { Route as AuthenticatedAppVisualMatchSearchIdRouteImport } from './routes/_authenticated/app.visual-match.$searchId'
 import { Route as AuthenticatedAppSettingsUsersRouteImport } from './routes/_authenticated/app.settings.users'
 import { Route as AuthenticatedAppSettingsMyCompanyRouteImport } from './routes/_authenticated/app.settings.my-company'
+import { Route as AuthenticatedAppSettingsModulesRouteImport } from './routes/_authenticated/app.settings.modules'
 import { Route as AuthenticatedAppSettingsImportRouteImport } from './routes/_authenticated/app.settings.import'
 import { Route as AuthenticatedAppQuotationsNewRouteImport } from './routes/_authenticated/app.quotations.new'
 import { Route as AuthenticatedAppQuotationsIdRouteImport } from './routes/_authenticated/app.quotations.$id'
@@ -222,6 +223,12 @@ const AuthenticatedAppSettingsMyCompanyRoute =
     path: '/my-company',
     getParentRoute: () => AuthenticatedAppSettingsRoute,
   } as any)
+const AuthenticatedAppSettingsModulesRoute =
+  AuthenticatedAppSettingsModulesRouteImport.update({
+    id: '/modules',
+    path: '/modules',
+    getParentRoute: () => AuthenticatedAppSettingsRoute,
+  } as any)
 const AuthenticatedAppSettingsImportRoute =
   AuthenticatedAppSettingsImportRouteImport.update({
     id: '/import',
@@ -374,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
   '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
+  '/app/settings/modules': typeof AuthenticatedAppSettingsModulesRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
@@ -423,6 +431,7 @@ export interface FileRoutesByTo {
   '/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
   '/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
+  '/app/settings/modules': typeof AuthenticatedAppSettingsModulesRoute
   '/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
@@ -475,6 +484,7 @@ export interface FileRoutesById {
   '/_authenticated/app/quotations/$id': typeof AuthenticatedAppQuotationsIdRoute
   '/_authenticated/app/quotations/new': typeof AuthenticatedAppQuotationsNewRoute
   '/_authenticated/app/settings/import': typeof AuthenticatedAppSettingsImportRoute
+  '/_authenticated/app/settings/modules': typeof AuthenticatedAppSettingsModulesRoute
   '/_authenticated/app/settings/my-company': typeof AuthenticatedAppSettingsMyCompanyRoute
   '/_authenticated/app/settings/users': typeof AuthenticatedAppSettingsUsersRoute
   '/_authenticated/app/visual-match/$searchId': typeof AuthenticatedAppVisualMatchSearchIdRoute
@@ -527,6 +537,7 @@ export interface FileRouteTypes {
     | '/app/quotations/$id'
     | '/app/quotations/new'
     | '/app/settings/import'
+    | '/app/settings/modules'
     | '/app/settings/my-company'
     | '/app/settings/users'
     | '/app/visual-match/$searchId'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/app/quotations/$id'
     | '/app/quotations/new'
     | '/app/settings/import'
+    | '/app/settings/modules'
     | '/app/settings/my-company'
     | '/app/settings/users'
     | '/app/visual-match/$searchId'
@@ -627,6 +639,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/quotations/$id'
     | '/_authenticated/app/quotations/new'
     | '/_authenticated/app/settings/import'
+    | '/_authenticated/app/settings/modules'
     | '/_authenticated/app/settings/my-company'
     | '/_authenticated/app/settings/users'
     | '/_authenticated/app/visual-match/$searchId'
@@ -855,6 +868,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSettingsMyCompanyRouteImport
       parentRoute: typeof AuthenticatedAppSettingsRoute
     }
+    '/_authenticated/app/settings/modules': {
+      id: '/_authenticated/app/settings/modules'
+      path: '/modules'
+      fullPath: '/app/settings/modules'
+      preLoaderRoute: typeof AuthenticatedAppSettingsModulesRouteImport
+      parentRoute: typeof AuthenticatedAppSettingsRoute
+    }
     '/_authenticated/app/settings/import': {
       id: '/_authenticated/app/settings/import'
       path: '/import'
@@ -1033,6 +1053,7 @@ const AuthenticatedAppLeadsRouteWithChildren =
 
 interface AuthenticatedAppSettingsRouteChildren {
   AuthenticatedAppSettingsImportRoute: typeof AuthenticatedAppSettingsImportRoute
+  AuthenticatedAppSettingsModulesRoute: typeof AuthenticatedAppSettingsModulesRoute
   AuthenticatedAppSettingsMyCompanyRoute: typeof AuthenticatedAppSettingsMyCompanyRoute
   AuthenticatedAppSettingsUsersRoute: typeof AuthenticatedAppSettingsUsersRoute
 }
@@ -1040,6 +1061,7 @@ interface AuthenticatedAppSettingsRouteChildren {
 const AuthenticatedAppSettingsRouteChildren: AuthenticatedAppSettingsRouteChildren =
   {
     AuthenticatedAppSettingsImportRoute: AuthenticatedAppSettingsImportRoute,
+    AuthenticatedAppSettingsModulesRoute: AuthenticatedAppSettingsModulesRoute,
     AuthenticatedAppSettingsMyCompanyRoute:
       AuthenticatedAppSettingsMyCompanyRoute,
     AuthenticatedAppSettingsUsersRoute: AuthenticatedAppSettingsUsersRoute,

@@ -13,6 +13,7 @@ function SettingsLayout() {
   const tabs = [
     { to: "/app/settings/my-company", label: "My company" },
     { to: "/app/settings/import", label: "Import data" },
+    ...(isAdmin ? [{ to: "/app/settings/modules", label: "Hidden modules" }] : []),
     ...(isAdmin ? [{ to: "/app/settings/users", label: "User management" }] : []),
   ];
   return (

@@ -13,7 +13,10 @@ export function useAccess() {
   const isAdmin = data?.isAdmin ?? false;
   const isManager = data?.isManager ?? false;
   const permissions: PermissionMap = data?.permissions ?? {};
+  const hiddenModules = data?.hiddenModules ?? [];
+  const isModuleHidden = (module: string) => hiddenModules.includes(module);
   const can = (module: string, tab: string = "*") => {
+    if (isModuleHidden(module) && !isAdmin) return false;
     if (isManager) return true; // managers/admins see every module
     const m = permissions[module];
     const explicit = m ? (m[tab] !== undefined ? m[tab] : m["*"]) : undefined;
@@ -22,5 +25,5 @@ export function useAccess() {
     if (explicit !== undefined) return explicit;
     return moduleDefaultVisible(module);
   };
-  return { isLoading, isAdmin, isManager, userId: data?.userId ?? null, roles: data?.roles ?? [], can };
+  return { isLoading, isAdmin, isManager, userId: data?.userId ?? null, roles: data?.roles ?? [], hiddenModules, isModuleHidden, can };
 }

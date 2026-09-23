@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/app")({
 });
 
 function AppShell() {
-  const { isAdmin, can, isLoading: accessLoading } = useAccess();
+  const { isAdmin, can, isModuleHidden, isLoading: accessLoading } = useAccess();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -98,7 +98,7 @@ function AppShell() {
     { to: "/app/notes", label: "Notes", icon: StickyNote, show: can("notes") },
     { to: "/app/visual-match", label: "Visual Match", icon: Camera, show: can("visual_match") },
     { to: "/app/settings/my-company", label: "Settings", icon: Settings, show: can("settings") },
-  ].filter((n) => n.show);
+  ].filter((n) => n.show && !APP_MODULES.some((module) => module.path === n.to && isModuleHidden(module.key)));
 
   const signOut = async () => {
     await supabase.auth.signOut();
