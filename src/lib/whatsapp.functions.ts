@@ -108,11 +108,17 @@ export const sendWhatsappMessage = createServerFn({ method: "POST" })
 
     const from = `whatsapp:+${digits(fromRaw)}`;
     const to = `whatsapp:+${toDigits}`;
+    const statusCallback = process.env.TWILIO_WHATSAPP_STATUS_CALLBACK;
     const auth = btoa(`${sid}:${authToken}`);
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ From: from, To: to, Body: data.body }),
+      body: new URLSearchParams({
+        From: from,
+        To: to,
+        Body: data.body,
+        ...(statusCallback ? { StatusCallback: statusCallback } : {}),
+      }),
     });
     const payload = (await res.json().catch(() => ({}))) as { sid?: string; message?: string; code?: number };
     if (!res.ok) throw new Error(payload.message ? `Twilio: ${payload.message}` : `Twilio error ${res.status}`);
