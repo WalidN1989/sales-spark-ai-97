@@ -80,8 +80,6 @@ export const listWhatsappThread = createServerFn({ method: "GET" })
     return (rows ?? []) as WaMessage[];
   });
 
-const digits = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "");
-
 // Send a WhatsApp message via Twilio and record it on the lead. Fails cleanly
 // with a helpful message until the Twilio secrets are configured.
 export const sendWhatsappMessage = createServerFn({ method: "POST" })
@@ -90,55 +88,10 @@ export const sendWhatsappMessage = createServerFn({ method: "POST" })
     z.object({ leadId: z.string().uuid(), body: z.string().trim().min(1).max(4000) }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromRaw = process.env.TWILIO_WHATSAPP_FROM;
-    if (!sid || !authToken || !fromRaw) {
-      throw new Error("WhatsApp isn't connected yet — add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM in Lovable secrets.");
-    }
-
-    const { data: lead, error: lErr } = await sb(context)
-      .from("leads")
-      .select("id, user_id, whatsapp, phone")
-      .eq("id", data.leadId)
-      .single();
-    if (lErr) throw new Error(lErr.message);
-    const toDigits = digits(lead.whatsapp ?? lead.phone);
-    if (!toDigits) throw new Error("This lead has no WhatsApp / phone number.");
-
-    const from = `whatsapp:+${digits(fromRaw)}`;
-    const to = `whatsapp:+${toDigits}`;
-    const statusCallback = process.env.TWILIO_WHATSAPP_STATUS_CALLBACK;
-    const auth = btoa(`${sid}:${authToken}`);
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-      method: "POST",
-      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        From: from,
-        To: to,
-        Body: data.body,
-        ...(statusCallback ? { StatusCallback: statusCallback } : {}),
-      }),
+    const { data: result, error } = await sb(context).functions.invoke("whatsapp-send", {
+      body: data,
     });
-    const payload = (await res.json().catch(() => ({}))) as { sid?: string; message?: string; code?: number };
-    if (!res.ok) throw new Error(payload.message ? `Twilio: ${payload.message}` : `Twilio error ${res.status}`);
-
-    await sb(context).from("whatsapp_messages").insert({
-      lead_id: data.leadId,
-      direction: "out",
-      from_number: from,
-      to_number: to,
-      body: data.body,
-      message_sid: payload.sid ?? null,
-      status: "sent",
-      created_by: context.userId,
-    });
-    await sb(context).from("lead_activities").insert({
-      lead_id: data.leadId,
-      user_id: context.userId,
-      kind: "whatsapp",
-      body: `WhatsApp out: ${data.body.slice(0, 500)}`,
-    });
-
-    return { ok: true, sid: payload.sid ?? null };
+    if (error) throw new Error(error.message || "WhatsApp send failed.");
+    if (!result?.ok) throw new Error(result?.error || "WhatsApp send failed.");
+    return result as { ok: true; sid: string | null };
   });

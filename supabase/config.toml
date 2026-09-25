@@ -24,6 +24,11 @@ verify_jwt = false
 [functions.whatsapp-inbound]
 verify_jwt = false
 
+# Authenticated CRM endpoint for outbound WhatsApp messages. Twilio secrets
+# remain in Supabase/Lovable Cloud and are never exposed to the browser.
+[functions.whatsapp-send]
+verify_jwt = true
+
 # ElevenLabs signed post-call transcript webhook and authenticated history
 # reconciliation. The webhook validates ElevenLabs-Signature itself.
 [functions.elevenlabs-post-call]
