@@ -833,30 +833,60 @@ export type Database = {
       }
       lead_activities: {
         Row: {
+          assigned_to: string | null
           body: string
           created_at: string
           id: string
           kind: string
           lead_id: string
+          meeting_address: string | null
+          meeting_company_url: string | null
+          meeting_contact_email: string | null
+          meeting_contact_name: string | null
+          meeting_contact_phone: string | null
+          meeting_contact_url: string | null
+          meeting_state: string | null
           outcome: string | null
+          scheduled_at: string | null
+          source_module: string | null
           user_id: string
         }
         Insert: {
+          assigned_to?: string | null
           body: string
           created_at?: string
           id?: string
           kind: string
           lead_id: string
+          meeting_address?: string | null
+          meeting_company_url?: string | null
+          meeting_contact_email?: string | null
+          meeting_contact_name?: string | null
+          meeting_contact_phone?: string | null
+          meeting_contact_url?: string | null
+          meeting_state?: string | null
           outcome?: string | null
+          scheduled_at?: string | null
+          source_module?: string | null
           user_id: string
         }
         Update: {
+          assigned_to?: string | null
           body?: string
           created_at?: string
           id?: string
           kind?: string
           lead_id?: string
+          meeting_address?: string | null
+          meeting_company_url?: string | null
+          meeting_contact_email?: string | null
+          meeting_contact_name?: string | null
+          meeting_contact_phone?: string | null
+          meeting_contact_url?: string | null
+          meeting_state?: string | null
           outcome?: string | null
+          scheduled_at?: string | null
+          source_module?: string | null
           user_id?: string
         }
         Relationships: [
