@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
         Authorization: `Basic ${btoa(`${sid}:${authToken}`)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ ...params, ...(statusCallback ? { StatusCallback: statusCallback } : {}) }),
+      body: new URLSearchParams({ ...params, ...(statusCallback ? { StatusCallback: statusCallback } : {}) } as Record<string, string>),
     });
     const payload = await response.json().catch(() => ({})) as { sid?: string; message?: string };
     if (!response.ok) return json({ error: payload.message ? `Twilio: ${payload.message}` : `Twilio error ${response.status}` }, 502);

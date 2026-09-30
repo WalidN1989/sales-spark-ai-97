@@ -29,7 +29,8 @@ async function sendManagerReply(to: string, answer: string) {
 
 type AgentSettings = { agent_name: string; personality: string; response_rules: string; knowledge: string };
 
-async function answerManagerQuestion(supabase: ReturnType<typeof createClient>, question: string, settings: AgentSettings) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function answerManagerQuestion(supabase: any, question: string, settings: AgentSettings) {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return "Claude is not connected yet. Add ANTHROPIC_API_KEY to the project secrets.";
   const now = new Date().toISOString();
