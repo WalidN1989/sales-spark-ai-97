@@ -2575,6 +2575,50 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_agent_settings: {
+        Row: {
+          agent_name: string
+          approved_numbers: string[]
+          enabled: boolean
+          knowledge: string
+          org_id: string
+          personality: string
+          response_rules: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agent_name?: string
+          approved_numbers?: string[]
+          enabled?: boolean
+          knowledge?: string
+          org_id: string
+          personality?: string
+          response_rules?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agent_name?: string
+          approved_numbers?: string[]
+          enabled?: boolean
+          knowledge?: string
+          org_id?: string
+          personality?: string
+          response_rules?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_messages: {
         Row: {
           body: string | null
