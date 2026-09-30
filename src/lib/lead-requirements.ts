@@ -4,6 +4,9 @@ export const LEAD_REQUIREMENTS = [
   "Visitor Management System",
   "Meal Management System",
   "Gym Management System",
+  "Wacom BSU",
+  "Wacom Creative",
+  "Emirates ID",
   "Other / Unclassified",
 ] as const;
 
