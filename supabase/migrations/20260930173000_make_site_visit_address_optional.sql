@@ -1,5 +1,4 @@
--- Website links remain available for enrichment but are no longer mandatory
--- when staff schedule a site visit.
+-- Address is helpful when known, but should not block scheduling a visit.
 ALTER TABLE public.lead_activities
   DROP CONSTRAINT IF EXISTS lead_activities_visit_details_check;
 

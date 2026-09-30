@@ -38,6 +38,5 @@ ALTER TABLE public.lead_activities
         OR NULLIF(BTRIM(meeting_contact_email), '') IS NOT NULL
       )
       AND NULLIF(BTRIM(meeting_state), '') IS NOT NULL
-      AND NULLIF(BTRIM(meeting_address), '') IS NOT NULL
     )
   ) NOT VALID;
