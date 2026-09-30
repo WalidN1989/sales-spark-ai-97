@@ -36,7 +36,7 @@ export type SiteVisit = {
   source_module: "lead" | "prospect"; source_id: string; company_name: string;
   body: string; meeting_contact_name: string; meeting_contact_phone: string | null;
   meeting_contact_email: string | null; meeting_state: string; meeting_address: string;
-  meeting_company_url: string; meeting_contact_url: string; assignee_name: string;
+  meeting_company_url: string | null; meeting_contact_url: string | null; assignee_name: string;
 };
 
 export const listSiteVisits = createServerFn({ method: "GET" })

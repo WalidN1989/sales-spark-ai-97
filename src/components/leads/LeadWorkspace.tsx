@@ -130,6 +130,7 @@ export function LeadWorkspace({
   country,
   city,
   website,
+  address,
   contacts,
   anchorId,
   activeContactId,
@@ -151,6 +152,7 @@ export function LeadWorkspace({
   country?: string | null;
   city?: string | null;
   website?: string | null;
+  address?: string | null;
   contacts: WorkspaceContact[];
   extraProducts?: string[];
   anchorId: string;
@@ -576,6 +578,7 @@ export function LeadWorkspace({
         companyName={companyName}
         companyUrl={website ?? ""}
         defaultState={city ?? country ?? ""}
+        defaultAddress={address ?? ""}
         onSubmit={async (payload) => {
           let leadId = payload.leadId;
           if (!leadId && resolveAnchor) leadId = await resolveAnchor();
@@ -1217,6 +1220,7 @@ function AddActivityDialog({
   companyName,
   companyUrl,
   defaultState,
+  defaultAddress,
   onSubmit,
 }: {
   open: boolean;
@@ -1229,6 +1233,7 @@ function AddActivityDialog({
   companyName: string;
   companyUrl: string;
   defaultState: string;
+  defaultAddress: string;
   onSubmit: (payload: {
     leadId: string;
     kind: ActivityKind;
@@ -1264,13 +1269,23 @@ function AddActivityDialog({
   const [meetingPhone, setMeetingPhone] = useState("");
   const [meetingEmail, setMeetingEmail] = useState("");
   const [meetingState, setMeetingState] = useState(defaultState);
-  const [meetingAddress, setMeetingAddress] = useState("");
+  const [meetingAddress, setMeetingAddress] = useState(defaultAddress);
   const [meetingCompanyUrl, setMeetingCompanyUrl] = useState(companyUrl ? (/^https?:\/\//i.test(companyUrl) ? companyUrl : `https://${companyUrl}`) : "");
-  const [meetingContactUrl, setMeetingContactUrl] = useState("");
 
   useEffect(() => {
     if (!visitAssignee && assignees.length) setVisitAssignee(assignees[0].id);
   }, [assignees, visitAssignee]);
+
+  useEffect(() => {
+    if (kind !== "visit") return;
+    const selected = contacts.find((contact) => contact.id === leadId) ?? contacts[0];
+    if (!selected) return;
+    setMeetingContact((value) => value || selected.contact_person || "");
+    setMeetingPhone((value) => value || selected.phone || selected.whatsapp || "");
+    setMeetingEmail((value) => value || selected.contact_email || "");
+    setMeetingState((value) => value || defaultState);
+    setMeetingAddress((value) => value || defaultAddress);
+  }, [kind, leadId, contacts, defaultState, defaultAddress]);
 
   const reset = () => {
     setKind("call");
@@ -1282,16 +1297,27 @@ function AddActivityDialog({
     setDueTime("");
     setVisitDate(""); setVisitTime(""); setVisitAssignee(assignees[0]?.id ?? "");
     setMeetingContact(""); setMeetingPhone(""); setMeetingEmail("");
-    setMeetingState(defaultState); setMeetingAddress("");
+    setMeetingState(defaultState); setMeetingAddress(defaultAddress);
     setMeetingCompanyUrl(companyUrl ? (/^https?:\/\//i.test(companyUrl) ? companyUrl : `https://${companyUrl}`) : "");
-    setMeetingContactUrl("");
   };
 
   const submit = async () => {
     if (!body.trim()) return;
     if (kind === "visit") {
-      if (!visitDate || !visitTime || !visitAssignee || !meetingContact.trim() || !meetingState || !meetingAddress.trim() || !meetingCompanyUrl.trim() || !meetingContactUrl.trim() || (!meetingPhone.trim() && !meetingEmail.trim())) {
+      if (!visitDate || !visitTime || !visitAssignee || !meetingContact.trim() || !meetingState || !meetingAddress.trim() || (!meetingPhone.trim() && !meetingEmail.trim())) {
         toast.error("Complete every required site visit field. Add at least a phone number or email.");
+        return;
+      }
+      const validHttpUrl = (value: string) => {
+        try {
+          const parsed = new URL(value);
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      };
+      if (!validHttpUrl(meetingCompanyUrl) || !validHttpUrl(meetingContactUrl)) {
+        toast.error("Enter complete website links starting with https:// — for example https://company.com/contact");
         return;
       }
     }
@@ -1313,8 +1339,7 @@ function AddActivityDialog({
           meeting_contact_email: meetingEmail.trim(),
           meeting_state: meetingState,
           meeting_address: meetingAddress.trim(),
-          meeting_company_url: meetingCompanyUrl.trim(),
-          meeting_contact_url: meetingContactUrl.trim(),
+          ...(meetingCompanyUrl.trim() ? { meeting_company_url: meetingCompanyUrl.trim() } : {}),
         } : {}),
         ...(canScheduleFollowUp && due ? { next_action_due: due } : {}),
         ...(canScheduleFollowUp && nextAction.trim() ? { next_action: nextAction.trim() } : {}),
@@ -1408,8 +1433,6 @@ function AddActivityDialog({
                 </Field>
                 <Field label="Company"><Input value={companyName} disabled /></Field>
                 <div className="md:col-span-2"><Field label="Address *"><Input value={meetingAddress} onChange={(e) => setMeetingAddress(e.target.value)} placeholder="Building, street, area" /></Field></div>
-                <Field label="Company website *"><Input type="url" value={meetingCompanyUrl} onChange={(e) => setMeetingCompanyUrl(e.target.value)} placeholder="https://company.com" /></Field>
-                <Field label="Contact-us page *"><Input type="url" value={meetingContactUrl} onChange={(e) => setMeetingContactUrl(e.target.value)} placeholder="https://company.com/contact" /></Field>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">At least one contact method — phone or email — is required.</p>
             </div>

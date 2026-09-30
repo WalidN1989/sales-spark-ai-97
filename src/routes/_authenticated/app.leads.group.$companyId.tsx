@@ -154,6 +154,7 @@ function GroupView() {
         country={country}
         city={company?.city ?? null}
         website={website}
+        address={company?.address ?? null}
         contacts={leads}
         anchorId={anchorId}
         reminderEntity={

@@ -317,6 +317,7 @@ function CompanyProfile() {
         country={c.country}
         city={(c as { city?: string | null }).city ?? null}
         website={c.domain}
+        address={c.address}
         contacts={leads}
         anchorId={anchorId}
         extraProducts={c.product_service ? [c.product_service] : []}

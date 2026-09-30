@@ -869,8 +869,6 @@ export const addLeadActivity = createServerFn({ method: "POST" })
           ["meeting_contact_name", value.meeting_contact_name],
           ["meeting_state", value.meeting_state],
           ["meeting_address", value.meeting_address],
-          ["meeting_company_url", value.meeting_company_url],
-          ["meeting_contact_url", value.meeting_contact_url],
         ] as const;
         required.forEach(([field, fieldValue]) => {
           if (!fieldValue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Required for a site visit" });

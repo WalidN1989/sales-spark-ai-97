@@ -468,6 +468,7 @@ function LeadDetail() {
         industry={l.companies?.industry ?? null}
         country={l.companies?.country ?? null}
         website={effectiveWebsite || null}
+        address={(l.companies as { address?: string | null } | null)?.address ?? null}
         contacts={[workspaceContact]}
         anchorId={id}
         reminderEntity={{ type: "lead", id, label: companyDisplay }}
