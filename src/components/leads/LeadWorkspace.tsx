@@ -601,7 +601,7 @@ export function LeadWorkspace({
         defaultContactId={anchorId}
         canScheduleFollowUp={canEdit || (!anchor && !!resolveAnchor)}
         assignees={visitAssignees}
-        sourceModule={reminderEntity?.type ?? "lead"}
+        sourceModule={reminderEntity?.type === "prospect" ? "prospect" : "lead"}
         companyName={companyName}
         defaultState={city ?? country ?? ""}
         defaultAddress={address ?? ""}
