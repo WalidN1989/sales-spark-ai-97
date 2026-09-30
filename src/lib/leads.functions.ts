@@ -791,7 +791,7 @@ export const listLeadActivities = createServerFn({ method: "GET" })
     // `outcome` requires the activity_journal migration — fall back gracefully.
     const full = await context.supabase
       .from("lead_activities")
-      .select("id, lead_id, kind, body, outcome, created_at")
+      .select("id, lead_id, kind, body, outcome, created_at, scheduled_at, assigned_to, source_module, meeting_contact_name, meeting_contact_phone, meeting_contact_email, meeting_state, meeting_address")
       .eq("lead_id", data.leadId)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -816,7 +816,7 @@ export const listCompanyActivities = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const full = await context.supabase
       .from("lead_activities")
-      .select("id, lead_id, kind, body, outcome, created_at")
+      .select("id, lead_id, kind, body, outcome, created_at, scheduled_at, assigned_to, source_module, meeting_contact_name, meeting_contact_phone, meeting_contact_email, meeting_state, meeting_address")
       .in("lead_id", data.leadIds)
       .order("created_at", { ascending: false })
       .limit(1000);
@@ -939,6 +939,13 @@ export const updateLeadActivity = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         body: z.string().trim().min(1).max(2000),
         outcome: outcomeEnum.nullable().optional(),
+        scheduled_at: z.string().datetime().optional(),
+        assigned_to: z.string().uuid().optional(),
+        meeting_contact_name: z.string().trim().max(200).optional(),
+        meeting_contact_phone: z.string().trim().max(80).optional(),
+        meeting_contact_email: z.string().trim().email().max(200).or(z.literal("")).optional(),
+        meeting_state: z.string().trim().max(120).optional(),
+        meeting_address: z.string().trim().max(500).optional(),
       })
       .parse(d),
   )
@@ -953,9 +960,12 @@ export const updateLeadActivity = createServerFn({ method: "POST" })
       throw new Error("This entry is older than 24 hours and can no longer be edited.");
     }
 
-    const patch: { body: string; outcome?: string | null } = { body: data.body };
+    const patch: Record<string, unknown> = { body: data.body };
     if (data.outcome !== undefined) patch.outcome = data.outcome;
-    let res = await context.supabase.from("lead_activities").update(patch).eq("id", data.id);
+    for (const field of ["scheduled_at", "assigned_to", "meeting_contact_name", "meeting_contact_phone", "meeting_contact_email", "meeting_state", "meeting_address"] as const) {
+      if (data[field] !== undefined) patch[field] = data[field] || null;
+    }
+    let res = await (context.supabase as any).from("lead_activities").update(patch).eq("id", data.id);
     if (res.error && /outcome/i.test(res.error.message)) {
       res = await context.supabase
         .from("lead_activities")

@@ -109,6 +109,14 @@ type ActivityRow = {
   body: string;
   outcome?: string | null;
   created_at: string;
+  scheduled_at?: string | null;
+  assigned_to?: string | null;
+  source_module?: "lead" | "prospect" | null;
+  meeting_contact_name?: string | null;
+  meeting_contact_phone?: string | null;
+  meeting_contact_email?: string | null;
+  meeting_state?: string | null;
+  meeting_address?: string | null;
 };
 
 type NoteRow = { id: string; title: string | null; body_text: string | null; created_at: string };
@@ -122,6 +130,14 @@ type FeedEntry = {
   body: string;
   outcome?: string | null;
   created_at: string;
+  scheduled_at?: string | null;
+  assigned_to?: string | null;
+  source_module?: "lead" | "prospect" | null;
+  meeting_contact_name?: string | null;
+  meeting_contact_phone?: string | null;
+  meeting_contact_email?: string | null;
+  meeting_state?: string | null;
+  meeting_address?: string | null;
 };
 
 export function LeadWorkspace({
@@ -262,6 +278,7 @@ export function LeadWorkspace({
   });
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editVisit, setEditVisit] = useState<FeedEntry | null>(null);
   const [remindOpen, setRemindOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [filter, setFilter] = useState<ActivityKind | "all">("all");
@@ -291,6 +308,14 @@ export function LeadWorkspace({
       body: a.body,
       outcome: a.outcome ?? null,
       created_at: a.created_at,
+      scheduled_at: a.scheduled_at,
+      assigned_to: a.assigned_to,
+      source_module: a.source_module,
+      meeting_contact_name: a.meeting_contact_name,
+      meeting_contact_phone: a.meeting_contact_phone,
+      meeting_contact_email: a.meeting_contact_email,
+      meeting_state: a.meeting_state,
+      meeting_address: a.meeting_address,
     }));
     const noteEntries: FeedEntry[] = (notes as NoteRow[]).map((n) => {
       // Some notes carry the same text in title and body — show it once.
@@ -479,6 +504,7 @@ export function LeadWorkspace({
                           who={contactIds.length > 1 && a.lead_id ? contactName.get(a.lead_id) : undefined}
                           onDelete={() => del.mutate(a)}
                           onSaveEdit={(body) => editAct.mutate({ id: a.id, body })}
+                          onEditVisit={() => setEditVisit(a)}
                         />
                       ))}
                     </div>
@@ -568,8 +594,9 @@ export function LeadWorkspace({
       </div>
 
       <AddActivityDialog
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
+        open={addOpen || !!editVisit}
+        onClose={() => { setAddOpen(false); setEditVisit(null); }}
+        initialVisit={editVisit}
         contacts={contacts}
         defaultContactId={anchorId}
         canScheduleFollowUp={canEdit || (!anchor && !!resolveAnchor)}
@@ -579,6 +606,10 @@ export function LeadWorkspace({
         defaultState={city ?? country ?? ""}
         defaultAddress={address ?? ""}
         onSubmit={async (payload) => {
+          if (editVisit) {
+            await updateActFn({ data: { id: editVisit.id, body: payload.body, outcome: payload.outcome, scheduled_at: payload.scheduled_at, assigned_to: payload.assigned_to, meeting_contact_name: payload.meeting_contact_name, meeting_contact_phone: payload.meeting_contact_phone, meeting_contact_email: payload.meeting_contact_email, meeting_state: payload.meeting_state, meeting_address: payload.meeting_address } });
+            invalidate(); setEditVisit(null); toast.success("Site visit updated"); return;
+          }
           let leadId = payload.leadId;
           if (!leadId && resolveAnchor) leadId = await resolveAnchor();
           if (!leadId) {
@@ -682,11 +713,13 @@ function JournalEntry({
   who,
   onDelete,
   onSaveEdit,
+  onEditVisit,
 }: {
   a: FeedEntry;
   who?: string;
   onDelete: () => void;
   onSaveEdit?: (body: string) => void;
+  onEditVisit?: () => void;
 }) {
   const m = activityMeta(a.kind);
   const oc = outcomeMeta(a.outcome);
@@ -719,6 +752,10 @@ function JournalEntry({
               <button
                 type="button"
                 onClick={() => {
+                  if (a.kind === "visit") {
+                    onEditVisit?.();
+                    return;
+                  }
                   setDraft(a.body);
                   setEditing(true);
                 }}
@@ -747,7 +784,7 @@ function JournalEntry({
           </div>
         </div>
 
-        {editing ? (
+        {editing && a.kind !== "visit" ? (
           <div className="mt-1 space-y-2">
             <Textarea
               autoFocus
@@ -1219,6 +1256,7 @@ function AddActivityDialog({
   companyName,
   defaultState,
   defaultAddress,
+  initialVisit,
   onSubmit,
 }: {
   open: boolean;
@@ -1231,6 +1269,7 @@ function AddActivityDialog({
   companyName: string;
   defaultState: string;
   defaultAddress: string;
+  initialVisit?: FeedEntry | null;
   onSubmit: (payload: {
     leadId: string;
     kind: ActivityKind;
@@ -1282,6 +1321,26 @@ function AddActivityDialog({
     setMeetingState((value) => value || defaultState);
     setMeetingAddress((value) => value || defaultAddress);
   }, [kind, leadId, contacts, defaultState, defaultAddress]);
+
+  useEffect(() => {
+    if (!open || !initialVisit) return;
+    setKind("visit");
+    setLeadId(initialVisit.lead_id ?? defaultContactId);
+    setBody(initialVisit.body);
+    setOutcome((initialVisit.outcome as Outcome | null | undefined) ?? null);
+    if (initialVisit.scheduled_at) {
+      const scheduled = new Date(initialVisit.scheduled_at);
+      const local = new Date(scheduled.getTime() - scheduled.getTimezoneOffset() * 60000).toISOString();
+      setVisitDate(local.slice(0, 10));
+      setVisitTime(local.slice(11, 16));
+    }
+    setVisitAssignee(initialVisit.assigned_to ?? assignees[0]?.id ?? "");
+    setMeetingContact(initialVisit.meeting_contact_name ?? "");
+    setMeetingPhone(initialVisit.meeting_contact_phone ?? "");
+    setMeetingEmail(initialVisit.meeting_contact_email ?? "");
+    setMeetingState(initialVisit.meeting_state ?? defaultState);
+    setMeetingAddress(initialVisit.meeting_address ?? defaultAddress);
+  }, [open, initialVisit, defaultContactId, assignees, defaultState, defaultAddress]);
 
   const reset = () => {
     setKind("call");
@@ -1347,7 +1406,7 @@ function AddActivityDialog({
     >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg">Log an activity</DialogTitle>
+          <DialogTitle className="text-lg">{initialVisit ? "Edit site visit" : "Log an activity"}</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Capture what happened, the outcome, and when to follow up.
           </p>
@@ -1359,7 +1418,7 @@ function AddActivityDialog({
           }}
         >
           {/* Type — full width */}
-          <div>
+          {!initialVisit && <div>
             <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Activity type
             </label>
@@ -1387,7 +1446,7 @@ function AddActivityDialog({
                 );
               })}
             </div>
-          </div>
+          </div>}
 
           {kind === "visit" && (
             <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
@@ -1410,7 +1469,7 @@ function AddActivityDialog({
                 <Field label="Emirate / state *">
                   <select value={meetingState} onChange={(e) => setMeetingState(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
                     <option value="">Select state</option>
-                    {["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah", "Outside UAE / Other"].map((s) => <option key={s}>{s}</option>)}
+                    {["Abu Dhabi", "Al Ain", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah", "Outside UAE / Other"].map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </Field>
                 <Field label="Company"><Input value={companyName} disabled /></Field>
@@ -1567,7 +1626,7 @@ function AddActivityDialog({
               Cancel
             </Button>
             <Button onClick={submit} disabled={!body.trim() || saving}>
-              {saving ? "Saving…" : "Log Activity"}
+              {saving ? "Saving…" : initialVisit ? "Save Site Visit" : "Log Activity"}
             </Button>
           </div>
         </DialogFooter>
