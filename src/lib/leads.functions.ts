@@ -1081,7 +1081,15 @@ const quickLeadSchema = z.object({
     .or(z.literal("").transform(() => null)),
   company_name: z.string().trim().max(200).optional().nullable(),
   website: z.string().trim().max(300).optional().nullable(),
-  product: z.string().trim().min(1, "Product / service is required").max(500),
+  requirement: z.enum([
+    "TNA (Time and Attendance)",
+    "Access Control System",
+    "Visitor Management System",
+    "Meal Management System",
+    "Gym Management System",
+    "Other / Unclassified",
+  ]),
+  extracted_product: z.string().trim().max(500).optional().nullable(),
   note: z.string().trim().max(1000).optional().nullable(),
   is_reseller: z.boolean().optional(),
   reseller_company_id: z.string().uuid().optional().nullable(),
@@ -1095,7 +1103,8 @@ export const createQuickLead = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => quickLeadSchema.parse(d))
   .handler(async ({ context, data }) => {
     const parts: string[] = [];
-    if (data.product) parts.push(`Product: ${data.product}`);
+    parts.push(`Requirement: ${data.requirement}`);
+    if (data.extracted_product) parts.push(`Extracted inquiry: ${data.extracted_product}`);
     if (data.note) parts.push(data.note);
     const activityBody = parts.join("\n\n");
 
@@ -1139,7 +1148,7 @@ export const createQuickLead = createServerFn({ method: "POST" })
         whatsapp: data.whatsapp,
         company_name: data.company_name || null,
         website: data.website || null,
-        products_services: [data.product.slice(0, 80)],
+        products_services: [data.requirement],
         status: "warm",
         lead_type: data.is_reseller ? "reseller" : "direct",
         reseller_company_id: resellerCompanyId,

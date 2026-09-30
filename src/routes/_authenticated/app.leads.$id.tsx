@@ -75,6 +75,7 @@ import {
   type EmailStatusUI,
 } from "@/lib/leads-ui";
 import { TagInput } from "@/components/leads/TagInput";
+import { LEAD_REQUIREMENTS } from "@/lib/lead-requirements";
 import { RespondTab } from "@/components/respond/RespondTab";
 import { PinLocationButton } from "@/components/location/PinLocationButton";
 import { LeadPurchaseDialog } from "@/components/leads/LeadPurchaseDialog";
@@ -604,8 +605,23 @@ function LeadDetail() {
                   <TagInput value={brands} onChange={setBrands} placeholder="HP, Logitech… (Enter)" />
                 </div>
                 <div>
-                  <Label>Products & services</Label>
-                  <TagInput value={products} onChange={setProducts} placeholder="Signature pads, Access control… (Enter)" />
+                  <Label>Requirement</Label>
+                  <Select
+                    value={products[0] ?? ""}
+                    onValueChange={(value) => setProducts([value])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select requirement…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products[0] && !LEAD_REQUIREMENTS.includes(products[0] as (typeof LEAD_REQUIREMENTS)[number]) && (
+                        <SelectItem value={products[0]}>{products[0]} (existing)</SelectItem>
+                      )}
+                      {LEAD_REQUIREMENTS.map((item) => (
+                        <SelectItem key={item} value={item}>{item}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Background notes</Label>

@@ -179,7 +179,7 @@ const COLUMNS: ColDef[] = [
   { key: "contact", label: "Contact", width: 140, min: 100, sortable: true },
   { key: "value", label: "Value", width: 100, min: 80, sortable: true },
   { key: "assignee", label: "Assigned to", width: 132, min: 100, sortable: true },
-  { key: "product", label: "Product", width: 180, min: 110 },
+  { key: "product", label: "Requirement", width: 190, min: 130 },
   { key: "stage", label: "Stage", width: 128, min: 110, sortable: true },
   { key: "health", label: "Health", width: 92, min: 80, sortable: true },
   { key: "priority", label: "Priority", width: 104, min: 90, sortable: true },
@@ -823,7 +823,7 @@ export function LeadsCommandCenter({
   const exportRows = (only: Set<string> | null, format: "xlsx" | "csv") => {
     const pick = only && only.size > 0 ? rows.filter((r) => only.has(r.lead.id)) : rows;
     const header = [
-      "Company", "Contact", "Email", "WhatsApp", "Product", "Source", "Stage", "Health",
+      "Company", "Contact", "Email", "WhatsApp", "Requirement", "Source", "Stage", "Health",
       "Priority", "Due", "Last Activity", "Next Action", "Value (AED)", "Summary",
     ];
     const data: Cell[][] = pick.map((r) => [
@@ -845,7 +845,7 @@ export function LeadsCommandCenter({
     const byId = new Map(leads.map((l) => [l.id, l]));
     const header = [
       "Company", "Contact", "Job Title", "Email", "WhatsApp", "Phone", "LinkedIn",
-      "Country", "Industry", "Website", "Product", "Stage", "Source",
+      "Country", "Industry", "Website", "Requirement", "Stage", "Source",
     ];
     const data: Cell[][] = [];
     for (const r of pick) {
@@ -1566,7 +1566,7 @@ export function LeadsCommandCenter({
           onChange={(v) => setFilters((f) => ({ ...f, priorities: v as LeadPriority[] }))}
         />
         <FacetFilter
-          label="Product"
+          label="Requirement"
           options={facets.products.map(([v, n]) => ({ value: v, label: v, count: n }))}
           selected={filters.products}
           onChange={(v) => setFilters((f) => ({ ...f, products: v }))}

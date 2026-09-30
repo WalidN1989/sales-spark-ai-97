@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LeadsCommandCenter, type CommandLead } from "@/components/leads/CommandCenter";
+import { LEAD_REQUIREMENTS } from "@/lib/lead-requirements";
 
 export const Route = createFileRoute("/_authenticated/app/leads")({
   head: () => ({ meta: [{ title: "Leads — Sales Insights" }] }),
@@ -86,7 +87,8 @@ function QuickAddLeadDialog({
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [website, setWebsite] = useState("");
-  const [product, setProduct] = useState("");
+  const [requirement, setRequirement] = useState("");
+  const [extractedProduct, setExtractedProduct] = useState("");
   const [note, setNote] = useState("");
   const [extracted, setExtracted] = useState<Set<string>>(new Set());
   const [isReseller, setIsReseller] = useState(false);
@@ -102,7 +104,8 @@ function QuickAddLeadDialog({
     setEmail("");
     setCompanyName("");
     setWebsite("");
-    setProduct("");
+    setRequirement("");
+    setExtractedProduct("");
     setNote("");
     setExtracted(new Set());
     setIsReseller(false);
@@ -121,7 +124,7 @@ function QuickAddLeadDialog({
       if (r.contact_email && !email) { setEmail(r.contact_email); tags.add("email"); }
       if (r.company_name && !companyName) { setCompanyName(r.company_name); tags.add("company"); }
       if (r.website && !website) { setWebsite(r.website); tags.add("website"); }
-      if (r.product && !product) { setProduct(r.product); tags.add("product"); }
+      if (r.product && !extractedProduct) { setExtractedProduct(r.product); tags.add("product"); }
       if (r.note) {
         setNote((n) => (n ? `${n}\n${r.note}` : r.note!));
         tags.add("note");
@@ -145,7 +148,8 @@ function QuickAddLeadDialog({
           contact_email: email || null,
           company_name: companyName || null,
           website: website || null,
-          product: product || null,
+          requirement,
+          extracted_product: extractedProduct || null,
           note: note || null,
           is_reseller: isReseller,
           reseller_company_id,
@@ -341,15 +345,18 @@ function QuickAddLeadDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Product / service * {tag("product")}
+                Requirement *
               </Label>
-              <Input
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                maxLength={500}
-                placeholder="What is the customer asking about?"
-                required
-              />
+              <Select value={requirement} onValueChange={setRequirement}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select requirement…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_REQUIREMENTS.map((item) => (
+                    <SelectItem key={item} value={item}>{item}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -364,6 +371,24 @@ function QuickAddLeadDialog({
               />
             </div>
           </div>
+
+          {extractedProduct && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3 dark:border-sky-900 dark:bg-sky-950/20">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Extracted inquiry detail {tag("product")}
+              </Label>
+              <Input
+                className="mt-1 bg-background"
+                value={extractedProduct}
+                onChange={(e) => setExtractedProduct(e.target.value)}
+                maxLength={500}
+                placeholder="Product, model or service mentioned by the customer"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Kept in the activity history; reporting uses the Requirement selected above.
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -463,7 +488,7 @@ function QuickAddLeadDialog({
             onClick={() => create.mutate()}
             disabled={
               !whatsapp.trim() ||
-              !product.trim() ||
+              !requirement ||
               create.isPending ||
               (isReseller && !resellerChoice) ||
               (isReseller && resellerChoice === "__new__" && !newResellerName.trim())
