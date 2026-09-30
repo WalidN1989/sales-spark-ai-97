@@ -17,12 +17,14 @@ async function sendManagerReply(to: string, answer: string) {
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const fromRaw = Deno.env.get("TWILIO_WHATSAPP_FROM");
-  if (!sid || !authToken || !fromRaw) return;
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+  if (!sid || !authToken || !fromRaw) return null;
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: { Authorization: `Basic ${btoa(`${sid}:${authToken}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ From: `whatsapp:+${digits(fromRaw)}`, To: to, Body: answer.slice(0, 1500) }),
   });
+  const payload = await response.json().catch(() => ({})) as { sid?: string; status?: string };
+  return { sid: payload.sid ?? null, status: payload.status ?? (response.ok ? "queued" : "failed") };
 }
 
 type AgentSettings = { agent_name: string; personality: string; response_rules: string; knowledge: string };
@@ -90,6 +92,12 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(url, serviceKey);
 
+  // Ignore Twilio retries before any assistant response is generated.
+  if (sid && form.has("Body")) {
+    const { data: existing } = await supabase.from("whatsapp_messages").select("id").eq("message_sid", sid).maybeSingle();
+    if (existing) return xml();
+  }
+
   // Messages from explicitly authorized manager numbers become private,
   // read-only CRM questions answered by Claude Haiku. All other numbers keep
   // following the normal customer conversation flow below.
@@ -108,8 +116,14 @@ Deno.serve(async (req) => {
     knowledge: "Assist eTOP management with prospects, leads, meetings, quotations, priorities, assignments and follow-ups.",
   };
   if (body.trim() && from && (configuredAgent || secretNumbers.includes(fromDigits))) {
+    const needle = fromDigits.slice(-9);
+    const { data: matchingLeads } = await supabase.from("leads").select("id, user_id").or(`whatsapp.ilike.%${needle}%,phone.ilike.%${needle}%`).order("last_activity_at", { ascending: false, nullsFirst: false }).limit(1);
+    const managerLead = matchingLeads?.[0] ?? null;
+    await supabase.from("whatsapp_messages").insert({ lead_id: managerLead?.id ?? null, direction: "in", from_number: from, to_number: to, body, media_url: mediaUrl, message_sid: sid, status: messageStatus || "received" });
     const answer = await answerManagerQuestion(supabase, body.trim(), configuredAgent ?? fallbackSettings);
-    await sendManagerReply(from, answer);
+    const sent = await sendManagerReply(from, answer);
+    await supabase.from("whatsapp_messages").insert({ lead_id: managerLead?.id ?? null, direction: "out", from_number: to, to_number: from, body: answer, message_sid: sent?.sid ?? null, status: sent?.status ?? "failed" });
+    if (managerLead) await supabase.from("lead_activities").insert({ lead_id: managerLead.id, user_id: managerLead.user_id, kind: "whatsapp", body: `CRM assistant: ${body.slice(0, 220)}` });
     return xml();
   }
 
