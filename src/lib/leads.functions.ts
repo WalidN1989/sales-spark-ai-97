@@ -849,14 +849,60 @@ export const addLeadActivity = createServerFn({ method: "POST" })
           .nullable()
           .optional(),
         priority: z.enum(["critical", "high", "medium", "low"]).nullable().optional(),
+        scheduled_at: z.string().datetime().optional(),
+        assigned_to: z.string().uuid().optional(),
+        source_module: z.enum(["lead", "prospect"]).optional(),
+        meeting_contact_name: z.string().trim().max(200).optional(),
+        meeting_contact_phone: z.string().trim().max(80).optional(),
+        meeting_contact_email: z.string().trim().email().max(200).or(z.literal("")).optional(),
+        meeting_state: z.string().trim().max(120).optional(),
+        meeting_address: z.string().trim().max(500).optional(),
+        meeting_company_url: z.string().trim().url().max(500).optional(),
+        meeting_contact_url: z.string().trim().url().max(500).optional(),
+      })
+      .superRefine((value, ctx) => {
+        if (value.kind !== "visit") return;
+        const required = [
+          ["scheduled_at", value.scheduled_at],
+          ["assigned_to", value.assigned_to],
+          ["source_module", value.source_module],
+          ["meeting_contact_name", value.meeting_contact_name],
+          ["meeting_state", value.meeting_state],
+          ["meeting_address", value.meeting_address],
+          ["meeting_company_url", value.meeting_company_url],
+          ["meeting_contact_url", value.meeting_contact_url],
+        ] as const;
+        required.forEach(([field, fieldValue]) => {
+          if (!fieldValue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Required for a site visit" });
+        });
+        if (!value.meeting_contact_phone && !value.meeting_contact_email) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["meeting_contact_phone"], message: "Add a phone number or email" });
+        }
       })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
     // Insert the journal entry. `outcome` requires the activity_journal
     // migration; retry without it so the app still works pre-migration.
-    const base = { lead_id: data.leadId, user_id: context.userId, kind: data.kind, body: data.body };
-    let insert = await context.supabase
+    const base = {
+      lead_id: data.leadId,
+      user_id: context.userId,
+      kind: data.kind,
+      body: data.body,
+      ...(data.kind === "visit" ? {
+        scheduled_at: data.scheduled_at,
+        assigned_to: data.assigned_to,
+        source_module: data.source_module,
+        meeting_contact_name: data.meeting_contact_name,
+        meeting_contact_phone: data.meeting_contact_phone || null,
+        meeting_contact_email: data.meeting_contact_email || null,
+        meeting_state: data.meeting_state,
+        meeting_address: data.meeting_address,
+        meeting_company_url: data.meeting_company_url,
+        meeting_contact_url: data.meeting_contact_url,
+      } : {}),
+    };
+    let insert = await (context.supabase as any)
       .from("lead_activities")
       .insert({ ...base, outcome: data.outcome ?? null })
       .select("id, lead_id, kind, body, outcome, created_at")

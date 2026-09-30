@@ -48,6 +48,7 @@ import {
   listCompanyActivities,
   updateLead,
 } from "@/lib/leads.functions";
+import { listSiteVisitAssignees } from "@/lib/meetings.functions";
 import { listNotes, deleteNote } from "@/lib/notes.functions";
 import { createReminder } from "@/lib/reminders.functions";
 import { SetReminderDialog, type ReminderEntity } from "@/components/reminders/SetReminderDialog";
@@ -180,6 +181,11 @@ export function LeadWorkspace({
   const listNotesFn = useServerFn(listNotes);
   const delNoteFn = useServerFn(deleteNote);
   const createReminderFn = useServerFn(createReminder);
+  const assigneesFn = useServerFn(listSiteVisitAssignees);
+  const { data: visitAssignees = [] } = useQuery({
+    queryKey: ["site-visit-assignees"],
+    queryFn: () => assigneesFn(),
+  });
 
   // A profile page owns the header — hide the global search + bell there.
   useHideHeaderActions(true);
@@ -565,6 +571,11 @@ export function LeadWorkspace({
         contacts={contacts}
         defaultContactId={anchorId}
         canScheduleFollowUp={canEdit || (!anchor && !!resolveAnchor)}
+        assignees={visitAssignees}
+        sourceModule={reminderEntity?.type ?? "lead"}
+        companyName={companyName}
+        companyUrl={website ?? ""}
+        defaultState={city ?? country ?? ""}
         onSubmit={async (payload) => {
           let leadId = payload.leadId;
           if (!leadId && resolveAnchor) leadId = await resolveAnchor();
@@ -1201,6 +1212,11 @@ function AddActivityDialog({
   contacts,
   defaultContactId,
   canScheduleFollowUp,
+  assignees,
+  sourceModule,
+  companyName,
+  companyUrl,
+  defaultState,
   onSubmit,
 }: {
   open: boolean;
@@ -1208,6 +1224,11 @@ function AddActivityDialog({
   contacts: WorkspaceContact[];
   defaultContactId: string;
   canScheduleFollowUp: boolean;
+  assignees: Array<{ id: string; full_name: string | null; email: string | null }>;
+  sourceModule: "lead" | "prospect";
+  companyName: string;
+  companyUrl: string;
+  defaultState: string;
   onSubmit: (payload: {
     leadId: string;
     kind: ActivityKind;
@@ -1216,6 +1237,16 @@ function AddActivityDialog({
     next_action?: string | null;
     next_action_due?: string | null;
     remind_at?: string | null;
+    scheduled_at?: string;
+    assigned_to?: string;
+    source_module?: "lead" | "prospect";
+    meeting_contact_name?: string;
+    meeting_contact_phone?: string;
+    meeting_contact_email?: string;
+    meeting_state?: string;
+    meeting_address?: string;
+    meeting_company_url?: string;
+    meeting_contact_url?: string;
   }) => Promise<void>;
 }) {
   const [kind, setKind] = useState<ActivityKind>("call");
@@ -1226,6 +1257,20 @@ function AddActivityDialog({
   const [due, setDue] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [saving, setSaving] = useState(false);
+  const [visitDate, setVisitDate] = useState("");
+  const [visitTime, setVisitTime] = useState("");
+  const [visitAssignee, setVisitAssignee] = useState("");
+  const [meetingContact, setMeetingContact] = useState("");
+  const [meetingPhone, setMeetingPhone] = useState("");
+  const [meetingEmail, setMeetingEmail] = useState("");
+  const [meetingState, setMeetingState] = useState(defaultState);
+  const [meetingAddress, setMeetingAddress] = useState("");
+  const [meetingCompanyUrl, setMeetingCompanyUrl] = useState(companyUrl ? (/^https?:\/\//i.test(companyUrl) ? companyUrl : `https://${companyUrl}`) : "");
+  const [meetingContactUrl, setMeetingContactUrl] = useState("");
+
+  useEffect(() => {
+    if (!visitAssignee && assignees.length) setVisitAssignee(assignees[0].id);
+  }, [assignees, visitAssignee]);
 
   const reset = () => {
     setKind("call");
@@ -1235,10 +1280,21 @@ function AddActivityDialog({
     setNextAction("");
     setDue("");
     setDueTime("");
+    setVisitDate(""); setVisitTime(""); setVisitAssignee(assignees[0]?.id ?? "");
+    setMeetingContact(""); setMeetingPhone(""); setMeetingEmail("");
+    setMeetingState(defaultState); setMeetingAddress("");
+    setMeetingCompanyUrl(companyUrl ? (/^https?:\/\//i.test(companyUrl) ? companyUrl : `https://${companyUrl}`) : "");
+    setMeetingContactUrl("");
   };
 
   const submit = async () => {
     if (!body.trim()) return;
+    if (kind === "visit") {
+      if (!visitDate || !visitTime || !visitAssignee || !meetingContact.trim() || !meetingState || !meetingAddress.trim() || !meetingCompanyUrl.trim() || !meetingContactUrl.trim() || (!meetingPhone.trim() && !meetingEmail.trim())) {
+        toast.error("Complete every required site visit field. Add at least a phone number or email.");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const remindAt =
@@ -1248,6 +1304,18 @@ function AddActivityDialog({
         kind,
         body: body.trim(),
         outcome,
+        ...(kind === "visit" ? {
+          scheduled_at: new Date(`${visitDate}T${visitTime}`).toISOString(),
+          assigned_to: visitAssignee,
+          source_module: sourceModule,
+          meeting_contact_name: meetingContact.trim(),
+          meeting_contact_phone: meetingPhone.trim(),
+          meeting_contact_email: meetingEmail.trim(),
+          meeting_state: meetingState,
+          meeting_address: meetingAddress.trim(),
+          meeting_company_url: meetingCompanyUrl.trim(),
+          meeting_contact_url: meetingContactUrl.trim(),
+        } : {}),
         ...(canScheduleFollowUp && due ? { next_action_due: due } : {}),
         ...(canScheduleFollowUp && nextAction.trim() ? { next_action: nextAction.trim() } : {}),
         ...(remindAt ? { remind_at: remindAt } : {}),
@@ -1313,6 +1381,39 @@ function AddActivityDialog({
               })}
             </div>
           </div>
+
+          {kind === "visit" && (
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
+              <div className="mb-3">
+                <div className="text-sm font-semibold">Site visit details</div>
+                <p className="text-xs text-muted-foreground">These details will appear in the Meetings module. All marked fields are required.</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Date *"><Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} /></Field>
+                <Field label="Time *"><Input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} /></Field>
+                <Field label="Assigned employee *">
+                  <select value={visitAssignee} onChange={(e) => setVisitAssignee(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                    <option value="">Select employee</option>
+                    {assignees.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email || "Team member"}</option>)}
+                  </select>
+                </Field>
+                <Field label="Person to meet *"><Input value={meetingContact} onChange={(e) => setMeetingContact(e.target.value)} placeholder="Full name" /></Field>
+                <Field label="Contact phone"><Input value={meetingPhone} onChange={(e) => setMeetingPhone(e.target.value)} placeholder="+971…" /></Field>
+                <Field label="Contact email"><Input type="email" value={meetingEmail} onChange={(e) => setMeetingEmail(e.target.value)} placeholder="name@company.com" /></Field>
+                <Field label="Emirate / state *">
+                  <select value={meetingState} onChange={(e) => setMeetingState(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                    <option value="">Select state</option>
+                    {["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah", "Outside UAE / Other"].map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </Field>
+                <Field label="Company"><Input value={companyName} disabled /></Field>
+                <div className="md:col-span-2"><Field label="Address *"><Input value={meetingAddress} onChange={(e) => setMeetingAddress(e.target.value)} placeholder="Building, street, area" /></Field></div>
+                <Field label="Company website *"><Input type="url" value={meetingCompanyUrl} onChange={(e) => setMeetingCompanyUrl(e.target.value)} placeholder="https://company.com" /></Field>
+                <Field label="Contact-us page *"><Input type="url" value={meetingContactUrl} onChange={(e) => setMeetingContactUrl(e.target.value)} placeholder="https://company.com/contact" /></Field>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">At least one contact method — phone or email — is required.</p>
+            </div>
+          )}
 
           {/* Two columns so everything fits without scrolling */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -1380,7 +1481,7 @@ function AddActivityDialog({
                 </div>
               </div>
 
-              {canScheduleFollowUp && (
+              {canScheduleFollowUp && kind !== "visit" && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Schedule next follow-up <span className="font-normal normal-case">(optional)</span>
@@ -1468,4 +1569,8 @@ function AddActivityDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="block"><span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>{children}</label>;
 }
