@@ -2,15 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle, Send, ExternalLink } from "lucide-react";
+import { MessageCircle, Send, ExternalLink, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { HeaderPortal } from "@/components/layout/HeaderPortal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   listWhatsappConversations,
   listWhatsappThread,
   sendWhatsappMessage,
+  sendWhatsappGeneralUpdate,
   type WaConversation,
   type WaMessage,
 } from "@/lib/whatsapp.functions";
@@ -34,9 +36,12 @@ function WhatsAppModule() {
   const listFn = useServerFn(listWhatsappConversations);
   const threadFn = useServerFn(listWhatsappThread);
   const sendFn = useServerFn(sendWhatsappMessage);
+  const templateFn = useServerFn(sendWhatsappGeneralUpdate);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
   const { data: convos = [] } = useQuery<WaConversation[]>({
     queryKey: ["wa-conversations"],
@@ -58,6 +63,16 @@ function WhatsAppModule() {
       setDraft("");
       qc.invalidateQueries({ queryKey: ["wa-thread", selected] });
       qc.invalidateQueries({ queryKey: ["wa-conversations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const sendTemplate = useMutation({
+    mutationFn: () => templateFn({ data: { leadId: selected!, customerName: templateName.trim() } }),
+    onSuccess: () => {
+      setTemplateOpen(false);
+      qc.invalidateQueries({ queryKey: ["wa-thread", selected] });
+      qc.invalidateQueries({ queryKey: ["wa-conversations"] });
+      toast.success("Approved WhatsApp template sent");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -118,13 +133,13 @@ function WhatsAppModule() {
                   <div className="truncate text-sm font-semibold">{active.company_name || active.contact_person || "Lead"}</div>
                   <div className="text-[11px] text-muted-foreground">{active.whatsapp}</div>
                 </div>
-                <Link
+                <div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => { setTemplateName(active.contact_person || active.company_name || "there"); setTemplateOpen(true); }}><FileText className="mr-1 h-3.5 w-3.5" /> Send template</Button><Link
                   to="/app/leads/$id"
                   params={{ id: active.lead_id }}
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
                   Open lead <ExternalLink className="h-3 w-3" />
-                </Link>
+                </Link></div>
               </div>
 
               <div className="min-h-0 flex-1 space-y-2 overflow-auto p-4">
@@ -173,6 +188,12 @@ function WhatsAppModule() {
           )}
         </section>
       </div>
+      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
+        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>Send approved WhatsApp template</DialogTitle></DialogHeader>
+          <div className="space-y-3"><div><label className="mb-1 block text-xs font-medium">Customer name</label><Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} /></div><div className="rounded-lg border bg-muted/30 p-3 text-sm"><p>Hello {templateName || "customer"}, this is eTOP Trading.</p><p className="mt-3">We have an update for you. Please reply to this message or tap <b>View update</b>, and our team will assist you here on WhatsApp.</p><p className="mt-3">Thank you.</p></div><p className="text-xs text-muted-foreground">This uses the approved <b>etop_general_update</b> template and opens the customer’s 24-hour reply window after they respond.</p></div>
+          <DialogFooter><Button variant="outline" onClick={() => setTemplateOpen(false)}>Cancel</Button><Button onClick={() => sendTemplate.mutate()} disabled={!templateName.trim() || sendTemplate.isPending}>{sendTemplate.isPending ? "Sending…" : "Send template"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

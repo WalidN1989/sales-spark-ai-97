@@ -95,3 +95,15 @@ export const sendWhatsappMessage = createServerFn({ method: "POST" })
     if (!result?.ok) throw new Error(result?.error || "WhatsApp send failed.");
     return result as { ok: true; sid: string | null };
   });
+
+export const sendWhatsappGeneralUpdate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ leadId: z.string().uuid(), customerName: z.string().trim().min(1).max(100) }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { data: result, error } = await sb(context).functions.invoke("whatsapp-send", {
+      body: { leadId: data.leadId, template: "general_update", customerName: data.customerName },
+    });
+    if (error) throw new Error(error.message || "WhatsApp template send failed.");
+    if (!result?.ok) throw new Error(result?.error || "WhatsApp template send failed.");
+    return result as { ok: true; sid: string | null };
+  });

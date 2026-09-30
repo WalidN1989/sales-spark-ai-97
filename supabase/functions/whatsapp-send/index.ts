@@ -23,12 +23,13 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData.user) return json({ error: "Unauthorized" }, 401);
 
-    const input = await req.json() as { leadId?: string; body?: string };
+    const input = await req.json() as { leadId?: string; body?: string; template?: "general_update"; customerName?: string };
+    const isTemplate = input.template === "general_update";
     const body = input.body?.trim();
-    if (!input.leadId || !body || body.length > 4000) return json({ error: "A valid lead and message are required." }, 400);
+    if (!input.leadId || (!isTemplate && (!body || body.length > 4000))) return json({ error: "A valid lead and message are required." }, 400);
 
     const { data: lead, error: leadError } = await userClient
-      .from("leads").select("id, whatsapp, phone").eq("id", input.leadId).single();
+      .from("leads").select("id, whatsapp, phone, contact_person").eq("id", input.leadId).single();
     if (leadError || !lead) return json({ error: "Lead not found or unavailable." }, 404);
 
     const sid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -41,13 +42,18 @@ Deno.serve(async (req) => {
     const from = `whatsapp:+${digits(fromRaw)}`;
     const to = `whatsapp:+${toDigits}`;
     const statusCallback = Deno.env.get("TWILIO_WHATSAPP_STATUS_CALLBACK");
+    const templateSid = Deno.env.get("TWILIO_WHATSAPP_GENERAL_UPDATE_SID") || "HXf58cf54b9c59638dae51a2e187dbc955";
+    const customerName = (input.customerName || lead.contact_person || "there").trim().slice(0, 100);
+    const params = isTemplate
+      ? { From: from, To: to, ContentSid: templateSid, ContentVariables: JSON.stringify({ "1": customerName }) }
+      : { From: from, To: to, Body: body! };
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${btoa(`${sid}:${authToken}`)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({ From: from, To: to, Body: body, ...(statusCallback ? { StatusCallback: statusCallback } : {}) }),
+      body: new URLSearchParams({ ...params, ...(statusCallback ? { StatusCallback: statusCallback } : {}) }),
     });
     const payload = await response.json().catch(() => ({})) as { sid?: string; message?: string };
     if (!response.ok) return json({ error: payload.message ? `Twilio: ${payload.message}` : `Twilio error ${response.status}` }, 502);
@@ -55,10 +61,10 @@ Deno.serve(async (req) => {
     const admin = createClient(url, serviceKey);
     await admin.from("whatsapp_messages").insert({
       lead_id: lead.id, direction: "out", from_number: from, to_number: to,
-      body, message_sid: payload.sid ?? null, status: "queued", created_by: authData.user.id,
+      body: isTemplate ? `Template: eTOP general update · ${customerName}` : body, message_sid: payload.sid ?? null, status: "queued", created_by: authData.user.id,
     });
     await admin.from("lead_activities").insert({
-      lead_id: lead.id, user_id: authData.user.id, kind: "whatsapp", body: `WhatsApp out: ${body.slice(0, 500)}`,
+      lead_id: lead.id, user_id: authData.user.id, kind: "whatsapp", body: isTemplate ? `WhatsApp template sent: eTOP general update · ${customerName}` : `WhatsApp out: ${body!.slice(0, 500)}`,
     });
     return json({ ok: true, sid: payload.sid ?? null });
   } catch (error) {
