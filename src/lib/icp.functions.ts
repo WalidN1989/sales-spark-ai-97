@@ -29,6 +29,13 @@ const SELECT =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = (ctx: { supabase: unknown }) => ctx.supabase as any;
 
+const duplicateMessage = (error: { code?: string; message?: string }) => {
+  if (error.code === "23505" || /already exists|too similar|name_key/i.test(error.message ?? "")) {
+    return "A Product ICP with the same or a very similar name already exists. Open the existing category instead.";
+  }
+  return error.message || "Unable to save the Product ICP.";
+};
+
 export const listIcpProfiles = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<IcpProfile[]> => {
@@ -88,19 +95,17 @@ export const upsertIcpProfile = createServerFn({ method: "POST" })
     };
     if (id) {
       const { error } = await sb(context).from("icp_profiles").update(row).eq("id", id);
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(duplicateMessage(error));
       return { ok: true, id };
     }
-    // user_id here is only a placeholder that satisfies NOT NULL. The
-    // icp_profiles_set_owner trigger (20260911100000_icp_owner.sql) replaces it
-    // with the single ICP owner, the account list-icp-profiles filters on, so a
-    // card created by any manager is visible to the research agent at once.
+    // Each new ICP belongs to its creator. RLS lets administrators/managers see
+    // every ICP while ordinary users see only their own rows.
     const { data: created, error } = await sb(context)
       .from("icp_profiles")
       .insert({ ...row, user_id: context.userId })
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(duplicateMessage(error));
     return { ok: true, id: created.id as string };
   });
 

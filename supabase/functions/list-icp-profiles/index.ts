@@ -6,7 +6,7 @@
 // GET /functions/v1/list-icp-profiles            → all ICP cards
 // GET /functions/v1/list-icp-profiles?name=...   → cards whose name matches (ilike)
 // Auth: x-api-key = PROSPECT_WEBHOOK_KEY (same key as create-prospect).
-// Owner: PROSPECT_WEBHOOK_USER_ID.
+// Returns all organization ICP cards. Access is protected by the agent API key.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
@@ -22,10 +22,9 @@ Deno.serve(async (req) => {
   if (req.method !== "GET") return json({ error: "Use GET" }, 405);
 
   const expected = Deno.env.get("PROSPECT_WEBHOOK_KEY");
-  const owner = Deno.env.get("PROSPECT_WEBHOOK_USER_ID");
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!expected || !owner || !url || !serviceKey) return json({ error: "Function not fully configured" }, 500);
+  if (!expected || !url || !serviceKey) return json({ error: "Function not fully configured" }, 500);
 
   const key = req.headers.get("x-api-key") ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   // AGENT_API_KEY is the shared agent credential; this module's own key keeps working.
@@ -38,7 +37,6 @@ Deno.serve(async (req) => {
   let q = supabase
     .from("icp_profiles")
     .select("id, name, category, summary, industries, headcount, personas, use_cases, customers, competitors, notes, updated_at")
-    .eq("user_id", owner)
     .order("name", { ascending: true })
     .limit(200);
   if (name) q = q.ilike("name", `%${name}%`);
